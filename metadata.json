@@ -1,0 +1,6 @@
+{
+  "name": "AI Micro Lab - Automated Microscopy & Laboratory Reporting",
+  "description": "Automated computer vision microscopy analysis, specimen quantification, technologist review, and clinical laboratory reporting system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

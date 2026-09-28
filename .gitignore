@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# The LabSight database. It contains patient records and password hashes and
+# must never be committed.
+data/
+*.db
+*.db-wal
+*.db-shm
