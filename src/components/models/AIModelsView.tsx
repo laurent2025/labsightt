@@ -22,7 +22,7 @@ export const AIModelsView: React.FC<AIModelsViewProps> = ({ models, onUpdateMode
   const [activeTab, setActiveTab] = useState<'models' | 'presets' | 'code'>('models');
   const [copiedCode, setCopiedCode] = useState(false);
   const [serverStatus, setServerStatus] = useState<SystemStatus | null>(null);
-  const user = useLabStore(s => s.user);
+  const { user } = useLabStore();
   const isDirector = user && roleRank(user) >= 3;
   const isSupervisorOrAbove = user && roleRank(user) >= 2;
 

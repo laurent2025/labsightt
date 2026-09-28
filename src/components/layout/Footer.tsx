@@ -9,7 +9,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onSelectTab }) => {
-  const user = useLabStore(s => s.user);
+  const { user } = useLabStore();
   const canSeeInfra = user && roleRank(user) >= 2;
 
   return (

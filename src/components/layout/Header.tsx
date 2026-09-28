@@ -26,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
-  const user = useLabStore(s => s.user);
+  const { user } = useLabStore();
 
   const handleTabClick = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'models' | 'audit') => {
     onSelectTab(tab);

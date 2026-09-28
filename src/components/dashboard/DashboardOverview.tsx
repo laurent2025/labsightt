@@ -32,7 +32,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onOpenNewPatientModal
 }) => {
   const [selectedQuickPipeline, setSelectedQuickPipeline] = useState<'stool' | 'blood' | 'urine'>('stool');
-  const user = useLabStore(s => s.user);
+  const { user } = useLabStore();
   const canSeeModelDetails = user && roleRank(user) >= 2;
 
   const verifiedReportsCount = reports.filter(r => r.status === 'verified').length;
