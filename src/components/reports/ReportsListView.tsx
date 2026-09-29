@@ -233,7 +233,23 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
               </tr>
             ) : (
               filteredReports.map(rep => (
-                <tr key={rep.id} className="hover:bg-slate-50/80 transition-colors">
+                <tr
+                  key={rep.id}
+                  tabIndex={0}
+                  aria-label={`Open report ${rep.reportNumber}`}
+                  onClick={event => {
+                    if ((event.target as HTMLElement).closest('button')) return;
+                    onOpenReport(rep);
+                  }}
+                  onKeyDown={event => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onOpenReport(rep);
+                    }
+                  }}
+                  className="cursor-pointer hover:bg-cyan-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 transition-colors"
+                >
                   <td className="py-3 px-4">
                     <div className="font-mono font-bold text-slate-900">{rep.reportNumber}</div>
                     <div className="text-[11px] text-slate-400 font-mono">

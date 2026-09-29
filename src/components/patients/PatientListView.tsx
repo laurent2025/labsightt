@@ -165,7 +165,20 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
                     return (
                       <tr
                         key={pat.id}
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                        tabIndex={0}
+                        aria-label={`Open patient details for ${pat.fullName}`}
+                        onClick={event => {
+                          if ((event.target as HTMLElement).closest('button')) return;
+                          onEditPatient(pat, patientSample);
+                        }}
+                        onKeyDown={event => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onEditPatient(pat, patientSample);
+                          }
+                        }}
+                        className="cursor-pointer hover:bg-cyan-50/70 dark:hover:bg-cyan-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 transition-colors"
                       >
                         <td className="py-3 px-4">
                           <div className="font-semibold text-slate-900 dark:text-white text-sm">

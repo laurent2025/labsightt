@@ -267,6 +267,7 @@ export default function App() {
                 setSelectedAnalysisId(anaId);
                 setActiveTab('microscopy');
               }}
+              onOpenReport={report => setActiveReportModal(report)}
               onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
             />
             )}

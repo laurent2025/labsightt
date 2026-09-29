@@ -19,6 +19,7 @@ interface DashboardOverviewProps {
   samples: Sample[];
   onNavigateTab: (tab: 'microscopy' | 'patients' | 'reports' | 'models') => void;
   onSelectAnalysis: (analysisId: string) => void;
+  onOpenReport: (report: LaboratoryReport) => void;
   onOpenNewPatientModal: () => void;
 }
 
@@ -29,6 +30,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   samples,
   onNavigateTab,
   onSelectAnalysis,
+  onOpenReport,
   onOpenNewPatientModal
 }) => {
   const [selectedQuickPipeline, setSelectedQuickPipeline] = useState<'stool' | 'blood' | 'urine'>('stool');
@@ -37,6 +39,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   const verifiedReportsCount = reports.filter(r => r.status === 'verified').length;
   const pendingReviewCount = analyses.filter(a => a.status === 'in_review').length;
+  const openMostRecentAnalysis = (status?: Analysis['status']) => {
+    const analysis = analyses.find(item => !status || item.status === status);
+    if (analysis) onSelectAnalysis(analysis.id);
+    else onNavigateTab('microscopy');
+  };
 
   const positiveAnalyses = analyses.filter(a =>
     a.findings.some(f => f.clinicalSignificance === 'critical' || f.clinicalSignificance === 'pathological')
@@ -147,7 +154,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       {/* Primary Telemetry Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
+        <button type="button" onClick={() => onNavigateTab('patients')} className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Accessioned Patients</span>
             <Users className="w-4 h-4 text-slate-500" />
@@ -156,9 +163,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {patients.length}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Active lab cohorts</div>
-        </div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
+        <button type="button" onClick={() => openMostRecentAnalysis()} className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Microscopy Runs</span>
             <Microscope className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
@@ -167,9 +174,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {analyses.length}
           </div>
           <div className="text-xs text-cyan-700 dark:text-cyan-400 font-medium mt-1">Roboflow vision scans complete</div>
-        </div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
+        <button type="button" onClick={() => openMostRecentAnalysis('in_review')} className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Pending Review</span>
             <Clock className="w-4 h-4 text-amber-500" />
@@ -178,9 +185,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {pendingReviewCount}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Awaiting technologist sign-off</div>
-        </div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
+        <button
+          type="button"
+          onClick={() => {
+            const report = reports.find(item => item.status === 'verified' || item.status === 'released');
+            if (report) onOpenReport(report);
+            else onNavigateTab('reports');
+          }}
+          className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200"
+        >
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Verified Reports</span>
             <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -189,7 +204,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {verifiedReportsCount}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">ISO 15189 authorized & released</div>
-        </div>
+        </button>
       </div>
 
       {/* Interactive Quick-Test Pipeline Stage & Live Slide Previewer */}
@@ -444,7 +459,23 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 const sample = samples.find(s => s.id === ana.sampleId);
 
                 return (
-                  <tr key={ana.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                  <tr
+                    key={ana.id}
+                    tabIndex={0}
+                    aria-label={`Open microscopy analysis for ${patient?.fullName || 'patient'}`}
+                    onClick={event => {
+                      if ((event.target as HTMLElement).closest('button')) return;
+                      onSelectAnalysis(ana.id);
+                    }}
+                    onKeyDown={event => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onSelectAnalysis(ana.id);
+                      }
+                    }}
+                    className="cursor-pointer hover:bg-cyan-50/70 dark:hover:bg-cyan-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 transition-colors"
+                  >
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-900 dark:text-white">{patient?.fullName || 'Unknown Patient'}</div>
                       <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">

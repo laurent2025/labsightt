@@ -320,14 +320,21 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       try {
         await patientsApi.delete(id);
+        const wasOnCurrentPage = patients.some(patient => patient.id === id);
         setPatients(prev => prev.filter(p => p.id !== id));
+        if (wasOnCurrentPage) {
+          setPatientTotal(prev => Math.max(0, prev - 1));
+          if (patients.length === 1 && patientOffset > 0) {
+            setPatientOffset(Math.max(0, patientOffset - PAGE_SIZE));
+          }
+        }
         setStorageIssue(null);
       } catch (err) {
         handleError(err, 'Could not delete the patient.');
         throw err;
       }
     },
-    [handleError]
+    [handleError, patientOffset, patients, PAGE_SIZE]
   );
 
   const addPatient = useCallback(
