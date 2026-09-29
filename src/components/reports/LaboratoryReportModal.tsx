@@ -8,7 +8,7 @@ import { generateFHIRDiagnosticReport, generateDICOMMetadata } from '../../servi
 interface LaboratoryReportModalProps {
   report: LaboratoryReport;
   onClose: () => void;
-  onVerify?: (reportId: string) => void;
+  onVerify?: (reportId: string) => void | Promise<void>;
   verifyError?: string | null;
 }
 
@@ -138,7 +138,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             {report.status !== 'verified' && onVerify && (
               <button
                 type="button"
-                onClick={() => onVerify(report.id)}
+                onClick={() => void onVerify(report.id)}
                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />

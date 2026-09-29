@@ -10,6 +10,7 @@ import { Footer } from './components/layout/Footer';
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
 import { PatientListView } from './components/patients/PatientListView';
 import { PatientFormModal } from './components/patients/PatientFormModal';
+import { PatientEditModal } from './components/patients/PatientEditModal';
 import { MicroscopyWorkspace } from './components/microscopy/MicroscopyWorkspace';
 import { ReportsListView } from './components/reports/ReportsListView';
 import { LaboratoryReportModal } from './components/reports/LaboratoryReportModal';
@@ -74,7 +75,11 @@ export default function App() {
     updateAnalysisNotes,
     updateModelConfig,
     generateReport,
-    verifyReport
+    verifyReport,
+    updatePatient,
+    deletePatient,
+    updateReport,
+    deleteReport
   } = useLabStore();
 
   const [activeTab, setActiveTab] = useState<
@@ -82,8 +87,14 @@ export default function App() {
   >('dashboard');
 
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [activeReportModal, setActiveReportModal] = useState<LaboratoryReport | null>(null);
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
+  const [pendingMicroscopy, setPendingMicroscopy] = useState<{
+    patientId: string;
+    sampleId: string;
+    error: string;
+  } | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
   // Legal & Privacy modal state
@@ -142,10 +153,8 @@ export default function App() {
       newPat = await addPatient(patientData);
       newSmp = await addSample({ ...sampleData, patientId: newPat.id });
     } catch (err) {
-      // The store has already surfaced the reason; keep the modal open so the
-      // operator can correct the input rather than losing what they typed.
       console.error('Accession failed:', err);
-      return;
+      throw err;
     }
 
     setIsNewPatientModalOpen(false);
@@ -153,12 +162,40 @@ export default function App() {
     const matchedModel = models.find(m => m.category === newSmp.sampleType) || models[0];
 
     try {
-      const newAna = await createAndRunAnalysis(newPat.id, newSmp.id, matchedModel.id);
+      const newAna = await createAndRunAnalysis(
+        newPat.id,
+        newSmp.id,
+        matchedModel.id,
+        newSmp.imageUrl
+      );
       setSelectedAnalysisId(newAna.id);
+      setPendingMicroscopy(null);
       setActiveTab('microscopy');
     } catch (e) {
       console.error('Auto analysis launch error:', e);
+      setPendingMicroscopy({
+        patientId: newPat.id,
+        sampleId: newSmp.id,
+        error: e instanceof Error ? e.message : String(e)
+      });
       setActiveTab('microscopy');
+    }
+  };
+
+  const handleDeleteReport = async (report: LaboratoryReport) => {
+    await deleteReport(report.id);
+  };
+
+  const handleEditPatient = (patient: Patient) => {
+    setEditingPatient(patient);
+  };
+
+  const handleDeletePatient = async (patient: Patient) => {
+    if (!confirm(`Archive patient "${patient.fullName}"? They will be hidden from active lists, with audit history retained.`)) return;
+    try {
+      await deletePatient(patient.id);
+    } catch (err) {
+      console.error('Delete failed:', err);
     }
   };
 
@@ -242,6 +279,9 @@ export default function App() {
             samples={samples}
             onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
             onSelectPatientForAnalysis={handleSelectPatientForAnalysis}
+            onEditPatient={patient => handleEditPatient(patient)}
+            onDeletePatient={(patient) => handleDeletePatient(patient)}
+            canDeletePatients={user.role === 'Lab Director'}
           />
         )}
 
@@ -253,6 +293,9 @@ export default function App() {
             analyses={analyses}
             models={models}
             currentAnalysisId={selectedAnalysisId}
+            pendingPatientId={pendingMicroscopy?.patientId}
+            pendingSampleId={pendingMicroscopy?.sampleId}
+            pendingInferenceError={pendingMicroscopy?.error}
             onRunAnalysis={createAndRunAnalysis}
             onToggleConfirmDetection={toggleDetectionConfirmation}
             onRejectDetection={rejectDetection}
@@ -270,8 +313,13 @@ export default function App() {
           <ReportsListView
             reports={reports}
             currentUserName={user.name}
+            currentUserId={user.id}
+            canManageReports={user.role !== 'Medical Laboratory Technologist'}
+            canDeleteReports={user.role === 'Lab Director'}
             onOpenReport={report => setActiveReportModal(report)}
             onVerifyReport={verifyReport}
+            onEditReport={updateReport}
+            onDeleteReport={handleDeleteReport}
           />
         )}
 
@@ -296,15 +344,26 @@ export default function App() {
         />
       )}
 
+      {editingPatient && (
+        <PatientEditModal
+          patient={editingPatient}
+          onClose={() => setEditingPatient(null)}
+          onSubmit={async updates => {
+            await updatePatient(editingPatient.id, updates);
+            setEditingPatient(null);
+          }}
+        />
+      )}
+
       {/* Printable Clinical Laboratory Diagnostic Report Modal */}
       {activeReportModal && (
         <LaboratoryReportModal
           report={activeReportModal}
           onClose={() => setActiveReportModal(null)}
-          onVerify={reportId => {
+          onVerify={async reportId => {
             setVerifyError(null);
             try {
-              verifyReport(reportId);
+              await verifyReport(reportId);
               setActiveReportModal(prev => (prev ? { ...prev, status: 'verified' } : null));
             } catch (err) {
               setVerifyError(err instanceof Error ? err.message : String(err));

@@ -2,7 +2,7 @@
  * Server test suite: authentication, authorization, the audit chain, and the
  * reporting workflow gates. These are the controls the client cannot enforce.
  */
-import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from './index.js';
 import { openDatabase, installImmutabilityGuards } from './db.js';
@@ -10,6 +10,7 @@ import { createUser } from './auth.js';
 import { verifyPassword, hashPassword, validatePasswordStrength } from './crypto.js';
 import { appendAudit, verifyChain, GENESIS_HASH } from './audit.js';
 import { encryptPHI, decryptPHI } from './encryption.js';
+import { inferenceStatus, runInference } from './inference.js';
 
 // Encryption is mandatory, so a key must exist before any module is imported.
 beforeAll(() => {
@@ -18,6 +19,7 @@ beforeAll(() => {
 
 let app;
 let db;
+let lastServerError;
 
 async function seedUsers() {
   await createUser(db, {
@@ -83,9 +85,20 @@ function insertReport(id, reportNumber, technologistId, status = 'pending_verifi
 }
 
 beforeEach(async () => {
-  app = createApp({ dbPath: ':memory:' });
+  lastServerError = null;
+  app = createApp({
+    dbPath: ':memory:',
+    logger: entry => {
+      if (entry.event === 'unhandled_error') lastServerError = entry.error;
+    }
+  });
   db = app.locals.db;
   await seedUsers();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 async function login(username, password) {
@@ -99,7 +112,8 @@ function authed(cookie) {
   return {
     get: url => agent.get(url).set('Cookie', cookie),
     post: (url, body) => agent.post(url).set('Cookie', cookie).send(body ?? {}),
-    patch: (url, body) => agent.patch(url).set('Cookie', cookie).send(body ?? {})
+    patch: (url, body) => agent.patch(url).set('Cookie', cookie).send(body ?? {}),
+    delete: url => agent.delete(url).set('Cookie', cookie)
   };
 }
 
@@ -211,6 +225,51 @@ describe('role-based access control', () => {
     const client = authed(await login('tech1', 'tech-password-1234'));
     expect((await client.post('/api/patients', { patientNumber: 'PT-9', fullName: 'A B' })).status).toBe(201);
     expect((await client.get('/api/admin/users')).status).toBe(403);
+  });
+
+  it('allows only directors to delete patients and hides deleted patients from all lists', async () => {
+    const director = authed(await login('dir1', 'director-password-1234'));
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const created = await director.post('/api/patients', {
+      patientNumber: 'PT-DELETE',
+      fullName: 'Delete Me',
+      age: 40,
+      gender: 'Other'
+    });
+    const patientId = created.body.patient.id;
+
+    expect((await tech.delete(`/api/patients/${patientId}`)).status).toBe(403);
+    const deletion = await director.delete(`/api/patients/${patientId}`);
+    expect(deletion.status, `${JSON.stringify(deletion.body)} ${lastServerError ?? ''}`).toBe(204);
+    expect((await director.get('/api/patients')).body.patients.some(p => p.id === patientId)).toBe(false);
+    expect((await director.get('/api/patients?search=PT-DELETE')).body.patients).toHaveLength(0);
+  });
+
+  it('updates patient details through the authenticated API', async () => {
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const created = await client.post('/api/patients', {
+      patientNumber: 'PT-EDIT',
+      fullName: 'Before Edit',
+      age: 30,
+      gender: 'Female'
+    });
+
+    const res = await client.patch(`/api/patients/${created.body.patient.id}`, {
+      fullName: 'After Edit',
+      age: 31,
+      gender: 'Other',
+      referringDoctor: 'Dr. Updated',
+      referringFacility: 'Updated Clinic',
+      clinicalNotes: 'Updated notes'
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.patient.fullName).toBe('After Edit');
+    expect(res.body.patient.age).toBe(31);
+    expect(res.body.patient.gender).toBe('Other');
+    expect(res.body.patient.referringDoctor).toBe('Dr. Updated');
+    expect(res.body.patient.referringFacility).toBe('Updated Clinic');
+    expect(res.body.patient.clinicalNotes).toBe('Updated notes');
   });
 
   it('keeps the audit log away from technologists', async () => {
@@ -350,6 +409,45 @@ describe('reporting workflow gates', () => {
     expect(res.status).toBe(201);
     expect(res.body.report.technologistId).toBe(userId('tech1'));
     expect(res.body.report.status).toBe('pending_verification');
+    expect(res.body.report.patient.fullName).toBe('Test Patient');
+    expect(res.body.report.sample.slideLabel).toBe('SLD-1');
+    expect(Array.isArray(res.body.report.findings)).toBe(true);
+  });
+
+  it('includes patient and specimen context in the reports list response', async () => {
+    insertReport('rpt-list', 'RPT-LIST', userId('tech1'));
+    const client = authed(await login('tech1', 'tech-password-1234'));
+
+    const res = await client.get('/api/reports');
+    expect(res.status).toBe(200);
+    expect(res.body.reports[0].patient.fullName).toBe('Support Patient');
+    expect(res.body.reports[0].sample.slideLabel).toBe('SLD-rpt-list');
+    expect(Array.isArray(res.body.reports[0].findings)).toBe(true);
+  });
+
+  it('allows the report author to edit notes before verification', async () => {
+    insertReport('rpt-edit', 'RPT-EDIT', userId('tech1'));
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const res = await client.patch('/api/reports/rpt-edit', {
+      technologistNotes: 'Reviewed slide at 40x.',
+      clinicalImpression: 'No organisms identified.'
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.report.technologistNotes).toBe('Reviewed slide at 40x.');
+    expect(res.body.report.clinicalImpression).toBe('No organisms identified.');
+  });
+
+  it('soft deletes reports for directors and excludes them from report reads', async () => {
+    insertReport('rpt-delete', 'RPT-DELETE', userId('tech1'));
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const director = authed(await login('dir1', 'director-password-1234'));
+
+    expect((await tech.delete('/api/reports/rpt-delete')).status).toBe(403);
+    expect((await director.delete('/api/reports/rpt-delete')).status).toBe(204);
+    expect((await director.get('/api/reports/rpt-delete')).status).toBe(404);
+    const listed = await director.get('/api/reports');
+    expect(listed.body.reports.some(report => report.id === 'rpt-delete')).toBe(false);
   });
 
   it('treats a rejected candidate as adjudicated', async () => {
@@ -373,17 +471,23 @@ describe('reporting workflow gates', () => {
     expect(audit.body.entries.some(e => e.action === 'REPORT_GENERATED')).toBe(true);
   });
 
-  it('refuses verification by a technologist on role grounds', async () => {
-    insertReport('rpt-1', 'RPT-1', userId('tech1'));
-    const client = authed(await login('tech1', 'tech-password-1234'));
-    expect((await client.post('/api/reports/rpt-1/verify')).status).toBe(403);
+  it('allows a different technologist to verify a report', async () => {
+    await createUser(db, {
+      username: 'tech2',
+      displayName: 'Second Technologist',
+      role: 'technologist',
+      password: 'tech2-password-1234'
+    });
+    insertReport('rpt-tech-verify', 'RPT-TECH-VERIFY', userId('tech1'));
+    const verifier = authed(await login('tech2', 'tech2-password-1234'));
+
+    const res = await verifier.post('/api/reports/rpt-tech-verify/verify');
+    expect(res.status).toBe(200);
+    expect(res.body.report.verifiedBy).toBe(userId('tech2'));
   });
 
-  it('refuses verification by the originating technologist even once promoted', async () => {
+  it('refuses verification by the originating technologist', async () => {
     insertReport('rpt-1', 'RPT-1', userId('tech1'));
-    // Promote the originating technologist so the role check passes and only
-    // the identity check remains.
-    db.prepare('UPDATE users SET role = ? WHERE id = ?').run('supervisor', userId('tech1'));
     const client = authed(await login('tech1', 'tech-password-1234'));
 
     const res = await client.post('/api/reports/rpt-1/verify');
@@ -393,7 +497,6 @@ describe('reporting workflow gates', () => {
 
   it('records a refused self-verification in the audit log', async () => {
     insertReport('rpt-1', 'RPT-1', userId('tech1'));
-    db.prepare('UPDATE users SET role = ? WHERE id = ?').run('supervisor', userId('tech1'));
     const client = authed(await login('tech1', 'tech-password-1234'));
     await client.post('/api/reports/rpt-1/verify');
 
@@ -412,6 +515,14 @@ describe('reporting workflow gates', () => {
     expect(res.body.report.status).toBe('verified');
     expect(res.body.report.verifiedBy).toBe(userId('super1'));
     expect(res.body.report.verifiedBy).not.toBe(userId('tech1'));
+  });
+
+  it('allows a director to verify a report', async () => {
+    insertReport('rpt-director-verify', 'RPT-DIRECTOR-VERIFY', userId('tech1'));
+    const director = authed(await login('dir1', 'director-password-1234'));
+    const res = await director.post('/api/reports/rpt-director-verify/verify');
+    expect(res.status).toBe(200);
+    expect(res.body.report.verifiedBy).toBe(userId('dir1'));
   });
 
   it('refuses to verify the same report twice', async () => {
@@ -470,6 +581,13 @@ describe('reporting workflow gates', () => {
 // ------------------------------------------------------------- inference ----
 
 describe('inference proxy', () => {
+  it('defaults to the configured hosted workflow endpoint', () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', '');
+    expect(inferenceStatus().endpoint).toBe(
+      'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-1-yolo26m-t1-logic'
+    );
+  });
+
   it('rejects unauthenticated access to system status', async () => {
     const res = await request(app).get('/api/system/status');
     expect(res.status).toBe(401);
@@ -494,5 +612,47 @@ describe('inference proxy', () => {
     // Fails because the server has no inference configured, not because it
     // trusted the client key.
     expect(res.status).toBe(503);
+  });
+
+  it('sends image input with Bearer auth and parses predictions under arbitrary output keys', async () => {
+    const endpoint = 'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-1-yolo26m-t1-logic';
+    const apiKey = 'test-only-provider-key';
+    vi.stubEnv('ROBOFLOW_ENDPOINT', endpoint);
+    vi.stubEnv('ROBOFLOW_API_KEY', apiKey);
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      { workflow_output_name: { predictions: [
+        { class: 'parasite', confidence: 0.91, x: 20, y: 30, width: 10, height: 12 }
+      ] } }
+    ]), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.5 });
+
+    expect(providerFetch).toHaveBeenCalledOnce();
+    const [requestUrl, init] = providerFetch.mock.calls[0];
+    expect(requestUrl).toBe(endpoint);
+    expect(init.headers.Authorization).toBe(`Bearer ${apiKey}`);
+    expect(init.body).not.toContain(apiKey);
+    expect(JSON.parse(init.body)).toEqual({
+      inputs: { image: { type: 'base64', value: 'base64-image' } }
+    });
+    expect(detections).toEqual([
+      { class: 'parasite', confidence: 0.91, x: 20, y: 30, width: 10, height: 12 }
+    ]);
+  });
+
+  it('retries transient provider failures twice before succeeding', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn()
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    await expect(runInference(db, actor, 'base64-image')).resolves.toEqual([]);
+    expect(providerFetch).toHaveBeenCalledTimes(3);
   });
 });

@@ -22,6 +22,9 @@ interface MicroscopyWorkspaceProps {
   analyses: Analysis[];
   models: AIModelConfig[];
   currentAnalysisId?: string | null;
+  pendingPatientId?: string;
+  pendingSampleId?: string;
+  pendingInferenceError?: string;
   onRunAnalysis: (patientId: string, sampleId: string, modelId: string, imageUrlOverride?: string) => Promise<Analysis>;
   onToggleConfirmDetection: (analysisId: string, detectionId: string) => void;
   onRejectDetection: (analysisId: string, detectionId: string) => void;
@@ -39,6 +42,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   analyses,
   models,
   currentAnalysisId,
+  pendingPatientId,
+  pendingSampleId,
+  pendingInferenceError,
   onRunAnalysis,
   onToggleConfirmDetection,
   onRejectDetection,
@@ -87,14 +93,23 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     setInferenceError(null);
   }, [selectedAnalysisId]);
 
-  const activeAnalysis =
-    analyses.find(a => a.id === selectedAnalysisId) || analyses[0];
+  const activeAnalysis = pendingSampleId
+    ? analyses.find(a => a.sampleId === pendingSampleId)
+    : analyses.find(a => a.id === selectedAnalysisId) || analyses[0];
 
-  const activePatient =
-    patients.find(p => p.id === activeAnalysis?.patientId) || patients[0];
+  const firstUnanalyzedSample = samples.find(
+    sample => !analyses.some(analysis => analysis.sampleId === sample.id)
+  );
 
   const activeSample =
-    samples.find(s => s.id === activeAnalysis?.sampleId) || samples[0];
+    samples.find(s => s.id === activeAnalysis?.sampleId) ||
+    samples.find(s => s.id === pendingSampleId) ||
+    (pendingSampleId ? undefined : firstUnanalyzedSample);
+
+  const activePatient =
+    patients.find(p => p.id === activeAnalysis?.patientId) ||
+    patients.find(p => p.id === pendingPatientId) ||
+    patients.find(p => p.id === activeSample?.patientId);
 
   const activeModel =
     models.find(m => m.id === activeAnalysis?.modelId) || models[0];
@@ -102,6 +117,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // Re-run inference with current or selected model
   const handleTriggerAnalysis = async () => {
     if (!activePatient || !activeSample) return;
+    const imageUrl = customSlideDataUrl || activeSample.imageUrl;
+    if (!imageUrl) {
+      setInferenceError('No slide image is loaded for this specimen. Use "Load Slide" to attach one, then retry.');
+      return;
+    }
     setIsAnalyzing(true);
     setInferenceError(null);
     try {
@@ -109,7 +129,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         activePatient.id,
         activeSample.id,
         selectedModelId || activeModel.id,
-        customSlideDataUrl || undefined
+        imageUrl
       );
       setSelectedAnalysisId(newAna.id);
 
@@ -155,7 +175,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
    * affordance.
    */
   const buildAdjudicationSummary = (): string | null => {
-    if (!activeAnalysis) return null;
+    if (!activeAnalysis || !activeSample) return null;
 
     const confirmed = activeAnalysis.findings.filter(f => f.confirmedCount > 0);
     const pending = activeAnalysis.detections.filter(d => !d.confirmed && !d.rejected).length;
@@ -186,6 +206,43 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   };
 
   if (!activeAnalysis || !activePatient || !activeSample) {
+    if (activePatient && activeSample) {
+      const analysisError = inferenceError || pendingInferenceError;
+      return (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-amber-300 dark:border-amber-800 p-5 sm:p-8 max-w-2xl mx-auto">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {analysisError ? 'Specimen saved; AI analysis did not complete' : 'Specimen ready for AI analysis'}
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                {activePatient.fullName} · {activeSample.slideLabel} · {activeSample.sampleType}
+              </p>
+              {analysisError ? (
+                <p role="alert" className="text-xs text-amber-900 dark:text-amber-200 mt-3 break-words">
+                  {analysisError}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-3">
+                  This saved specimen does not have an analysis yet.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleTriggerAnalysis()}
+                disabled={isAnalyzing}
+                className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg font-semibold text-xs inline-flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                {isAnalyzing ? 'Running AI analysis...' : 'Retry AI analysis'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-xs">
         <Microscope className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -451,22 +508,23 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
 
       {/* Inference Failure Banner - loud, never silently substituted */}
       {inferenceError && (
-        <div role="alert" className="bg-rose-50 border border-rose-300 p-3 rounded-xl text-xs flex items-start gap-2.5 text-rose-900">
-          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+        <div role="alert" className="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl text-xs flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <span className="font-bold text-rose-950 block">
-              Inference failed - no results were produced for this specimen.
+            <span className="font-bold block text-white">
+              Inference is not configured
             </span>
-            <p className="leading-relaxed mt-0.5 break-words">{inferenceError}</p>
-            <p className="leading-relaxed mt-1 text-rose-800">
-              No substitute results are generated. Verify the slide image and model
-              configuration, then re-run the scan.
+            <p className="leading-relaxed mt-0.5 text-slate-300">
+              The server has no Roboflow API key. Ask a Lab Director to add
+              <span className="font-mono text-amber-300"> ROBOFLOW_API_KEY</span> to the
+              server <span className="font-mono text-amber-300">.env</span> file and restart.
+              No substitute results are generated.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setInferenceError(null)}
-            className="text-rose-400 hover:text-rose-700 font-bold ml-2 cursor-pointer"
+            className="text-slate-400 hover:text-white font-bold ml-2 cursor-pointer"
             aria-label="Dismiss error"
           >
             ✕

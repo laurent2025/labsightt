@@ -1,30 +1,73 @@
 import React, { useState } from 'react';
 import { LaboratoryReport } from '../../types';
-import { Printer, Search, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { Printer, Search, CheckCircle2, Clock, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 
 interface ReportsListViewProps {
   reports: LaboratoryReport[];
   onOpenReport: (report: LaboratoryReport) => void;
-  onVerifyReport: (reportId: string) => void;
+  onVerifyReport: (reportId: string) => Promise<void>;
+  onEditReport: (
+    reportId: string,
+    updates: { technologistNotes?: string; clinicalImpression?: string }
+  ) => Promise<void>;
+  onDeleteReport: (report: LaboratoryReport) => Promise<void>;
   currentUserName: string;
+  currentUserId: string;
+  canManageReports: boolean;
+  canDeleteReports: boolean;
 }
 
 export const ReportsListView: React.FC<ReportsListViewProps> = ({
   reports,
   onOpenReport,
   onVerifyReport,
-  currentUserName
+  onEditReport,
+  onDeleteReport,
+  currentUserName,
+  currentUserId,
+  canManageReports,
+  canDeleteReports
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending_verification'>('all');
   const [gateError, setGateError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [editingReport, setEditingReport] = useState<LaboratoryReport | null>(null);
+  const [technologistNotes, setTechnologistNotes] = useState('');
+  const [clinicalImpression, setClinicalImpression] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleVerify = (reportId: string) => {
+  const handleVerify = async (reportId: string) => {
     setGateError(null);
     try {
-      onVerifyReport(reportId);
+      await onVerifyReport(reportId);
     } catch (err) {
       setGateError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleSaveReport = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingReport) return;
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      await onEditReport(editingReport.id, { technologistNotes, clinicalImpression });
+      setEditingReport(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (report: LaboratoryReport) => {
+    if (!window.confirm(`Delete report "${report.reportNumber}"? This action cannot be undone.`)) return;
+    setActionError(null);
+    try {
+      await onDeleteReport(report);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -89,6 +132,58 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
             <span className="font-bold block">Verification refused</span>
             <p className="mt-0.5">{gateError}</p>
           </div>
+        </div>
+      )}
+
+      {actionError && (
+        <div role="alert" className="bg-rose-50 border border-rose-300 text-rose-900 p-3 rounded-xl text-xs">
+          {actionError}
+        </div>
+      )}
+
+      {editingReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-report-title"
+            onSubmit={handleSaveReport}
+            className="w-full max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"
+          >
+            <div>
+              <h2 id="edit-report-title" className="text-base font-semibold text-slate-900">
+                Edit {editingReport.reportNumber}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">Changes are audited and locked after verification.</p>
+            </div>
+            <label className="block text-xs font-medium text-slate-700">
+              Technologist notes
+              <textarea
+                value={technologistNotes}
+                onChange={event => setTechnologistNotes(event.target.value)}
+                rows={4}
+                className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600"
+              />
+            </label>
+            <label className="block text-xs font-medium text-slate-700">
+              Clinical impression
+              <textarea
+                value={clinicalImpression}
+                onChange={event => setClinicalImpression(event.target.value)}
+                rows={4}
+                className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600"
+              />
+            </label>
+            {actionError && <p role="alert" className="text-xs text-rose-700">{actionError}</p>}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setEditingReport(null)} disabled={isSaving} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="submit" disabled={isSaving} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                {isSaving ? 'Saving...' : 'Save changes'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -200,6 +295,22 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                           Sign & Authorize
                         </button>
                       )}
+                      {rep.status !== 'verified' && rep.status !== 'released' &&
+                        (rep.technologistId === currentUserId || canManageReports) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setTechnologistNotes(rep.technologistNotes || '');
+                            setClinicalImpression(rep.clinicalImpression || '');
+                            setEditingReport(rep);
+                          }}
+                          className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium border border-slate-200 dark:border-slate-700 transition"
+                          title="Edit report notes"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => onOpenReport(rep)}
@@ -208,6 +319,16 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                         <Printer className="w-3.5 h-3.5" />
                         <span>Print / PDF</span>
                       </button>
+                      {canDeleteReports && rep.status !== 'released' && (
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(rep)}
+                          className="px-2.5 py-1 text-xs bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-800 text-rose-700 dark:text-rose-300 rounded-lg font-medium border border-rose-200 dark:border-rose-700 transition"
+                          title="Delete report"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

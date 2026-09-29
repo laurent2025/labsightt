@@ -12,6 +12,8 @@ interface PatientFormModalProps {
 
 export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onSubmit }) => {
   const panelRef = useFocusTrap<HTMLDivElement>(true, onClose);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [patientNumber, setPatientNumber] = useState(
     `PT-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`
   );
@@ -74,16 +76,15 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
     return new Date(y, m - 1, d, hh, mm).toISOString();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     if (!fullName.trim()) return;
+    if (submitting) return;
 
     const totalMag = objective === '100x_oil' ? '1000x' : objective === '40x' ? '400x' : '100x';
     const activeImage = customImage || selectedPresetImage;
 
-    // Specimen type and collection time belong to the sample, not the patient.
-    // They were being sent on the patient object too, where the server has no
-    // column for them, so they were dropped on the floor.
     const patientData: NewPatient = {
       patientNumber,
       fullName: fullName.trim(),
@@ -95,7 +96,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
     };
 
     const sampleData: Omit<Sample, 'id'> = {
-      patientId: '', // populated in store
+      patientId: '',
       sampleType,
       collectionDatetime: toLocalIso(collectionDate, collectionTime),
       objective,
@@ -109,7 +110,14 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
       notes: clinicalNotes
     };
 
-    onSubmit(patientData, sampleData);
+    setSubmitting(true);
+    try {
+      await onSubmit(patientData, sampleData);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not save. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -401,21 +409,39 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold flex items-center gap-2 shadow-sm transition"
-            >
-              <Microscope className="w-4 h-4" />
-              <span>Save & Launch AI Microscopy</span>
-            </button>
+          <div className="pt-4 border-t border-slate-200 space-y-3">
+            {submitError && (
+              <div role="alert" className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {submitError}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-2 shadow-sm transition"
+              >
+                {submitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Launching…</span>
+                  </>
+                ) : (
+                  <>
+                    <Microscope className="w-4 h-4" />
+                    <span>Save &amp; Launch AI Microscopy</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

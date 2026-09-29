@@ -171,6 +171,22 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_patients_name_index ON patients(full_name_index);
     `,
   },
+  {
+    version: 4,
+    name: 'soft-delete-reports',
+    up: `
+      ALTER TABLE reports ADD COLUMN deleted_at TEXT;
+      CREATE INDEX IF NOT EXISTS idx_reports_visible ON reports(deleted_at, generated_at DESC);
+    `,
+  },
+  {
+    version: 5,
+    name: 'soft-delete-patients',
+    up: `
+      ALTER TABLE patients ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
+      CREATE INDEX IF NOT EXISTS idx_patients_active_created ON patients(active, created_at DESC);
+    `,
+  },
 ];
 
 export function openDatabase(path) {

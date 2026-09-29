@@ -105,6 +105,7 @@ export interface LabStoreValue {
   patientTotal: number;
 
   updatePatient: (id: string, updates: Partial<Patient>) => Promise<void>;
+  deletePatient: (id: string) => Promise<void>;
 
   addPatient: (patient: NewPatient) => Promise<Patient>;
   addSample: (sample: Omit<Sample, 'id'>) => Promise<Sample>;
@@ -121,7 +122,12 @@ export interface LabStoreValue {
   updateAnalysisNotes: (analysisId: string, notes: string, impression: string) => void;
   updateModelConfig: (modelId: string, updates: Partial<AIModelConfig>) => void;
   generateReport: (analysisId: string) => Promise<LaboratoryReport>;
+  updateReport: (
+    reportId: string,
+    updates: { technologistNotes?: string; clinicalImpression?: string }
+  ) => Promise<void>;
   verifyReport: (reportId: string) => Promise<void>;
+  deleteReport: (reportId: string) => Promise<void>;
 }
 
 const LabStoreContext = createContext<LabStoreValue | null>(null);
@@ -310,6 +316,20 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     [handleError]
   );
 
+  const deletePatient = useCallback(
+    async (id: string) => {
+      try {
+        await patientsApi.delete(id);
+        setPatients(prev => prev.filter(p => p.id !== id));
+        setStorageIssue(null);
+      } catch (err) {
+        handleError(err, 'Could not delete the patient.');
+        throw err;
+      }
+    },
+    [handleError]
+  );
+
   const addPatient = useCallback(
     async (data: NewPatient): Promise<Patient> => {
       try {
@@ -351,9 +371,10 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     ): Promise<Analysis> => {
       const sample = samples.find(s => s.id === sampleId);
       const model = models.find(m => m.id === modelId) || models[0];
-      if (!sample) throw new ReportGateError('Invalid specimen for analysis.');
+      const imageUrl = imageUrlOverride || sample?.imageUrl;
+      if (!imageUrl) throw new ReportGateError('Invalid specimen for analysis.');
 
-      const source = await loadImageSource(imageUrlOverride || sample.imageUrl);
+      const source = await loadImageSource(imageUrl);
       const base64 =
         typeof source.base64 === 'string' && source.base64.startsWith('data:')
           ? source.base64
@@ -522,11 +543,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       if (!report) throw new ReportGateError('Report not found.');
       if (report.status === 'verified') return;
 
-      if (roleRank(currentUser) < 2) {
-        throw new ReportGateError(
-          'Verifying a report requires a Pathologist/Supervisor or Lab Director role.'
-        );
-      }
+      if (!currentUser) throw new ReportGateError('Sign in before verifying a report.');
       if (currentUser?.id === report.technologistId) {
         throw new ReportGateError(
           `${report.reportNumber} was prepared by ${report.technologistName}. A different authorised user must verify it.`
@@ -548,6 +565,43 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       }
     },
     [reports, currentUser, handleError]
+  );
+
+  const updateReport = useCallback(
+    async (reportId: string, updates: { technologistNotes?: string; clinicalImpression?: string }) => {
+      try {
+        const { report } = await reportsApi.update(reportId, updates);
+        setReports(prev => prev.map(existing => existing.id === reportId
+          ? {
+              ...existing,
+              ...report,
+              patient: existing.patient,
+              sample: existing.sample,
+              findings: existing.findings,
+              laboratoryInfo: LAB_INFO
+            }
+          : existing));
+        setStorageIssue(null);
+      } catch (err) {
+        handleError(err, 'Could not update the report.');
+        throw err;
+      }
+    },
+    [handleError]
+  );
+
+  const deleteReport = useCallback(
+    async (reportId: string) => {
+      try {
+        await reportsApi.delete(reportId);
+        setReports(prev => prev.filter(r => r.id !== reportId));
+        setStorageIssue(null);
+      } catch (err) {
+        handleError(err, 'Could not delete the report.');
+        throw err;
+      }
+    },
+    [handleError]
   );
 
   const updateModelConfig = useCallback((modelId: string, updates: Partial<AIModelConfig>) => {
@@ -585,8 +639,11 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       patientOffset,
       setPatientOffset,
       patientTotal,
-      updatePatient,
-      addPatient,
+updatePatient,
+    deletePatient,
+    deleteReport,
+    updateReport,
+    addPatient,
       addSample,
       createAndRunAnalysis,
       toggleDetectionConfirmation,
@@ -602,7 +659,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       patients, samples, analyses, reports, models, auditLogs, user, authChecked, loading,
       connectionError, storageIssue, loadError, pendingIds, login, logout, changePassword,
       refresh, isSelf, patientSearch, setPatientSearch, patientOffset, setPatientOffset,
-      patientTotal, updatePatient, addPatient, addSample, createAndRunAnalysis,
+      patientTotal, updatePatient, deleteReport, updateReport, addPatient, addSample, createAndRunAnalysis,
       toggleDetectionConfirmation, rejectDetection, confirmAllDetections, addManualDetection,
       updateAnalysisNotes, updateModelConfig, generateReport, verifyReport
     ]

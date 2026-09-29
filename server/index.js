@@ -23,7 +23,7 @@ import {
 import { appendAudit, verifyChain, chainHead } from './audit.js';
 import { runInference, inferenceStatus, InferenceError } from './inference.js';
 import { newId, validatePasswordStrength } from './crypto.js';
-import { encryptPHI, blindIndex } from './encryption.js';
+import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 import { requestContext, createLoginLimiter, healthRoutes } from './operations.js';
 import * as repo from './repository.js';
 
@@ -244,7 +244,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-  app.patch('/api/patients/:id', auth, (req, res, next) => {
+app.patch('/api/patients/:id', auth, (req, res, next) => {
     try {
       const existing = db.prepare('SELECT id FROM patients WHERE id = ?').get(req.params.id);
       if (!existing) return res.status(404).json({ error: 'Patient not found.' });
@@ -265,6 +265,29 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         details: `Fields changed: ${Object.keys(updates).join(', ') || 'none'}`
       });
       res.json({ patient });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete('/api/patients/:id', auth, requireRole('director'), (req, res, next) => {
+    try {
+      const existing = db.prepare('SELECT id, full_name FROM patients WHERE id = ?').get(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Patient not found.' });
+
+      // Soft delete: set active = 0
+      db.prepare('UPDATE patients SET active = 0 WHERE id = ?').run(req.params.id);
+
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'PATIENT_DELETED',
+        entity: 'patient',
+        entityId: req.params.id,
+        details: `Soft deleted patient: ${decryptPHI(existing.full_name)}`
+      });
+
+      res.status(204).send();
     } catch (err) {
       next(err);
     }
@@ -310,7 +333,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         fieldsExamined,
         Number(b.fieldAreaMm2) || 0,
         b.collectionDatetime ?? new Date().toISOString(),
-        b.imagePath ?? null,
+        b.imageUrl ?? null,
         encryptPHI(b.notes),
         new Date().toISOString(),
         req.user.id
@@ -480,7 +503,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   /** Full report payload for the printable/exportable view. */
   app.get('/api/reports/:id', auth, (req, res) => {
     const row = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
-    if (!row) return res.status(404).json({ error: 'Report not found.' });
+    if (!row || row.deleted_at) return res.status(404).json({ error: 'Report not found.' });
 
     const context = repo.reportContext(db, row);
     res.json({
@@ -554,14 +577,11 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-  /**
-   * Verifies a report: requires a supervisor role AND a verifier who is not
-   * the technologist who produced it. Both are checked against stored ids.
-   */
-  app.post('/api/reports/:id/verify', auth, requireRole('supervisor'), (req, res, next) => {
+  /** Verifies a report by any signed-in user other than its author. */
+  app.post('/api/reports/:id/verify', auth, (req, res, next) => {
     try {
       const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
-      if (!report) return res.status(404).json({ error: 'Report not found.' });
+      if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
       if (report.status === 'verified' || report.status === 'released') {
         return res.status(409).json({ error: 'This report has already been verified.' });
       }
@@ -603,10 +623,10 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-  app.post('/api/reports/:id/release', auth, requireRole('director'), (req, res, next) => {
+app.post('/api/reports/:id/release', auth, requireRole('director'), (req, res, next) => {
     try {
       const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
-      if (!report) return res.status(404).json({ error: 'Report not found.' });
+      if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
       if (report.status !== 'verified') {
         return res.status(409).json({ error: 'Only a verified report can be released.' });
       }
@@ -623,6 +643,75 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         entityId: report.id
       });
       res.json({ report: repo.getReport(db, report.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ------------------------------------------------------------ report PATCH (update) ----
+  app.patch('/api/reports/:id', auth, (req, res, next) => {
+    try {
+      const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+      if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
+
+      // Only technologist who created it (or supervisor/director) can edit before verification
+      if (report.status === 'verified' || report.status === 'released') {
+        return res.status(409).json({ error: 'Cannot edit a verified or released report.' });
+      }
+      if (report.technologist_id !== req.user.id && !['supervisor', 'director'].includes(req.user.role)) {
+        return res.status(403).json({ error: 'Only the report author or a supervisor can edit this report.' });
+      }
+
+      const fieldColumns = {
+        technologistNotes: 'technologist_notes',
+        clinicalImpression: 'clinical_impression'
+      };
+      const filteredUpdates = Object.entries(req.body ?? {})
+        .filter(([field]) => Object.hasOwn(fieldColumns, field));
+
+      if (filteredUpdates.length === 0) {
+        return res.status(400).json({ error: 'No valid fields to update.' });
+      }
+
+      const setClause = filteredUpdates.map(([field]) => `${fieldColumns[field]} = ?`).join(', ');
+      const values = [...filteredUpdates.map(([, value]) => encryptPHI(value)), req.params.id];
+      db.prepare(`UPDATE reports SET ${setClause} WHERE id = ?`).run(...values);
+
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'REPORT_UPDATED',
+        entity: 'report',
+        entityId: req.params.id,
+        details: `Fields changed: ${filteredUpdates.map(([field]) => field).join(', ')}`
+      });
+
+      res.json({ report: repo.getReport(db, req.params.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ------------------------------------------------------------ report DELETE (soft) ----
+  app.delete('/api/reports/:id', auth, requireRole('director'), (req, res, next) => {
+    try {
+      const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+      if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
+      db.prepare('UPDATE reports SET deleted_at = ? WHERE id = ?').run(
+        new Date().toISOString(),
+        req.params.id
+      );
+
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'REPORT_DELETED',
+        entity: 'report',
+        entityId: req.params.id,
+        details: `Soft deleted report: ${report.report_number}`
+      });
+
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

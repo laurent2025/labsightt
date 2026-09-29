@@ -8,10 +8,14 @@
 import { appendAudit } from './audit.js';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
+const MAX_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 250;
+const DEFAULT_WORKFLOW_ENDPOINT =
+  'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-1-yolo26m-t1-logic';
 
 function envConfig() {
   return {
-    endpoint: process.env.ROBOFLOW_ENDPOINT || '',
+    endpoint: process.env.ROBOFLOW_ENDPOINT || DEFAULT_WORKFLOW_ENDPOINT,
     apiKey: process.env.ROBOFLOW_API_KEY || '',
     timeoutMs: Number(process.env.ROBOFLOW_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
   };
@@ -28,10 +32,11 @@ export function inferenceStatus() {
 }
 
 class InferenceError extends Error {
-  constructor(message, status = 502) {
+  constructor(message, status = 502, retryable = false) {
     super(message);
     this.name = 'InferenceError';
     this.status = status;
+    this.retryable = retryable;
   }
 }
 
@@ -46,7 +51,7 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.5 } 
 
   if (!endpoint || !apiKey) {
     throw new InferenceError(
-      'Inference is not configured on the server. Set ROBOFLOW_ENDPOINT and ROBOFLOW_API_KEY.',
+      'Inference is not configured on the server. Set ROBOFLOW_API_KEY; set ROBOFLOW_ENDPOINT only to override the default workflow.',
       503
     );
   }
@@ -54,40 +59,7 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.5 } 
     throw new InferenceError('No image was supplied for inference.', 400);
   }
 
-  const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(apiKey)}`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  let payload;
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: apiKey,
-        inputs: { image: { type: 'base64', value: imageBase64 } }
-      }),
-      signal: controller.signal
-    });
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      // Never echo provider text verbatim: it can contain the key in a URL echo.
-      throw new InferenceError(
-        `Inference provider returned HTTP ${response.status}.`,
-        response.status === 401 || response.status === 403 ? 502 : 502
-      );
-    }
-    payload = await response.json();
-  } catch (err) {
-    if (err instanceof InferenceError) throw err;
-    if (err.name === 'AbortError') {
-      throw new InferenceError(`Inference timed out after ${timeoutMs}ms.`, 504);
-    }
-    throw new InferenceError('Could not reach the inference provider.', 502);
-  } finally {
-    clearTimeout(timer);
-  }
+  const payload = await requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs);
 
   const predictions = extractPredictions(payload);
   const detections = predictions
@@ -104,6 +76,58 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.5 } 
   });
 
   return detections;
+}
+
+async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let failure;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          inputs: { image: { type: 'base64', value: imageBase64 } }
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+        throw new InferenceError(
+          `Inference provider returned HTTP ${response.status}.`,
+          502,
+          retryable
+        );
+      }
+
+      try {
+        return await response.json();
+      } catch {
+        throw new InferenceError('Inference provider returned invalid JSON.');
+      }
+    } catch (err) {
+      if (err instanceof InferenceError) {
+        failure = err;
+      } else if (err?.name === 'AbortError') {
+        failure = new InferenceError(`Inference timed out after ${timeoutMs}ms.`, 504, true);
+      } else {
+        failure = new InferenceError('Could not reach the inference provider.', 502, true);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!failure.retryable || attempt === MAX_RETRIES) throw failure;
+    await new Promise(resolve => setTimeout(resolve, RETRY_BASE_DELAY_MS * (2 ** attempt)));
+  }
+
+  throw new InferenceError('Inference request failed.', 502);
 }
 
 /**

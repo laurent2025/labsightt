@@ -26,8 +26,8 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => {
             Laboratory Audit Trail & Quality Assurance
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Local activity log. Browser storage only: entries are editable and are not a compliant
-            record trail without server-side, append-only storage.
+            Immutable server-side append-only log. Entries cannot be edited or deleted to
+            maintain clinical compliance. Use the export for offline review.
           </p>
         </div>
 

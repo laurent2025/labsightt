@@ -120,9 +120,17 @@ It never falls back to invented detections.
 
 ```bash
 # .env  (load with: node --env-file=.env server/main.js)
-ROBOFLOW_ENDPOINT=https://serverless.roboflow.com/<workspace>/workflows/<id>
 ROBOFLOW_API_KEY=<your key>
 ```
+
+The server defaults to the `LABSIGHT vlabsight-1-yolo26m-t1 Logic` hosted
+workflow. Set `ROBOFLOW_ENDPOINT` only to override that URL.
+The API key is sent only in the `Authorization: Bearer` header. Do not put it
+in the workflow URL or request body. Requests send the specimen image as a
+base64 workflow input, use `ROBOFLOW_TIMEOUT_MS` for the per-attempt timeout,
+and retry transient provider/network failures twice with backoff. Restart the
+API server after changing `.env`. For local inference, start the Roboflow
+inference server before overriding the endpoint to a local URL.
 
 See `.env.example` for every setting.
 

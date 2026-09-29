@@ -155,7 +155,10 @@ export const patientsApi = {
     request<{ patient: Patient }>(`/patients/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(updates)
-    })
+    }),
+
+  delete: (id: string) =>
+    request<void>(`/patients/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };
 
 // --------------------------------------------------------------- samples ----
@@ -207,11 +210,20 @@ export const reportsApi = {
       body: JSON.stringify({ analysisId, ...payload })
     }),
 
+  update: (id: string, payload: { technologistNotes?: string; clinicalImpression?: string }) =>
+    request<{ report: LaboratoryReport }>(`/reports/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    }),
+
   verify: (id: string) =>
     request<{ report: LaboratoryReport }>(`/reports/${encodeURIComponent(id)}/verify`, { method: 'POST' }),
 
   release: (id: string) =>
-    request<{ report: LaboratoryReport }>(`/reports/${encodeURIComponent(id)}/release`, { method: 'POST' })
+    request<{ report: LaboratoryReport }>(`/reports/${encodeURIComponent(id)}/release`, { method: 'POST' }),
+
+  delete: (id: string) =>
+    request<void>(`/reports/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };
 
 // ----------------------------------------------------------------- audit ----

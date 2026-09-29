@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Patient, Sample, SampleType } from '../../types';
-import { Search, UserPlus, Microscope, Filter, X } from 'lucide-react';
+import { Search, UserPlus, Microscope, Filter, X, Pencil, Trash2 } from 'lucide-react';
 import { useLabStore } from '../../store/labStore';
 import { useDebounced } from '../../hooks/useDebounced';
 import { TableSkeleton, EmptyState, NoResultsState, ErrorState, Pagination } from '../ui/States';
@@ -10,13 +10,19 @@ interface PatientListViewProps {
   samples: Sample[];
   onOpenNewPatientModal: () => void;
   onSelectPatientForAnalysis: (patientId: string, sampleId?: string) => void;
+  onEditPatient: (patient: Patient, sample: Sample | undefined) => void;
+  onDeletePatient: (patient: Patient) => void;
+  canDeletePatients: boolean;
 }
 
 export const PatientListView: React.FC<PatientListViewProps> = ({
   patients,
   samples,
   onOpenNewPatientModal,
-  onSelectPatientForAnalysis
+  onSelectPatientForAnalysis,
+  onEditPatient,
+  onDeletePatient,
+  canDeletePatients
 }) => {
   const [sampleFilter, setSampleFilter] = useState<string>('all');
   const {
@@ -203,16 +209,39 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
                         </td>
 
                         <td className="py-3 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => onSelectPatientForAnalysis(pat.id, patientSample?.id)}
-                            disabled={!patientSample}
-                            title={patientSample ? undefined : 'No specimen accessioned for this patient'}
-                            className="px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-green-600 dark:hover:bg-green-500 dark:disabled:bg-slate-700 text-white rounded-lg font-medium text-xs inline-flex items-center gap-1.5 shadow-xs transition disabled:cursor-not-allowed"
-                          >
-                            <Microscope className="w-3.5 h-3.5" />
-                            <span>{patientSample ? 'Run Microscopy' : 'No specimen'}</span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => onSelectPatientForAnalysis(pat.id, patientSample?.id)}
+                              disabled={!patientSample}
+                              title={patientSample ? undefined : 'No specimen accessioned for this patient'}
+                              className="px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-green-600 dark:hover:bg-green-500 dark:disabled:bg-slate-700 text-white rounded-lg font-medium text-xs inline-flex items-center gap-1.5 shadow-xs transition disabled:cursor-not-allowed"
+                            >
+                              <Microscope className="w-3.5 h-3.5" />
+                              <span>{patientSample ? 'Run Microscopy' : 'No specimen'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => onEditPatient(pat, patientSample)}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium inline-flex items-center gap-1 shadow-xs transition"
+                              title="Edit patient"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
+                            {canDeletePatients && (
+                              <button
+                                type="button"
+                                onClick={() => onDeletePatient(pat)}
+                                className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/30 dark:hover:bg-rose-800 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-medium inline-flex items-center gap-1 shadow-xs transition"
+                                title="Archive patient"
+                                aria-label={`Archive ${pat.fullName}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

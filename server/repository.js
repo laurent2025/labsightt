@@ -80,7 +80,7 @@ export function listPatients(db, { limit, offset, search } = {}) {
     // blind index (exact, case/whitespace insensitive). The patient number is
     // not encrypted, so substring search works there.
     const nameHash = blindIndex(term);
-    const where = `(patient_number LIKE ? ESCAPE '\\' OR full_name_index = ?)`;
+    const where = `active = 1 AND (patient_number LIKE ? ESCAPE '\\' OR full_name_index = ?)`;
 
     const total = db
       .prepare(`SELECT COUNT(*) AS n FROM patients WHERE ${where}`)
@@ -101,9 +101,9 @@ export function listPatients(db, { limit, offset, search } = {}) {
     };
   }
 
-  const total = db.prepare('SELECT COUNT(*) AS n FROM patients').get().n;
+  const total = db.prepare('SELECT COUNT(*) AS n FROM patients WHERE active = 1').get().n;
   const rows = db
-    .prepare('SELECT * FROM patients ORDER BY created_at DESC LIMIT ? OFFSET ?')
+    .prepare('SELECT * FROM patients WHERE active = 1 ORDER BY created_at DESC LIMIT ? OFFSET ?')
     .all(paging.limit, paging.offset);
 
   return {
@@ -297,20 +297,29 @@ export function pendingAdjudicationCounts(db, analysisIds) {
 
 export function listReports(db, { limit, offset, status } = {}) {
   const paging = normalisePaging({ limit, offset });
-  const where = status ? 'WHERE status = ?' : '';
-  const params = status ? [status] : [];
+  const clauses = ['deleted_at IS NULL'];
+  const params = [];
+  if (status) {
+    clauses.push('status = ?');
+    params.push(status);
+  }
+  const where = `WHERE ${clauses.join(' AND ')}`;
 
   const total = db.prepare(`SELECT COUNT(*) AS n FROM reports ${where}`).get(...params).n;
   const rows = db
     .prepare(`SELECT * FROM reports ${where} ORDER BY generated_at DESC LIMIT ? OFFSET ?`)
     .all(...params, paging.limit, paging.offset);
 
-  return { items: rows.map(mapReport), ...paging, total };
+  return {
+    items: rows.map(row => ({ ...mapReport(row), ...reportContext(db, row) })),
+    ...paging,
+    total
+  };
 }
 
 export function getReport(db, id) {
-  const row = db.prepare('SELECT * FROM reports WHERE id = ?').get(id);
-  return row ? mapReport(row) : null;
+  const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(id);
+  return row ? { ...mapReport(row), ...reportContext(db, row) } : null;
 }
 
 /** Patient + sample context a report needs to render. One query each, not N. */
@@ -364,7 +373,7 @@ function mapSample(row) {
     fieldsExamined: row.fields_examined,
     fieldAreaMm2: row.field_area_mm2,
     collectionDatetime: row.collection_datetime,
-    imagePath: row.image_path,
+    imageUrl: row.image_path,
     notes: decryptPHI(row.notes),
     createdAt: row.created_at
   };
