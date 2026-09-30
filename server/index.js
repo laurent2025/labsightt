@@ -29,6 +29,7 @@ import {
   hasSupabaseConfig,
   hasSupabaseDatabaseConfig,
   getSupabaseProfile,
+  ensureSupabaseProfile,
   listSupabasePatients,
   createSupabasePatient,
   updateSupabasePatient,
@@ -152,8 +153,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return res.status(401).json({ error: 'Email or password is incorrect, or the email has not been verified.' });
         }
 
-        const profile = await getSupabaseProfile(supabase, data.user.id);
-        if (!profile) return res.status(403).json({ error: 'Account profile could not be loaded.' });
+        const profile = await ensureSupabaseProfile(supabase, data.user);
 
         const expiresAt = new Date(
           (data.session.expires_at ?? Math.floor(Date.now() / 1000) + (data.session.expires_in ?? 8 * 60 * 60)) * 1000
@@ -241,8 +241,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(429).json({ error: 'Too many signup attempts. Wait before trying again.' });
       }
 
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.signUp({
+      const supabase = getSupabaseClient({ admin: true });
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
         options: {
@@ -257,6 +257,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return res.status(200).json({ ok: true, message: 'If the address is eligible, a verification email will arrive shortly.' });
         }
         return res.status(400).json({ error: error.message });
+      }
+
+      // Eagerly create the profile row so login never fails even when the
+      // database trigger has not been applied.
+      if (signUpData?.user) {
+        try {
+          await ensureSupabaseProfile(supabase, signUpData.user);
+        } catch (profileErr) {
+          console.error('[signup] profile pre-creation failed (non-fatal):', profileErr.message);
+        }
       }
 
       return res.status(201).json({

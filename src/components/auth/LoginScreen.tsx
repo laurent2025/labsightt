@@ -49,8 +49,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSubmit, onSignup }) 
         await onSubmit(email.trim().toLowerCase(), password);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : `Could not ${mode === 'signup' ? 'create your request' : 'sign in'}. Please try again.`);
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setPassword('');
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          setError('Your account profile could not be loaded. The database may not be fully set up. Please contact your administrator.');
+        } else if (err.status === 429) {
+          setError('Too many attempts — please wait a minute and try again.');
+        } else {
+          setError(err.message);
+        }
+        if (err.status === 401 || err.status === 403) setPassword('');
+      } else {
+        setError(`Could not ${mode === 'signup' ? 'create your request' : 'sign in'}. Please try again.`);
+      }
     } finally {
       setSubmitting(false);
     }

@@ -8,6 +8,7 @@ import { generateSessionToken, hashToken, verifyPassword, newId } from './crypto
 import {
   getSupabaseClient,
   getSupabaseProfile,
+  ensureSupabaseProfile,
   getSupabaseUserByToken
 } from './supabase.js';
 
@@ -155,8 +156,7 @@ export function requireAuth(db) {
         return res.status(401).json({ error: 'Not authenticated.' });
       }
 
-      const profile = await getSupabaseProfile(supabase, user.id);
-      if (!profile) return res.status(403).json({ error: 'Account profile could not be loaded.' });
+      const profile = await ensureSupabaseProfile(supabase, user);
       req.user = { id: user.id, email: profile.email, username: profile.username, displayName: profile.display_name, display_name: profile.display_name, active: true };
       return next();
     }

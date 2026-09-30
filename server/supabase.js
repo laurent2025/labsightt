@@ -45,6 +45,49 @@ export async function getSupabaseProfile(supabase, userId) {
   return data;
 }
 
+/**
+ * Loads the profile for a Supabase auth user, auto-creating it if the row is
+ * missing (e.g. when the database trigger was never applied or failed silently).
+ *
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase – an admin client (service-role)
+ * @param {{ id: string; email?: string; user_metadata?: Record<string, unknown> }} authUser
+ * @returns {Promise<{ email: string; username: string; display_name: string }>}
+ */
+export async function ensureSupabaseProfile(supabase, authUser) {
+  const existing = await getSupabaseProfile(supabase, authUser.id);
+  if (existing) return existing;
+
+  // Derive the same values the database trigger would have produced.
+  const email = (authUser.email ?? '').toLowerCase();
+  const localPart = email.split('@')[0] || 'user';
+  const username = `${localPart}_${authUser.id.slice(0, 8)}`;
+  const displayName =
+    authUser.user_metadata?.display_name ||
+    authUser.user_metadata?.full_name ||
+    localPart;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        id: authUser.id,
+        email,
+        username,
+        display_name: displayName
+      },
+      { onConflict: 'id' }
+    )
+    .select('email, username, display_name')
+    .single();
+
+  if (error) {
+    console.error('[ensureSupabaseProfile] failed to auto-create profile:', error.message);
+    // Return a best-effort in-memory profile so the user is not locked out
+    return { email, username, display_name: String(displayName) };
+  }
+  return data;
+}
+
 export async function getSupabaseUserByToken(supabase, token) {
   if (!supabase || !token) return null;
   const { data, error } = await supabase.auth.getUser(token);

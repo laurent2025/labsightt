@@ -202,8 +202,10 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         const { user: sessionUser } = await authApi.me();
         if (!cancelled) setUser(toUserSession(sessionUser));
       } catch (err) {
-        if (!(err instanceof SessionExpiredError) && err instanceof ApiError && err.status === 0) {
-          setConnectionError(err.message);
+        if (!(err instanceof SessionExpiredError) && err instanceof ApiError && (err.status === 0 || err.status === 403)) {
+          setConnectionError(err.status === 403
+            ? 'Account profile could not be loaded. Please sign in again.'
+            : err.message);
         }
       } finally {
         if (!cancelled) setAuthChecked(true);
