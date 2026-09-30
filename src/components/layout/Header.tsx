@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserPlus, Menu, X, Sun, Moon, LogOut, ShieldCheck, KeyRound } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import { useLabStore, roleRank } from '../../store/labStore';
+import { useLabStore } from '../../store/labStore';
 
 interface HeaderProps {
   activeTab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'models' | 'audit';
@@ -9,7 +9,6 @@ interface HeaderProps {
   onOpenNewPatient: () => void;
   onOpenLegal: (tab: 'terms' | 'privacy') => void;
   operatorName: string;
-  operatorRole: string;
   onLogout: () => void;
   onChangePassword: () => void;
 }
@@ -20,7 +19,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewPatient,
   onOpenLegal,
   operatorName,
-  operatorRole,
   onLogout,
   onChangePassword
 }) => {
@@ -123,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Zone 3: Primary actions & operator badge */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Active Model Status Indicator — directors and supervisors only */}
-          {user && roleRank(user) >= 2 && (
+          {user && (
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-mono text-emerald-800 dark:text-emerald-300">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Roboflow YOLO26m</span>
@@ -138,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
             <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
-              {operatorRole}
+              Signed in
             </span>
           </div>
 

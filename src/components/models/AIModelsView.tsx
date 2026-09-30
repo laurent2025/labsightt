@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { ROBOFLOW_POPULAR_MODELS } from '../../services/integration';
 import { systemApi, type SystemStatus } from '../../services/api';
-import { useLabStore, roleRank } from '../../store/labStore';
+import { useLabStore } from '../../store/labStore';
 
 interface AIModelsViewProps {
   models: AIModelConfig[];
@@ -23,8 +23,8 @@ export const AIModelsView: React.FC<AIModelsViewProps> = ({ models, onUpdateMode
   const [copiedCode, setCopiedCode] = useState(false);
   const [serverStatus, setServerStatus] = useState<SystemStatus | null>(null);
   const { user } = useLabStore();
-  const isDirector = user && roleRank(user) >= 3;
-  const isSupervisorOrAbove = user && roleRank(user) >= 2;
+  const canConfigureServer = Boolean(user);
+  const canInspectServerDetails = Boolean(user);
 
   // Read the server's inference configuration. The credential itself is never
   // returned to the browser, so there is nothing here to leak.
@@ -54,7 +54,7 @@ export const AIModelsView: React.FC<AIModelsViewProps> = ({ models, onUpdateMode
 
       if (!status.inference.configured) {
         setTestStatus(
-          'Inference is not configured on the server. A Lab Director must set ROBOFLOW_ENDPOINT and ROBOFLOW_API_KEY in the server environment.'
+          'Inference is not configured on the server. Set ROBOFLOW_ENDPOINT and ROBOFLOW_API_KEY in the server environment.'
         );
         return;
       }
@@ -149,7 +149,7 @@ export async function runLabSightWorkflow(imageFile: File) {
           >
             Roboflow Presets
           </button>
-          {isDirector && (
+          {canConfigureServer && (
             <button
               type="button"
               onClick={() => setActiveTab('code')}
@@ -166,7 +166,7 @@ export async function runLabSightWorkflow(imageFile: File) {
       </div>
 
       {/* Roboflow API Key Configuration Card — directors only */}
-      {isDirector && (
+      {canConfigureServer && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -208,7 +208,7 @@ export async function runLabSightWorkflow(imageFile: File) {
                   </>
                 ) : (
                   <>
-                    A Lab Director must set <span className="font-mono">ROBOFLOW_ENDPOINT</span> and{' '}
+                    Set <span className="font-mono">ROBOFLOW_ENDPOINT</span> and{' '}
                     <span className="font-mono">ROBOFLOW_API_KEY</span> in the server environment.
                     Analysis will fail until then.
                   </>
@@ -323,7 +323,7 @@ export async function runLabSightWorkflow(imageFile: File) {
                 </div>
 
                 {/* Roboflow project info — directors only */}
-                {isDirector && (
+                {canConfigureServer && (
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 mb-3 text-xs space-y-1">
                     {model.isWorkflow ? (
                       <>
@@ -414,7 +414,7 @@ export async function runLabSightWorkflow(imageFile: File) {
                 </div>
 
                 {/* Test action — supervisors and directors only */}
-                {isSupervisorOrAbove && (
+                {canInspectServerDetails && (
                   <div className="mt-4 pt-3 border-t border-slate-200">
                     {testingModelId === model.id ? (
                       <div className="text-[11px] font-mono text-cyan-700 bg-cyan-50 p-2 rounded text-center animate-pulse">

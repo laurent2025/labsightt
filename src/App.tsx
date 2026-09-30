@@ -21,6 +21,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { Skeleton } from './components/ui/States';
+import { authApi } from './services/api';
 
 /** Matches the dashboard's layout so content does not jump when it arrives. */
 function DashboardSkeleton() {
@@ -212,7 +213,7 @@ export default function App() {
     // surfaces the failure; it must not call the API itself, or the cookie
     // would be set while the store stayed unauthenticated and the app would
     // bounce straight back to this screen.
-    return <LoginScreen onSubmit={login} />;
+    return <LoginScreen onSubmit={login} onSignup={authApi.signup} />;
   }
 
   return (
@@ -224,7 +225,6 @@ export default function App() {
         onOpenNewPatient={() => setIsNewPatientModalOpen(true)}
         onOpenLegal={handleOpenLegal}
         operatorName={user.name}
-        operatorRole={user.role}
         onLogout={() => void logout()}
         onChangePassword={() => setIsChangePasswordOpen(true)}
       />
@@ -282,7 +282,7 @@ export default function App() {
             onSelectPatientForAnalysis={handleSelectPatientForAnalysis}
             onEditPatient={patient => handleEditPatient(patient)}
             onDeletePatient={(patient) => handleDeletePatient(patient)}
-            canDeletePatients={user.role === 'Lab Director'}
+            canDeletePatients
           />
         )}
 
@@ -315,8 +315,8 @@ export default function App() {
             reports={reports}
             currentUserName={user.name}
             currentUserId={user.id}
-            canManageReports={user.role !== 'Medical Laboratory Technologist'}
-            canDeleteReports={user.role === 'Lab Director'}
+            canManageReports
+            canDeleteReports
             onOpenReport={report => setActiveReportModal(report)}
             onVerifyReport={verifyReport}
             onEditReport={updateReport}
@@ -385,6 +385,7 @@ export default function App() {
       {isChangePasswordOpen && (
         <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
       )}
+
     </div>
   );
 }

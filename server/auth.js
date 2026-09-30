@@ -1,20 +1,17 @@
 /**
- * Authentication and role-based access control middleware.
+ * Authentication middleware for LabSight sessions.
  *
  * The client can no longer assert an identity: every request must present a
- * valid session cookie, and authorization is decided here from the stored role.
+ * valid session cookie; all authenticated users have equal access.
  */
 import { generateSessionToken, hashToken, verifyPassword, newId } from './crypto.js';
-import { appendAudit } from './audit.js';
+import {
+  getSupabaseClient,
+  getSupabaseProfile,
+  getSupabaseUserByToken
+} from './supabase.js';
 
 export const ROLES = ['technologist', 'supervisor', 'director'];
-
-/**
- * Role hierarchy. A director can do anything a supervisor can; a supervisor
- * can do anything a technologist can. There is deliberately no path from a
- * technologist upward.
- */
-const RANK = { technologist: 1, supervisor: 2, director: 3 };
 
 export const SESSION_COOKIE = 'labsight_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
@@ -31,10 +28,9 @@ export function publicUser(row) {
   if (!row) return null;
   return {
     id: row.id,
-    username: row.username,
-    displayName: row.display_name,
-    role: row.role,
-    active: Boolean(row.active)
+    username: row.username ?? row.user_metadata?.username ?? row.email?.split('@')[0] ?? 'user',
+    displayName: row.display_name ?? row.displayName ?? row.user_metadata?.display_name ?? row.email?.split('@')[0] ?? row.username ?? 'User',
+    active: typeof row.active === 'boolean' ? row.active : Boolean(row.active)
   };
 }
 
@@ -124,10 +120,17 @@ export function resolveSession(db, token) {
 }
 
 export function setSessionCookie(res, token, expiresAt) {
+  const configuredSameSite = process.env.SESSION_COOKIE_SAME_SITE?.toLowerCase();
+  const sameSite = ['strict', 'lax', 'none'].includes(configuredSameSite)
+    ? configuredSameSite
+    : process.env.NODE_ENV === 'production'
+      ? 'none'
+      : 'strict';
+
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite,
+    secure: process.env.NODE_ENV === 'production' || sameSite === 'none',
     expires: expiresAt,
     path: '/'
   });
@@ -139,7 +142,25 @@ export function clearSessionCookie(res) {
 
 /** Rejects the request unless a valid session is present. */
 export function requireAuth(db) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
+    if (process.env.USE_SUPABASE_AUTH === 'true') {
+      if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return res.status(503).json({ error: 'Supabase auth requires SUPABASE_SERVICE_ROLE_KEY on the API server.' });
+      }
+      const supabase = getSupabaseClient({ admin: true });
+      const token = req.cookies?.[SESSION_COOKIE];
+      const user = token ? await getSupabaseUserByToken(supabase, token) : null;
+
+      if (!user) {
+        return res.status(401).json({ error: 'Not authenticated.' });
+      }
+
+      const profile = await getSupabaseProfile(supabase, user.id);
+      if (!profile) return res.status(403).json({ error: 'Account profile could not be loaded.' });
+      req.user = { id: user.id, email: profile.email, username: profile.username, displayName: profile.display_name, display_name: profile.display_name, active: true };
+      return next();
+    }
+
     const user = resolveSession(db, req.cookies?.[SESSION_COOKIE]);
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated.' });
@@ -149,33 +170,3 @@ export function requireAuth(db) {
   };
 }
 
-/** Requires the caller's role to meet or exceed `minimum`. */
-export function requireRole(minimum) {
-  if (!ROLES.includes(minimum)) throw new Error(`Unknown role requirement "${minimum}"`);
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated.' });
-    }
-    if (RANK[req.user.role] < RANK[minimum]) {
-      appendAudit(dbRef(req), {
-        actorId: req.user.id,
-        actorName: req.user.display_name,
-        action: 'ACCESS_DENIED',
-        entity: 'route',
-        entityId: req.originalUrl,
-        details: `role ${req.user.role} below required ${minimum}`
-      });
-      return res.status(403).json({
-        error: `This action requires the ${minimum} role. Your role is ${req.user.role}.`
-      });
-    }
-    next();
-  };
-}
-
-// Lets requireRole read the db without threading it through every route.
-function dbRef(req) {
-  return req.app.locals.db;
-}
-
-export { RANK };

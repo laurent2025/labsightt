@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { SLIDE_ASSETS } from '../../lib/constants';
 import { TelemetryStatusBar } from './TelemetryStatusBar';
-import { useLabStore, roleRank } from '../../store/labStore';
+import { useLabStore } from '../../store/labStore';
 
 interface DashboardOverviewProps {
   patients: Patient[];
@@ -35,7 +35,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 }) => {
   const [selectedQuickPipeline, setSelectedQuickPipeline] = useState<'stool' | 'blood' | 'urine'>('stool');
   const { user } = useLabStore();
-  const canSeeModelDetails = user && roleRank(user) >= 2;
+  const canSeeModelDetails = Boolean(user);
 
   const verifiedReportsCount = reports.filter(r => r.status === 'verified').length;
   const pendingReviewCount = analyses.filter(a => a.status === 'in_review').length;

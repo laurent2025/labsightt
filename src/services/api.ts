@@ -65,7 +65,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 && path !== '/auth/login') {
       for (const listener of sessionListeners) listener(true);
       throw new SessionExpiredError();
     }
@@ -87,17 +87,21 @@ function query(params: Record<string, string | number | undefined>): string {
 
 export interface SessionUser {
   id: string;
-  username: string;
   displayName: string;
-  role: 'technologist' | 'supervisor' | 'director';
   active: boolean;
 }
 
 export const authApi = {
-  login: (username: string, password: string) =>
+  login: (email: string, password: string) =>
     request<{ user: SessionUser; expiresAt: string }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ email, password })
+    }),
+
+  signup: (email: string, password: string, displayName: string) =>
+    request<{ ok: true; message: string }>('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, displayName })
     }),
 
   logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
@@ -257,12 +261,3 @@ export const auditApi = {
   verify: () => request<ChainIntegrity>('/audit/verify')
 };
 
-// ---------------------------------------------------------- administration ----
-
-export const adminApi = {
-  listUsers: () =>
-    request<{ users: (SessionUser & { lastLoginAt: string | null; createdAt: string })[] }>('/admin/users'),
-
-  createUser: (payload: { username: string; displayName: string; role: string; password: string }) =>
-    request<{ user: SessionUser }>('/admin/users', { method: 'POST', body: JSON.stringify(payload) })
-};

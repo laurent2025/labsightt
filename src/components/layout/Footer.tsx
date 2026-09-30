@@ -1,7 +1,7 @@
 import React from 'react';
 import { LAB_METADATA } from '../../lib/constants';
 import { Lock, FileText } from 'lucide-react';
-import { useLabStore, roleRank } from '../../store/labStore';
+import { useLabStore } from '../../store/labStore';
 
 interface FooterProps {
   onOpenLegal: (tab: 'terms' | 'privacy') => void;
@@ -10,7 +10,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onOpenLegal, onSelectTab }) => {
   const { user } = useLabStore();
-  const canSeeInfra = user && roleRank(user) >= 2;
+  const canSeeInfra = Boolean(user);
 
   return (
     <footer className="no-print border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 pt-10 pb-8 text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">

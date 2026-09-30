@@ -162,7 +162,6 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   userName: string;
-  role: string;
   action: string;
   details: string;
 }

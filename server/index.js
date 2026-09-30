@@ -11,11 +11,9 @@ import {
   authenticate,
   createSession,
   destroySession,
-  createUser,
   findUserById,
   publicUser,
   requireAuth,
-  requireRole,
   setSessionCookie,
   clearSessionCookie,
   purgeExpiredSessions
@@ -26,6 +24,31 @@ import { newId, validatePasswordStrength } from './crypto.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 import { requestContext, createLoginLimiter, healthRoutes } from './operations.js';
 import * as repo from './repository.js';
+import {
+  getSupabaseClient,
+  hasSupabaseConfig,
+  hasSupabaseDatabaseConfig,
+  getSupabaseProfile,
+  listSupabasePatients,
+  createSupabasePatient,
+  updateSupabasePatient,
+  deleteSupabasePatient,
+  listSupabaseSamples,
+  createSupabaseSample,
+  listSupabaseAnalyses,
+  getSupabaseAnalysis,
+  createSupabaseAnalysis,
+  saveSupabaseDetections,
+  finalizeSupabaseAnalysis,
+  adjudicateSupabaseDetection,
+  listSupabaseReports,
+  getSupabaseReport,
+  createSupabaseReport,
+  verifySupabaseReport,
+  releaseSupabaseReport,
+  updateSupabaseReport,
+  deleteSupabaseReport
+} from './supabase.js';
 
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   const db = openDatabase(dbPath);
@@ -44,10 +67,39 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     next();
   });
 
+  const allowedOrigins = new Set(
+    (process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map(origin => origin.trim())
+      .filter(Boolean)
+  );
+  app.use((req, res, next) => {
+    const origin = req.get('origin');
+    if (!origin || !allowedOrigins.has(origin)) return next();
+
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Vary', 'Origin');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
   // Specimen images arrive as base64 and can be large.
   app.use(express.json({ limit: '25mb' }));
   app.use(cookieParser());
   app.use(requestContext(logger));
+
+  app.use('/api', (req, res, next) => {
+    if (process.env.USE_SUPABASE_AUTH === 'true' && (!hasSupabaseConfig() || !process.env.SUPABASE_SERVICE_ROLE_KEY)) {
+      return res.status(503).json({ error: 'Supabase auth is enabled but its API server configuration is incomplete.' });
+    }
+    if (process.env.USE_SUPABASE_DB === 'true' && !hasSupabaseDatabaseConfig()) {
+      return res.status(503).json({ error: 'Supabase database is enabled but SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.' });
+    }
+    next();
+  });
 
   const auth = requireAuth(db);
   const loginLimiter = createLoginLimiter();
@@ -74,17 +126,51 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   app.post('/api/auth/login', async (req, res, next) => {
     try {
-      const { username, password } = req.body ?? {};
-      if (typeof username !== 'string' || typeof password !== 'string') {
-        return res.status(400).json({ error: 'Username and password are required.' });
+      const { email, username, password } = req.body ?? {};
+      const supabaseAuth = process.env.USE_SUPABASE_AUTH === 'true';
+      const loginIdentifier = supabaseAuth ? email : username;
+      if (typeof loginIdentifier !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ error: 'Email address and password are required.' });
+      }
+
+      if (supabaseAuth && hasSupabaseConfig()) {
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          return res.status(503).json({ error: 'Supabase auth requires SUPABASE_SERVICE_ROLE_KEY on the API server.' });
+        }
+        const normalizedEmail = loginIdentifier.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+          return res.status(400).json({ error: 'Enter a valid email address.' });
+        }
+        const limit = loginLimiter.check(req.ip, normalizedEmail);
+        if (!limit.allowed) {
+          res.setHeader('Retry-After', Math.ceil(limit.retryAfterMs / 1000));
+          return res.status(429).json({ error: 'Too many sign-in attempts. Wait before trying again.' });
+        }
+        const supabase = getSupabaseClient({ admin: true });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+        if (error || !data.user || !data.session) {
+          return res.status(401).json({ error: 'Email or password is incorrect, or the email has not been verified.' });
+        }
+
+        const profile = await getSupabaseProfile(supabase, data.user.id);
+        if (!profile) return res.status(403).json({ error: 'Account profile could not be loaded.' });
+
+        const expiresAt = new Date(
+          (data.session.expires_at ?? Math.floor(Date.now() / 1000) + (data.session.expires_in ?? 8 * 60 * 60)) * 1000
+        );
+        setSessionCookie(res, data.session.access_token, expiresAt);
+        return res.json({
+          user: { id: data.user.id, username: profile.username, displayName: profile.display_name, active: true },
+          expiresAt: expiresAt.toISOString()
+        });
       }
 
       // Throttle before doing any cryptographic work, so a spray of guesses
       // costs the attacker nothing beyond one cheap lookup.
-      const limit = loginLimiter.check(req.ip, username.toLowerCase());
+      const limit = loginLimiter.check(req.ip, loginIdentifier.toLowerCase());
       if (!limit.allowed) {
         appendAudit(db, {
-          actorName: username.slice(0, 64),
+          actorName: loginIdentifier.slice(0, 64),
           action: 'LOGIN_THROTTLED',
           entity: 'user',
           details: `Too many attempts from ${req.ip}`
@@ -95,10 +181,10 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         });
       }
 
-      const user = await authenticate(db, username, password);
+      const user = await authenticate(db, loginIdentifier, password);
       if (!user) {
         appendAudit(db, {
-          actorName: username.slice(0, 64),
+          actorName: loginIdentifier.slice(0, 64),
           action: 'LOGIN_FAILED',
           entity: 'user',
           details: 'Invalid credentials'
@@ -129,15 +215,75 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-  app.post('/api/auth/logout', auth, (req, res) => {
-    destroySession(db, req.cookies?.labsight_session);
-    appendAudit(db, {
-      actorId: req.user.id,
-      actorName: req.user.display_name,
-      action: 'LOGOUT',
-      entity: 'user',
-      entityId: req.user.id
-    });
+  app.post('/api/auth/signup', async (req, res, next) => {
+    try {
+      if (process.env.USE_SUPABASE_AUTH !== 'true' || !hasSupabaseConfig()) {
+        return res.status(503).json({ error: 'Email signup is not enabled for this deployment.' });
+      }
+      const { email, password, displayName } = req.body ?? {};
+      if (typeof email !== 'string' || typeof password !== 'string' || typeof displayName !== 'string') {
+        return res.status(400).json({ error: 'Email, password and full name are required.' });
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedName = displayName.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return res.status(400).json({ error: 'Enter a valid email address.' });
+      }
+      if (normalizedName.length < 2 || normalizedName.length > 120) {
+        return res.status(400).json({ error: 'Enter a name between 2 and 120 characters.' });
+      }
+      const problems = validatePasswordStrength(password);
+      if (problems.length) return res.status(400).json({ error: `Password ${problems.join('; ')}.` });
+
+      const limit = loginLimiter.check(req.ip, `signup:${normalizedEmail}`);
+      if (!limit.allowed) {
+        res.setHeader('Retry-After', Math.ceil(limit.retryAfterMs / 1000));
+        return res.status(429).json({ error: 'Too many signup attempts. Wait before trying again.' });
+      }
+
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          data: { display_name: normalizedName },
+          ...(process.env.SUPABASE_AUTH_REDIRECT_URL
+            ? { emailRedirectTo: process.env.SUPABASE_AUTH_REDIRECT_URL }
+            : {})
+        }
+      });
+      if (error) {
+        if (/already registered|already exists/i.test(error.message)) {
+          return res.status(200).json({ ok: true, message: 'If the address is eligible, a verification email will arrive shortly.' });
+        }
+        return res.status(400).json({ error: error.message });
+      }
+
+      return res.status(201).json({
+        ok: true,
+        message: 'Check your email for a verification link. Once verified, you can sign in to LabSight.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/api/auth/logout', auth, async (req, res) => {
+    if (process.env.USE_SUPABASE_AUTH === 'true' && hasSupabaseConfig()) {
+      const supabase = getSupabaseClient();
+      if (req.cookies?.labsight_session) {
+        await supabase.auth.signOut();
+      }
+    } else {
+      destroySession(db, req.cookies?.labsight_session);
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'LOGOUT',
+        entity: 'user',
+        entityId: req.user.id
+      });
+    }
     clearSessionCookie(res);
     res.json({ ok: true });
   });
@@ -149,6 +295,26 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.post('/api/auth/password', auth, async (req, res, next) => {
     try {
       const { currentPassword, newPassword } = req.body ?? {};
+      if (process.env.USE_SUPABASE_AUTH === 'true' && hasSupabaseConfig()) {
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          return res.status(503).json({ error: 'Password management requires SUPABASE_SERVICE_ROLE_KEY.' });
+        }
+        const problems = validatePasswordStrength(newPassword ?? '');
+        if (problems.length) {
+          return res.status(400).json({ error: `New password ${problems.join('; ')}.` });
+        }
+        const supabase = getSupabaseClient({ admin: true });
+        const { error: verificationError } = await supabase.auth.signInWithPassword({
+          email: req.user.email,
+          password: currentPassword ?? ''
+        });
+        if (verificationError) return res.status(403).json({ error: 'Current password is incorrect.' });
+
+        const { error } = await supabase.auth.admin.updateUserById(req.user.id, { password: newPassword });
+        if (error) throw error;
+        return res.json({ ok: true });
+      }
+
       const user = findUserById(db, req.user.id);
       const { verifyPassword, hashPassword } = await import('./crypto.js');
 
@@ -189,16 +355,30 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   // ------------------------------------------------------------ patients ----
 
-  app.get('/api/patients', auth, (req, res) => {
-    const { items, total, limit, offset } = repo.listPatients(db, {
-      limit: req.query.limit,
-      offset: req.query.offset,
-      search: req.query.search
-    });
-    res.json({ patients: items, pagination: { total, limit, offset } });
+  app.get('/api/patients', auth, async (req, res, next) => {
+    try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const { items, total, limit, offset } = await listSupabasePatients(supabase, {
+          limit: req.query.limit,
+          offset: req.query.offset,
+          search: req.query.search
+        });
+        return res.json({ patients: items, pagination: { total, limit, offset } });
+      }
+
+      const { items, total, limit, offset } = repo.listPatients(db, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+        search: req.query.search
+      });
+      return res.json({ patients: items, pagination: { total, limit, offset } });
+    } catch (err) {
+      next(err);
+    }
   });
 
-  app.post('/api/patients', auth, (req, res, next) => {
+  app.post('/api/patients', auth, async (req, res, next) => {
     try {
       const { patientNumber, fullName, age, gender, referringDoctor, referringFacility, clinicalNotes } =
         req.body ?? {};
@@ -206,6 +386,42 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       if (!patientNumber || !fullName) {
         return res.status(400).json({ error: 'Patient number and full name are required.' });
       }
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const duplicate = await supabase
+          .from('patients')
+          .select('id')
+          .eq('patient_number', String(patientNumber).trim())
+          .maybeSingle();
+
+        if (duplicate.error) throw duplicate.error;
+        if (duplicate.data) {
+          return res.status(409).json({ error: `Patient number ${patientNumber} already exists.` });
+        }
+
+        const patient = await createSupabasePatient(supabase, {
+          patientNumber,
+          fullName,
+          age,
+          gender,
+          referringDoctor,
+          referringFacility,
+          clinicalNotes,
+          createdBy: req.user.id
+        });
+
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'PATIENT_ACCESSIONED',
+          entity: 'patient',
+          entityId: patient.id,
+          details: `Patient number ${patientNumber}`
+        });
+        return res.status(201).json({ patient });
+      }
+
       if (db.prepare('SELECT 1 FROM patients WHERE patient_number = ?').get(patientNumber)) {
         return res.status(409).json({ error: `Patient number ${patientNumber} already exists.` });
       }
@@ -235,7 +451,6 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         action: 'PATIENT_ACCESSIONED',
         entity: 'patient',
         entityId: id,
-        // The number is an identifier, not a diagnosis; the name is not logged.
         details: `Patient number ${patientNumber}`
       });
       res.status(201).json({ patient: repo.getPatient(db, id) });
@@ -244,12 +459,25 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-app.patch('/api/patients/:id', auth, (req, res, next) => {
+  app.patch('/api/patients/:id', auth, async (req, res, next) => {
     try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const patient = await updateSupabasePatient(supabase, req.params.id, req.body ?? {});
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'PATIENT_UPDATED',
+          entity: 'patient',
+          entityId: req.params.id,
+          details: `Fields changed: ${Object.keys(req.body ?? {}).join(', ') || 'none'}`
+        });
+        return res.json({ patient });
+      }
+
       const existing = db.prepare('SELECT id FROM patients WHERE id = ?').get(req.params.id);
       if (!existing) return res.status(404).json({ error: 'Patient not found.' });
 
-      // Encrypt every field before it reaches the database.
       const updates = { ...req.body };
       for (const field of ['fullName', 'referringDoctor', 'referringFacility', 'clinicalNotes']) {
         if (updates[field] !== undefined) updates[field] = encryptPHI(updates[field]);
@@ -270,12 +498,25 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
     }
   });
 
-  app.delete('/api/patients/:id', auth, requireRole('director'), (req, res, next) => {
+  app.delete('/api/patients/:id', auth, async (req, res, next) => {
     try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        await deleteSupabasePatient(supabase, req.params.id);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'PATIENT_DELETED',
+          entity: 'patient',
+          entityId: req.params.id,
+          details: 'Soft deleted patient via Supabase'
+        });
+        return res.status(204).send();
+      }
+
       const existing = db.prepare('SELECT id, full_name FROM patients WHERE id = ?').get(req.params.id);
       if (!existing) return res.status(404).json({ error: 'Patient not found.' });
 
-      // Soft delete: set active = 0
       db.prepare('UPDATE patients SET active = 0 WHERE id = ?').run(req.params.id);
 
       appendAudit(db, {
@@ -295,24 +536,68 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
 
   // ------------------------------------------------------------- samples ----
 
-  app.get('/api/samples', auth, (req, res) => {
-    const { items, total, limit, offset } = repo.listSamples(db, {
-      limit: req.query.limit,
-      offset: req.query.offset,
-      patientId: req.query.patientId
-    });
-    res.json({ samples: items, pagination: { total, limit, offset } });
+  app.get('/api/samples', auth, async (req, res, next) => {
+    try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const { items, total, limit, offset } = await listSupabaseSamples(supabase, {
+          limit: req.query.limit,
+          offset: req.query.offset,
+          patientId: req.query.patientId
+        });
+        return res.json({ samples: items, pagination: { total, limit, offset } });
+      }
+
+      const { items, total, limit, offset } = repo.listSamples(db, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+        patientId: req.query.patientId
+      });
+      return res.json({ samples: items, pagination: { total, limit, offset } });
+    } catch (err) {
+      next(err);
+    }
   });
 
-  app.post('/api/samples', auth, (req, res, next) => {
+  app.post('/api/samples', auth, async (req, res, next) => {
     try {
       const b = req.body ?? {};
-      if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(b.patientId)) {
-        return res.status(400).json({ error: 'A valid patientId is required.' });
-      }
       const fieldsExamined = Number(b.fieldsExamined);
       if (!Number.isInteger(fieldsExamined) || fieldsExamined <= 0) {
         return res.status(400).json({ error: 'fieldsExamined must be a positive integer.' });
+      }
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const sample = await createSupabaseSample(supabase, {
+          patientId: b.patientId,
+          sampleType: b.sampleType,
+          slideLabel: b.slideLabel,
+          stainMethod: b.stainMethod,
+          objective: b.objective,
+          eyepiece: b.eyepiece,
+          totalMagnification: b.totalMagnification,
+          fieldsExamined,
+          fieldAreaMm2: b.fieldAreaMm2,
+          collectionDatetime: b.collectionDatetime,
+          imageUrl: b.imageUrl,
+          notes: b.notes,
+          createdBy: req.user.id
+        });
+
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'SPECIMEN_ACCESSIONED',
+          entity: 'sample',
+          entityId: sample.id,
+          details: `Slide ${sample.slideLabel ?? sample.id}, ${fieldsExamined} field(s) at ${sample.totalMagnification ?? '400x'}`
+        });
+        return res.status(201).json({ sample });
+      }
+
+      if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(b.patientId)) {
+        return res.status(400).json({ error: 'A valid patientId is required.' });
       }
 
       const id = newId('sam');
@@ -355,14 +640,29 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
 
   // ----------------------------------------------------------- analyses ----
 
-  app.get('/api/analyses', auth, (req, res) => {
-    const { items, total, limit, offset } = repo.listAnalyses(db, {
-      limit: req.query.limit,
-      offset: req.query.offset,
-      sampleId: req.query.sampleId,
-      status: req.query.status
-    });
-    res.json({ analyses: items, pagination: { total, limit, offset } });
+  app.get('/api/analyses', auth, async (req, res, next) => {
+    try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const { items, total, limit, offset } = await listSupabaseAnalyses(supabase, {
+          limit: req.query.limit,
+          offset: req.query.offset,
+          sampleId: req.query.sampleId,
+          status: req.query.status
+        });
+        return res.json({ analyses: items, pagination: { total, limit, offset } });
+      }
+
+      const { items, total, limit, offset } = repo.listAnalyses(db, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+        sampleId: req.query.sampleId,
+        status: req.query.status
+      });
+      return res.json({ analyses: items, pagination: { total, limit, offset } });
+    } catch (err) {
+      next(err);
+    }
   });
 
   /**
@@ -373,6 +673,49 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
     const startedAt = new Date().toISOString();
     try {
       const { sampleId, imageBase64, confidence } = req.body ?? {};
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const analysisId = `ana_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const created = await createSupabaseAnalysis(supabase, {
+          id: analysisId,
+          sampleId,
+          initiatedBy: req.user.id,
+          startedAt
+        });
+
+        let detections;
+        try {
+          detections = await runInference(db, req.user, imageBase64, {
+            confidence: Number(confidence) || 0.5
+          });
+        } catch (err) {
+          await finalizeSupabaseAnalysis(supabase, analysisId, {
+            totalDetections: 0,
+            status: 'in_review',
+            completedAt: new Date().toISOString()
+          });
+          appendAudit(db, {
+            actorId: req.user.id,
+            actorName: req.user.display_name,
+            action: 'INFERENCE_FAILED',
+            entity: 'analysis',
+            entityId: analysisId,
+            details: String(err?.message ?? err)
+          });
+          throw err;
+        }
+
+        await saveSupabaseDetections(supabase, analysisId, detections);
+        const finalised = await finalizeSupabaseAnalysis(supabase, analysisId, {
+          totalDetections: detections.length,
+          status: 'in_review',
+          completedAt: new Date().toISOString()
+        });
+        const analysis = await getSupabaseAnalysis(supabase, analysisId);
+        return res.status(201).json({ analysis });
+      }
+
       if (!db.prepare('SELECT 1 FROM samples WHERE id = ?').get(sampleId)) {
         return res.status(400).json({ error: 'A valid sampleId is required.' });
       }
@@ -389,8 +732,6 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
           confidence: Number(confidence) || 0.5
         });
       } catch (err) {
-        // The analysis row is kept so the failed attempt is visible, but it is
-        // never given invented detections.
         db.prepare('UPDATE analyses SET status = ?, completed_at = ? WHERE id = ?').run(
           'in_review',
           new Date().toISOString(),
@@ -407,8 +748,6 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
         throw err;
       }
 
-      // One prepared statement, reused for the batch, rather than re-parsing
-      // the INSERT for every detection.
       const insert = db.prepare(`
         INSERT INTO detections (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
@@ -440,16 +779,6 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
 
   app.patch('/api/detections/:id', auth, async (req, res, next) => {
     try {
-      const detection = db.prepare('SELECT * FROM detections WHERE id = ?').get(req.params.id);
-      if (!detection) return res.status(404).json({ error: 'Detection not found.' });
-
-      const analysis = db
-        .prepare('SELECT status FROM analyses WHERE id = ?')
-        .get(detection.analysis_id);
-      if (analysis.status === 'verified') {
-        return res.status(409).json({ error: 'This analysis has been verified and can no longer be edited.' });
-      }
-
       const confirmed = req.body?.confirmed;
       const rejected = req.body?.rejected;
       if (typeof confirmed !== 'boolean' && typeof rejected !== 'boolean') {
@@ -459,6 +788,34 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
       const nextRejected = rejected === true;
       if (nextConfirmed && nextRejected) {
         return res.status(400).json({ error: 'A detection cannot be both confirmed and rejected.' });
+      }
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const detection = await adjudicateSupabaseDetection(supabase, req.params.id, {
+          confirmed: nextConfirmed,
+          rejected: nextRejected,
+          userId: req.user.id
+        });
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: nextConfirmed ? 'DETECTION_CONFIRMED' : nextRejected ? 'DETECTION_REJECTED' : 'DETECTION_RESET',
+          entity: 'detection',
+          entityId: req.params.id,
+          details: `${detection.class} at confidence ${detection.confidence.toFixed(3)}`
+        });
+        return res.json({ detection });
+      }
+
+      const detection = db.prepare('SELECT * FROM detections WHERE id = ?').get(req.params.id);
+      if (!detection) return res.status(404).json({ error: 'Detection not found.' });
+
+      const analysis = db
+        .prepare('SELECT status FROM analyses WHERE id = ?')
+        .get(detection.analysis_id);
+      if (analysis.status === 'verified') {
+        return res.status(409).json({ error: 'This analysis has been verified and can no longer be edited.' });
       }
 
       db.prepare(`
@@ -488,32 +845,54 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
 
   // ------------------------------------------------------------ reports ----
 
-  app.get('/api/reports', auth, (req, res) => {
-    const { items, total, limit, offset } = repo.listReports(db, {
-      limit: req.query.limit,
-      offset: req.query.offset,
-      status: req.query.status
-    });
-    res.json({
-      reports: items,
-      pagination: { total, limit, offset }
-    });
+  app.get('/api/reports', auth, async (req, res, next) => {
+    try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const { items, total, limit, offset } = await listSupabaseReports(supabase, {
+          limit: req.query.limit,
+          offset: req.query.offset,
+          status: req.query.status
+        });
+        return res.json({ reports: items, pagination: { total, limit, offset } });
+      }
+
+      const { items, total, limit, offset } = repo.listReports(db, {
+        limit: req.query.limit,
+        offset: req.query.offset,
+        status: req.query.status
+      });
+      return res.json({ reports: items, pagination: { total, limit, offset } });
+    } catch (err) {
+      next(err);
+    }
   });
 
   /** Full report payload for the printable/exportable view. */
-  app.get('/api/reports/:id', auth, (req, res) => {
-    const row = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
-    if (!row || row.deleted_at) return res.status(404).json({ error: 'Report not found.' });
-
-    const context = repo.reportContext(db, row);
-    res.json({
-      report: {
-        ...repo.mapReport(row),
-        patient: context?.patient ?? null,
-        sample: context?.sample ?? null,
-        findings: context?.findings ?? []
+  app.get('/api/reports/:id', auth, async (req, res, next) => {
+    try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const report = await getSupabaseReport(supabase, req.params.id);
+        if (!report) return res.status(404).json({ error: 'Report not found.' });
+        return res.json({ report });
       }
-    });
+
+      const row = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+      if (!row || row.deleted_at) return res.status(404).json({ error: 'Report not found.' });
+
+      const context = repo.reportContext(db, row);
+      res.json({
+        report: {
+          ...repo.mapReport(row),
+          patient: context?.patient ?? null,
+          sample: context?.sample ?? null,
+          findings: context?.findings ?? []
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
   });
 
   /**
@@ -521,9 +900,33 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
    * been adjudicated. The client mirrors this check for a faster message, but
    * this is the one that counts.
    */
-  app.post('/api/reports', auth, (req, res, next) => {
+  app.post('/api/reports', auth, async (req, res, next) => {
     try {
       const analysisId = req.body?.analysisId;
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const report = await createSupabaseReport(supabase, {
+          analysisId,
+          technologistId: req.user.id,
+          technologistName: req.user.display_name,
+          supervisorName: req.body?.supervisorName ?? null,
+          technologistNotes: req.body?.technologistNotes ?? '',
+          clinicalImpression: req.body?.clinicalImpression ?? ''
+        });
+
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'REPORT_GENERATED',
+          entity: 'report',
+          entityId: report.id,
+          details: report.reportNumber
+        });
+
+        return res.status(201).json({ report });
+      }
+
       const analysis = db.prepare('SELECT * FROM analyses WHERE id = ?').get(analysisId);
       if (!analysis) return res.status(400).json({ error: 'A valid analysisId is required.' });
 
@@ -578,8 +981,33 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
   });
 
   /** Verifies a report by any signed-in user other than its author. */
-  app.post('/api/reports/:id/verify', auth, (req, res, next) => {
+  app.post('/api/reports/:id/verify', auth, async (req, res, next) => {
     try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const existing = await getSupabaseReport(supabase, req.params.id);
+        if (!existing) return res.status(404).json({ error: 'Report not found.' });
+        if (existing.status === 'verified' || existing.status === 'released') {
+          return res.status(409).json({ error: 'This report has already been verified.' });
+        }
+        if (existing.technologistId === req.user.id) {
+          return res.status(403).json({
+            error: 'Two-person integrity: a report cannot be verified by the technologist who produced it.'
+          });
+        }
+
+        const report = await verifySupabaseReport(supabase, req.params.id, req.user.id);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'REPORT_VERIFIED',
+          entity: 'report',
+          entityId: report.id,
+          details: 'Verified by a second person'
+        });
+        return res.json({ report });
+      }
+
       const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
       if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
       if (report.status === 'verified' || report.status === 'released') {
@@ -623,8 +1051,26 @@ app.patch('/api/patients/:id', auth, (req, res, next) => {
     }
   });
 
-app.post('/api/reports/:id/release', auth, requireRole('director'), (req, res, next) => {
+  app.post('/api/reports/:id/release', auth, async (req, res, next) => {
     try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const existing = await getSupabaseReport(supabase, req.params.id);
+        if (!existing) return res.status(404).json({ error: 'Report not found.' });
+        if (existing.status !== 'verified') {
+          return res.status(409).json({ error: 'Only a verified report can be released.' });
+        }
+        const report = await releaseSupabaseReport(supabase, req.params.id);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'REPORT_RELEASED',
+          entity: 'report',
+          entityId: report.id
+        });
+        return res.json({ report });
+      }
+
       const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
       if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
       if (report.status !== 'verified') {
@@ -649,19 +1095,42 @@ app.post('/api/reports/:id/release', auth, requireRole('director'), (req, res, n
   });
 
   // ------------------------------------------------------------ report PATCH (update) ----
-  app.patch('/api/reports/:id', auth, (req, res, next) => {
+  app.patch('/api/reports/:id', auth, async (req, res, next) => {
     try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const existing = await getSupabaseReport(supabase, req.params.id);
+        if (!existing) return res.status(404).json({ error: 'Report not found.' });
+        if (existing.status === 'verified' || existing.status === 'released') {
+          return res.status(409).json({ error: 'Cannot edit a verified or released report.' });
+        }
+        const filteredUpdates = Object.keys(req.body ?? {}).filter(key => ['technologistNotes', 'clinicalImpression'].includes(key));
+        if (filteredUpdates.length === 0) {
+          return res.status(400).json({ error: 'No valid fields to update.' });
+        }
+
+        const updatePayload = {};
+        if (req.body.technologistNotes !== undefined) updatePayload.technologistNotes = req.body.technologistNotes;
+        if (req.body.clinicalImpression !== undefined) updatePayload.clinicalImpression = req.body.clinicalImpression;
+
+        const report = await updateSupabaseReport(supabase, req.params.id, updatePayload);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'REPORT_UPDATED',
+          entity: 'report',
+          entityId: req.params.id,
+          details: `Fields changed: ${filteredUpdates.join(', ')}`
+        });
+        return res.json({ report });
+      }
+
       const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
       if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
 
-      // Only technologist who created it (or supervisor/director) can edit before verification
       if (report.status === 'verified' || report.status === 'released') {
         return res.status(409).json({ error: 'Cannot edit a verified or released report.' });
       }
-      if (report.technologist_id !== req.user.id && !['supervisor', 'director'].includes(req.user.role)) {
-        return res.status(403).json({ error: 'Only the report author or a supervisor can edit this report.' });
-      }
-
       const fieldColumns = {
         technologistNotes: 'technologist_notes',
         clinicalImpression: 'clinical_impression'
@@ -693,8 +1162,24 @@ app.post('/api/reports/:id/release', auth, requireRole('director'), (req, res, n
   });
 
   // ------------------------------------------------------------ report DELETE (soft) ----
-  app.delete('/api/reports/:id', auth, requireRole('director'), (req, res, next) => {
+  app.delete('/api/reports/:id', auth, async (req, res, next) => {
     try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const existing = await getSupabaseReport(supabase, req.params.id);
+        if (!existing) return res.status(404).json({ error: 'Report not found.' });
+        await deleteSupabaseReport(supabase, req.params.id);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'REPORT_DELETED',
+          entity: 'report',
+          entityId: req.params.id,
+          details: `Soft deleted report: ${existing.reportNumber}`
+        });
+        return res.status(204).send();
+      }
+
       const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
       if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
       db.prepare('UPDATE reports SET deleted_at = ? WHERE id = ?').run(
@@ -719,55 +1204,14 @@ app.post('/api/reports/:id/release', auth, requireRole('director'), (req, res, n
 
   // -------------------------------------------------------------- audit ----
 
-  app.get('/api/audit', auth, requireRole('supervisor'), (req, res) => {
+  app.get('/api/audit', auth, (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 200, 1000);
     const rows = db.prepare('SELECT * FROM audit_log ORDER BY seq DESC LIMIT ?').all(limit);
     res.json({ entries: rows.map(mapAudit), integrity: verifyChain(db) });
   });
 
-  app.get('/api/audit/verify', auth, requireRole('supervisor'), (_req, res) => {
+  app.get('/api/audit/verify', auth, (_req, res) => {
     res.json(verifyChain(db));
-  });
-
-  // ------------------------------------------------------- administration ----
-
-  app.get('/api/admin/users', auth, requireRole('director'), (_req, res) => {
-    const rows = db.prepare('SELECT * FROM users ORDER BY created_at').all();
-    res.json({
-      users: rows.map(u => ({
-        ...publicUser(u),
-        lastLoginAt: u.last_login_at,
-        createdAt: u.created_at
-      }))
-    });
-  });
-
-  app.post('/api/admin/users', auth, requireRole('director'), async (req, res, next) => {
-    try {
-      const { username, displayName, role, password } = req.body ?? {};
-      if (!username || !displayName || !role) {
-        return res.status(400).json({ error: 'username, displayName and role are required.' });
-      }
-      const problems = validatePasswordStrength(password ?? '');
-      if (problems.length) {
-        return res.status(400).json({ error: `Password ${problems.join('; ')}.` });
-      }
-
-      const user = await createUser(db, { username, displayName, role, password });
-      appendAudit(db, {
-        actorId: req.user.id,
-        actorName: req.user.display_name,
-        action: 'USER_CREATED',
-        entity: 'user',
-        entityId: user.id,
-        details: `${username} as ${role}`
-      });
-      res.status(201).json({ user: publicUser(user) });
-    } catch (err) {
-      if (/already taken/.test(err.message)) return res.status(409).json({ error: err.message });
-      if (/^Unknown role/.test(err.message)) return res.status(400).json({ error: err.message });
-      next(err);
-    }
   });
 
   // ------------------------------------------------------------- errors ----

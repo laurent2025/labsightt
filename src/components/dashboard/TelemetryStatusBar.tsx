@@ -30,7 +30,7 @@ export const TelemetryStatusBar: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     systemApi.status().then(s => !cancelled && setStatus(s)).catch(() => {});
-    if (user && user.role !== 'Medical Laboratory Technologist') {
+    if (user) {
       auditApi.verify().then(r => !cancelled && setIntegrity(r)).catch(() => {});
     }
     return () => {
@@ -204,7 +204,7 @@ export const TelemetryStatusBar: React.FC = () => {
                   <div className="text-[11px] text-slate-400">
                     {integrity
                       ? `${integrity.total} entries, hash chain recomputed server-side`
-                      : 'Requires a supervisor or director role'}
+                      : 'Sign in to verify the audit chain'}
                   </div>
                 </div>
               </div>

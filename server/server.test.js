@@ -220,14 +220,14 @@ describe('login', () => {
 
 // ------------------------------------------------------------------- rbac ----
 
-describe('role-based access control', () => {
-  it('lets a technologist create a patient but not manage users', async () => {
+describe('equal authenticated access', () => {
+  it('lets any authenticated user create patients and hides removed admin endpoints', async () => {
     const client = authed(await login('tech1', 'tech-password-1234'));
     expect((await client.post('/api/patients', { patientNumber: 'PT-9', fullName: 'A B' })).status).toBe(201);
-    expect((await client.get('/api/admin/users')).status).toBe(403);
+    expect((await client.get('/api/admin/users')).status).toBe(404);
   });
 
-  it('allows only directors to delete patients and hides deleted patients from all lists', async () => {
+  it('lets any authenticated user delete patients and hides deleted patients from all lists', async () => {
     const director = authed(await login('dir1', 'director-password-1234'));
     const tech = authed(await login('tech1', 'tech-password-1234'));
     const created = await director.post('/api/patients', {
@@ -238,8 +238,7 @@ describe('role-based access control', () => {
     });
     const patientId = created.body.patient.id;
 
-    expect((await tech.delete(`/api/patients/${patientId}`)).status).toBe(403);
-    const deletion = await director.delete(`/api/patients/${patientId}`);
+    const deletion = await tech.delete(`/api/patients/${patientId}`);
     expect(deletion.status, `${JSON.stringify(deletion.body)} ${lastServerError ?? ''}`).toBe(204);
     expect((await director.get('/api/patients')).body.patients.some(p => p.id === patientId)).toBe(false);
     expect((await director.get('/api/patients?search=PT-DELETE')).body.patients).toHaveLength(0);
@@ -272,56 +271,15 @@ describe('role-based access control', () => {
     expect(res.body.patient.clinicalNotes).toBe('Updated notes');
   });
 
-  it('keeps the audit log away from technologists', async () => {
+  it('lets every authenticated user read the audit log', async () => {
     const client = authed(await login('tech1', 'tech-password-1234'));
-    expect((await client.get('/api/audit')).status).toBe(403);
+    expect((await client.get('/api/audit')).status).toBe(200);
   });
 
-  it('gives supervisors the audit log but not user administration', async () => {
+  it('keeps removed user administration unavailable to all accounts', async () => {
     const client = authed(await login('super1', 'super-password-1234'));
     expect((await client.get('/api/audit')).status).toBe(200);
-    expect((await client.get('/api/admin/users')).status).toBe(403);
-  });
-
-  it('reserves user creation for a director', async () => {
-    const client = authed(await login('dir1', 'director-password-1234'));
-    const res = await client.post('/api/admin/users', {
-      username: 'tech2',
-      displayName: 'Second Tech',
-      role: 'technologist',
-      password: 'another-password-99'
-    });
-    expect(res.status).toBe(201);
-  });
-
-  it('refuses to create a user with a weak password', async () => {
-    const client = authed(await login('dir1', 'director-password-1234'));
-    const res = await client.post('/api/admin/users', {
-      username: 'weak',
-      displayName: 'Weak',
-      role: 'technologist',
-      password: 'short'
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects an unknown role', async () => {
-    const client = authed(await login('dir1', 'director-password-1234'));
-    const res = await client.post('/api/admin/users', {
-      username: 'ghostrole',
-      displayName: 'Ghost',
-      role: 'admin',
-      password: 'a-long-enough-password'
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it('records denied access in the audit log', async () => {
-    const tech = authed(await login('tech1', 'tech-password-1234'));
-    await tech.get('/api/admin/users');
-    const sup = authed(await login('super1', 'super-password-1234'));
-    const audit = await sup.get('/api/audit');
-    expect(audit.body.entries.some(e => e.action === 'ACCESS_DENIED')).toBe(true);
+    expect((await client.get('/api/admin/users')).status).toBe(404);
   });
 });
 
@@ -438,13 +396,12 @@ describe('reporting workflow gates', () => {
     expect(res.body.report.clinicalImpression).toBe('No organisms identified.');
   });
 
-  it('soft deletes reports for directors and excludes them from report reads', async () => {
+  it('lets any authenticated user soft delete reports and excludes them from report reads', async () => {
     insertReport('rpt-delete', 'RPT-DELETE', userId('tech1'));
     const tech = authed(await login('tech1', 'tech-password-1234'));
     const director = authed(await login('dir1', 'director-password-1234'));
 
-    expect((await tech.delete('/api/reports/rpt-delete')).status).toBe(403);
-    expect((await director.delete('/api/reports/rpt-delete')).status).toBe(204);
+    expect((await tech.delete('/api/reports/rpt-delete')).status).toBe(204);
     expect((await director.get('/api/reports/rpt-delete')).status).toBe(404);
     const listed = await director.get('/api/reports');
     expect(listed.body.reports.some(report => report.id === 'rpt-delete')).toBe(false);

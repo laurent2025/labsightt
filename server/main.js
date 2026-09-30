@@ -31,12 +31,11 @@ installImmutabilityGuards(db);
 const app = createApp({ dbPath: DB_PATH, logger });
 
 /**
- * The three roles, so a fresh install can exercise the whole workflow.
+ * Legacy SQLite fallback accounts, only when Supabase Auth is disabled.
  *
- * A technologist runs analysis, a supervisor verifies, and only a director
- * releases. Seeding one account per role is what makes the two-person
- * verification gate testable: verifying with the same identity that originated
- * the analysis is refused, so a single operator cannot complete a release.
+ * These role-labelled accounts are not used by the Supabase signup flow.
+ * Supabase users all receive the same access; report authors still cannot
+ * verify their own reports.
  *
  * Passwords come from the environment. A missing one is generated and printed,
  * never defaulted to a guessable constant.
@@ -66,7 +65,7 @@ const BOOTSTRAP_ROLES = [
 ];
 
 /**
- * Creates any missing role account.
+ * Creates any missing account for legacy SQLite development.
  *
  * Idempotent by username, not gated on the table being empty: an install that
  * already has a director but no supervisor gets the supervisor without anyone
@@ -124,7 +123,11 @@ async function bootstrapRoles() {
   console.log('  Change these after signing in. They are recorded in the audit log.\n');
 }
 
-await bootstrapRoles();
+if (process.env.USE_SUPABASE_AUTH === 'true') {
+  console.log('Supabase email authentication enabled; SQLite bootstrap accounts are disabled.');
+} else {
+  await bootstrapRoles();
+}
 
 const server = app.listen(PORT, () => {
   const configured = Boolean(process.env.ROBOFLOW_API_KEY);

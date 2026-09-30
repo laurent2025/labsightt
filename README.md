@@ -16,10 +16,10 @@ Two processes. The split is what makes the security properties real.
 ```
 Browser (Vite, :3000)  ──proxy /api──▶  API server (Node, :4000)
   React UI                                  │
-  session cookie (httpOnly)                 ├─ SQLite  → ./data/labsight.db
-  NO patient names (encrypted server-side)  │    patient name, DOB, contact  → AES-256-GCM
+  session cookie (httpOnly)                 ├─ Supabase Auth + clinical tables
+  NO patient names (encrypted server-side)  ├─ PHI encryption → AES-256-GCM
   NO model credential                       ├─ name blind index → HMAC-SHA256
-                                            ├─ audit_log (append-only, hash-chained)
+                                            ├─ local audit_log (append-only, hash-chained)
                                             └─ Roboflow inference (credential never leaves)
 ```
 
@@ -34,11 +34,24 @@ origin. Both are now server-side.
 
 **Prerequisites:** Node.js 22.5 or newer (for the built-in `node:sqlite`).
 
-The server needs an encryption key before it will start. Generate one:
+Copy the environment template, generate a PHI key, and add your Supabase project
+URL and keys to `.env`. Keep the service-role key only in this server-side file.
+The template enables Supabase by default.
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+If you do not already have `.env`, copy the template with PowerShell:
+
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Paste the generated value into `PHI_ENCRYPTION_KEY` in `.env`, then fill in
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and the matching
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. In Supabase Auth URL settings,
+allow `http://localhost:3000/` as a redirect URL.
 
 ```bash
 npm install
@@ -48,25 +61,81 @@ npm run dev:all
 - Web UI: <http://localhost:3000/>
 - API: <http://localhost:4000/api>
 
-On the very first run the server creates one account per role and prints the
-passwords. Sign in, then change them with the key icon in the header.
+For local email verification, keep `SUPABASE_AUTH_REDIRECT_URL=http://localhost:3000/`,
+`CORS_ORIGINS=http://localhost:3000`, and
+`SESSION_COOKIE_SAME_SITE=strict` in `.env`. The Vite server proxies `/api` to
+the local API, so do not set `VITE_API_URL` locally.
 
-| Username | Role | Can do |
-| --- | --- | --- |
-| `tech` | technologist | Accession, run analysis, adjudicate detections. |
-| `supervisor` | supervisor | Everything above, plus verify a report. |
-| `director` | director | Everything above, plus release a verified report. |
+### Deploying the web client to Vercel
 
-All three are needed to exercise the two-person verification gate: a report
-cannot be verified by the technologist who originated it, and only a director
-can release it. Usernames and passwords come from `.env`
-(`BOOTSTRAP_TECH_*`, `BOOTSTRAP_SUPERVISOR_*`, `BOOTSTRAP_DIRECTOR_*`); leave a
-password blank to have a strong one generated and printed instead.
+Vercel hosts the Vite frontend; it does not run this Express API as part of the
+static deployment. Deploy the Express API separately on a Node 22.5+ host with
+persistent storage for its local audit database. Use `npm start` as its start
+command; this uses the host's injected environment instead of requiring a
+`.env` file. Set the following variables on the API host (replace the sample values):
 
-Bootstrap is idempotent by username: it creates only the accounts that are
-missing. An existing account is never modified, so these variables cannot reset
-a password you have already changed. Deleting an account requires a direct
-database edit.
+```env
+NODE_ENV=production
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-rotated-service-role-key
+USE_SUPABASE_AUTH=true
+USE_SUPABASE_DB=true
+SUPABASE_AUTH_REDIRECT_URL=https://your-app.vercel.app/
+CORS_ORIGINS=https://your-app.vercel.app
+SESSION_COOKIE_SAME_SITE=none
+PHI_ENCRYPTION_KEY=your-generated-32-byte-key
+ROBOFLOW_API_KEY=your-server-only-inference-key
+```
+
+Set these variables in the Vercel project for **Production** and **Preview** as
+needed, then redeploy:
+
+```env
+VITE_API_URL=https://your-api-host.example.com/api
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+In Supabase Auth URL settings, set the deployed site URL and allow both
+`https://your-app.vercel.app/` and `http://localhost:3000/` as redirect URLs.
+The API must allow the exact Vercel origin through `CORS_ORIGINS`. Production
+cookies are `Secure` and `HttpOnly`; `SameSite=None` is required for separate
+frontend/API origins. Prefer a custom frontend/API domain on the same site or
+proxy `/api` through the frontend because some browsers block third-party
+cookies. Redeploy Vercel after changing any `VITE_` variable.
+
+### Supabase auth and database setup
+
+To use Supabase for authentication and clinical data, set `SUPABASE_URL` to the
+project root URL (for example, `https://project-ref.supabase.co`), plus
+`SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `USE_SUPABASE_AUTH=true`, and
+`USE_SUPABASE_DB=true` on the API host. The service-role key must never be put
+in a `VITE_` variable or committed to source control. Set only
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the frontend deployment.
+The SDK also normalizes a mistakenly supplied `/rest/v1/` suffix. In Supabase
+Auth settings, enable email confirmations and configure the confirmation email
+redirect to `SUPABASE_AUTH_REDIRECT_URL`. Signup sends a verification email; any
+verified email account can then sign in with the same access as every other user.
+
+Run the complete `supabase/schema.sql` in the Supabase SQL editor. It enables
+RLS on all app tables without public policies and installs a trigger that
+creates a profile for each new Auth user. The API accesses clinical data with
+the server-only service-role key. Re-run the schema after upgrading this app so
+the role-free profile definition and trigger are applied.
+
+Users create accounts from the sign-in screen with an email address and
+password. No role selection, invitation, approval, or separate account setup is
+required. The only signup step is verifying the email address.
+
+For reliable cookie support, use a custom domain with the frontend and API on
+the same site (such as `app.example.com` and `api.example.com`) or proxy `/api`
+through the frontend origin. Some browsers block third-party cookies when the
+Vercel and API hosts are unrelated sites.
+
+When `USE_SUPABASE_AUTH=true`, all interactive sign-in uses a verified email
+address. The legacy SQLite username bootstrap runs only when Supabase Auth is
+disabled and is not part of the recommended local or deployed setup.
 
 Health probes for a process supervisor: `GET /healthz` (process alive) and
 `GET /readyz` (database reachable and migrations applied). Both are
@@ -166,13 +235,13 @@ calling the API directly does not bypass them.
 | Control | Enforcement |
 | --- | --- |
 | Authentication | scrypt password hashing, httpOnly `SameSite=Strict` session cookie, 8-hour expiry, server-side session table storing only a token hash. |
-| Authorization | Role hierarchy (technologist < supervisor < director) evaluated per request. The client cannot assert a role. |
+| Authorization | All authenticated users have equal access. Supabase email verification is required to sign in. |
 | Encryption at rest | Patient name, date of birth, and contact fields are AES-256-GCM encrypted with a 12-byte IV and a 16-byte auth tag per value, under a key derived from `PHI_ENCRYPTION_KEY`. Tampering is detected on read. The server refuses to start if that variable is missing. |
 | Report gate | Generation returns 409 while any detection in the analysis is unadjudicated. |
-| Two-person integrity | Verification requires a supervisor *and* a verifier who is not the originating technologist. Self-verification is refused and audited. |
-| Release | Only a director can release, and only a verified report can be released. |
+| Report verification | Any authenticated user may verify a report, except its originating author. Self-verification is refused and audited. |
+| Release | Any authenticated user can release a verified report. |
 | Locking | A verified analysis rejects further detection edits (409). |
-| Access auditing | Denied access attempts are written to the audit log. |
+| Access auditing | Authenticated actions and refused report self-verification are written to the audit log. |
 | Credential containment | The inference key is read from the server environment only. No endpoint returns it. A client-supplied key is ignored. |
 | Rate limiting | Login is limited to 10 attempts per account and 60 per IP per 15 minutes. |
 | Response hardening | Every response carries `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, a CSP, and a per-request `X-Request-Id` that is also logged. |
@@ -253,7 +322,7 @@ server/
   index.js        Express app: routes, workflow gates, RBAC wiring
   main.js         Entrypoint: encryption self-test, bootstrap, listen, shutdown
   db.js           Schema, versioned migrations, indexes, append-only triggers, WAL
-  auth.js         Sessions, scrypt verification, role middleware, expiry sweep
+  auth.js         Sessions, scrypt verification, authentication middleware, expiry sweep
   crypto.js       Password hashing, token generation, strength policy
   encryption.js   AES-256-GCM PHI crypto, tamper detection, HMAC blind index
   repository.js   All SQL: pagination, search, batching, server-side quantification

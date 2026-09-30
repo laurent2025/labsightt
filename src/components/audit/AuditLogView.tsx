@@ -47,7 +47,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => {
           <thead>
             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
               <th className="py-3 px-4 font-semibold">Timestamp (UTC)</th>
-              <th className="py-3 px-4 font-semibold">Operator & Role</th>
+              <th className="py-3 px-4 font-semibold">Operator</th>
               <th className="py-3 px-4 font-semibold">Event Action</th>
               <th className="py-3 px-4 font-semibold">Audit Event Description</th>
             </tr>
@@ -61,7 +61,6 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => {
 
                 <td className="py-3 px-4 whitespace-nowrap">
                   <div className="font-semibold text-slate-900 font-sans">{log.userName}</div>
-                  <div className="text-[11px] text-slate-400 font-sans">{log.role}</div>
                 </td>
 
                 <td className="py-3 px-4 whitespace-nowrap">

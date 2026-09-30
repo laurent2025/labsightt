@@ -35,13 +35,9 @@ import {
   type AuditEntry
 } from '../services/api';
 
-export type UserRole = 'Medical Laboratory Technologist' | 'Pathologist / Supervisor' | 'Lab Director';
-
 export interface UserSession {
   id: string;
   name: string;
-  role: UserRole;
-  username: string;
 }
 
 export class ReportGateError extends Error {
@@ -51,26 +47,11 @@ export class ReportGateError extends Error {
   }
 }
 
-const ROLE_LABELS: Record<SessionUser['role'], UserRole> = {
-  technologist: 'Medical Laboratory Technologist',
-  supervisor: 'Pathologist / Supervisor',
-  director: 'Lab Director'
-};
-
 export function toUserSession(user: SessionUser): UserSession {
   return {
     id: user.id,
-    name: user.displayName,
-    role: ROLE_LABELS[user.role],
-    username: user.username
+    name: user.displayName
   };
-}
-
-export function roleRank(session: UserSession | null): 0 | 1 | 2 | 3 {
-  if (!session) return 0;
-  if (session.role === 'Medical Laboratory Technologist') return 1;
-  if (session.role === 'Pathologist / Supervisor') return 2;
-  return 3;
 }
 
 export interface LabStoreValue {
@@ -90,7 +71,7 @@ export interface LabStoreValue {
   /** Entity ids with an in-flight write, so controls can disable themselves. */
   pendingIds: Set<string>;
 
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 
@@ -246,9 +227,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       setAuditLogs([]);
     }
   }, [user, refresh]);
-  // Supervisors and above can read the audit trail.
   useEffect(() => {
-    if (!user || roleRank(user) < 2) {
+    if (!user) {
       setAuditLogs([]);
       return;
     }
@@ -266,8 +246,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     };
   }, [user, analyses.length]);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const { user: sessionUser } = await authApi.login(username, password);
+  const login = useCallback(async (email: string, password: string) => {
+    const { user: sessionUser } = await authApi.login(email, password);
     setUser(toUserSession(sessionUser));
     setStorageIssue(null);
   }, []);
@@ -639,7 +619,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       logout,
       changePassword,
       refresh,
-      canVerifyReports: roleRank(user) >= 2,
+      canVerifyReports: Boolean(user),
       isSelf,
       patientSearch,
       setPatientSearch,
@@ -715,7 +695,6 @@ function toAuditLog(entry: AuditEntry): AuditLog {
     timestamp: entry.timestamp,
     userId: entry.actorId ?? 'system',
     userName: entry.actorName ?? 'System',
-    role: '',
     action: entry.action,
     details: [entry.entity, entry.entityId, entry.details].filter(Boolean).join(' · ') || entry.action
   };
