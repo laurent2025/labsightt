@@ -188,8 +188,8 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
       )}
 
       <div className="text-[11px] text-slate-500 font-mono">
-        Signed in as <strong className="text-slate-700">{currentUserName}</strong>. A report can
-        only be verified by a user other than the technologist who prepared it.
+        Signed in as <strong className="text-slate-700">{currentUserName}</strong>. Any signed-in
+        user can verify and authorise reports.
       </div>
 
       {/* Reports Table */}
@@ -224,7 +224,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                         No reports have been finalized yet.
                       </p>
                       <p className="text-[11px] mt-1">
-                        A report appears here once a second technologist or pathologist verifies a
+                        A report appears here once a signed-in user verifies a
                         completed analysis.
                       </p>
                     </>

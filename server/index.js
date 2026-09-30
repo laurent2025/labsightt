@@ -153,7 +153,10 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return res.status(401).json({ error: 'Email or password is incorrect, or the email has not been verified.' });
         }
 
-        const profile = await ensureSupabaseProfile(supabase, data.user);
+        // Fresh admin client: the `supabase` client now holds this user's
+        // session, so any further query on it would be RLS-scoped to that user
+        // instead of running with the service role.
+        const profile = await ensureSupabaseProfile(getSupabaseClient({ admin: true }), data.user);
 
         const expiresAt = new Date(
           (data.session.expires_at ?? Math.floor(Date.now() / 1000) + (data.session.expires_in ?? 8 * 60 * 60)) * 1000
@@ -263,7 +266,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       // database trigger has not been applied.
       if (signUpData?.user) {
         try {
-          await ensureSupabaseProfile(supabase, signUpData.user);
+          // signUp may attach the new user's session to `supabase`; the profile
+          // write must stay on the service role, so use a fresh admin client.
+          await ensureSupabaseProfile(getSupabaseClient({ admin: true }), signUpData.user);
         } catch (profileErr) {
           console.error('[signup] profile pre-creation failed (non-fatal):', profileErr.message);
         }
@@ -990,7 +995,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-  /** Verifies a report by any signed-in user other than its author. */
+  /** Verifies a report; any signed-in user may verify. */
   app.post('/api/reports/:id/verify', auth, async (req, res, next) => {
     try {
       if (hasSupabaseDatabaseConfig()) {
@@ -1000,11 +1005,6 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         if (existing.status === 'verified' || existing.status === 'released') {
           return res.status(409).json({ error: 'This report has already been verified.' });
         }
-        if (existing.technologistId === req.user.id) {
-          return res.status(403).json({
-            error: 'Two-person integrity: a report cannot be verified by the technologist who produced it.'
-          });
-        }
 
         const report = await verifySupabaseReport(supabase, req.params.id, req.user.id);
         appendAudit(db, {
@@ -1013,7 +1013,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           action: 'REPORT_VERIFIED',
           entity: 'report',
           entityId: report.id,
-          details: 'Verified by a second person'
+          details: 'Verified'
         });
         return res.json({ report });
       }
@@ -1022,19 +1022,6 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
       if (report.status === 'verified' || report.status === 'released') {
         return res.status(409).json({ error: 'This report has already been verified.' });
-      }
-      if (report.technologist_id === req.user.id) {
-        appendAudit(db, {
-          actorId: req.user.id,
-          actorName: req.user.display_name,
-          action: 'VERIFICATION_REFUSED',
-          entity: 'report',
-          entityId: report.id,
-          details: 'Self-verification attempt: verifier is the originating technologist'
-        });
-        return res.status(403).json({
-          error: 'Two-person integrity: a report cannot be verified by the technologist who produced it.'
-        });
       }
 
       const now = new Date().toISOString();
@@ -1052,7 +1039,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         action: 'REPORT_VERIFIED',
         entity: 'report',
         entityId: report.id,
-        details: 'Verified by a second person'
+        details: 'Verified'
       });
 
       res.json({ report: repo.getReport(db, report.id) });

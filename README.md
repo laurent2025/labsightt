@@ -2,8 +2,8 @@
 
 A laboratory information system for clinical microscopy: accession a specimen,
 run AI detection over a slide image, adjudicate every proposed bounding box,
-and produce a laboratory report that requires a second person to verify before
-it can be released.
+and produce a laboratory report that any signed-in user can verify before
+it is released.
 
 > **Not a medical device. Not clinically validated. Not accredited.** No
 > performance claim in this system has been measured. Do not use it to make
@@ -238,10 +238,10 @@ calling the API directly does not bypass them.
 | Authorization | All authenticated users have equal access. Supabase email verification is required to sign in. |
 | Encryption at rest | Patient name, date of birth, and contact fields are AES-256-GCM encrypted with a 12-byte IV and a 16-byte auth tag per value, under a key derived from `PHI_ENCRYPTION_KEY`. Tampering is detected on read. The server refuses to start if that variable is missing. |
 | Report gate | Generation returns 409 while any detection in the analysis is unadjudicated. |
-| Report verification | Any authenticated user may verify a report, except its originating author. Self-verification is refused and audited. |
+| Report verification | Any authenticated user may verify a report, including its originating author. |
 | Release | Any authenticated user can release a verified report. |
 | Locking | A verified analysis rejects further detection edits (409). |
-| Access auditing | Authenticated actions and refused report self-verification are written to the audit log. |
+| Access auditing | Authenticated actions are written to the audit log. |
 | Credential containment | The inference key is read from the server environment only. No endpoint returns it. A client-supplied key is ignored. |
 | Rate limiting | Login is limited to 10 attempts per account and 60 per IP per 15 minutes. |
 | Response hardening | Every response carries `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, a CSP, and a per-request `X-Request-Id` that is also logged. |
@@ -360,8 +360,8 @@ issued one query per analysis to load its detections.
 
 - `server/server.test.js` (40) — password hashing, login and session expiry,
   tampered cookies, RBAC boundaries, audit chain tamper detection, report
-  gates, two-person verification, detection locking, and that no endpoint or
-  request path can extract the model credential.
+  gates, verification by any signed-in user, detection locking, and that no
+  endpoint or request path can extract the model credential.
 - `server/operations.test.js` (44) — encryption round-trip and tamper
   detection, blind-index determinism, repository pagination clamping and
   search, per-patient specimen summaries, patient update, rate limiting,

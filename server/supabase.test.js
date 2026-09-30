@@ -3,15 +3,17 @@ import { ensureSupabaseProfile } from './supabase.js';
 
 describe('ensureSupabaseProfile', () => {
   it('creates a profile when the record is missing for a valid auth user', async () => {
-    const insert = vi.fn().mockResolvedValue({
-      data: [{
-        id: 'user-123',
-        email: 'laurent@example.com',
-        username: 'laurent_user_123',
-        display_name: 'Laurent Example'
-      }],
-      error: null
-    });
+    const row = {
+      id: 'user-123',
+      email: 'laurent@example.com',
+      username: 'laurent_user_123',
+      display_name: 'Laurent Example'
+    };
+    // The real client chains `.upsert(...).select(...).single()`.
+    const single = vi.fn().mockResolvedValue({ data: row, error: null });
+    const upsert = vi.fn(() => ({
+      select: vi.fn(() => ({ single }))
+    }));
 
     const from = vi.fn(() => ({
       select: vi.fn(() => ({
@@ -19,7 +21,7 @@ describe('ensureSupabaseProfile', () => {
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null })
         }))
       })),
-      upsert: insert
+      upsert
     }));
 
     const profile = await ensureSupabaseProfile({ from }, {
@@ -28,12 +30,7 @@ describe('ensureSupabaseProfile', () => {
       user_metadata: { display_name: 'Laurent Example' }
     });
 
-    expect(profile).toMatchObject({
-      id: 'user-123',
-      email: 'laurent@example.com',
-      username: 'laurent_user_123',
-      display_name: 'Laurent Example'
-    });
-    expect(insert).toHaveBeenCalled();
+    expect(profile).toMatchObject(row);
+    expect(upsert).toHaveBeenCalled();
   });
 });

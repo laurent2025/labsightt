@@ -184,7 +184,41 @@ const MIGRATIONS = [
     name: 'soft-delete-patients',
     up: `
       ALTER TABLE patients ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
-      CREATE INDEX IF NOT EXISTS idx_patients_active_created ON patients(active, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_patients_active_created ON patients(active, created_at desc);
+    `,
+  },
+  {
+    version: 6,
+    name: 'audit-actor-id-without-local-fk',
+    up: `
+      -- With Supabase auth enabled, audit actors are Supabase user ids that do
+      -- not exist in the local users table, so the local foreign key made every
+      -- appendAudit call fail and turned every clinical write into a 500.
+      -- Rebuild audit_log without the constraint; the hash chain, not the
+      -- foreign key, is the integrity control.
+      CREATE TABLE audit_log_new (
+        seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+        id         TEXT NOT NULL UNIQUE,
+        timestamp  TEXT NOT NULL,
+        actor_id   TEXT,
+        actor_name TEXT,
+        action     TEXT NOT NULL,
+        entity     TEXT,
+        entity_id  TEXT,
+        details    TEXT,
+        prev_hash  TEXT NOT NULL,
+        row_hash   TEXT NOT NULL
+      );
+      INSERT INTO audit_log_new (
+        seq, id, timestamp, actor_id, actor_name, action, entity, entity_id, details, prev_hash, row_hash
+      )
+      SELECT
+        seq, id, timestamp, actor_id, actor_name, action, entity, entity_id, details, prev_hash, row_hash
+      FROM audit_log;
+      DROP TABLE audit_log;
+      ALTER TABLE audit_log_new RENAME TO audit_log;
+      CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor_id);
+      CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity, entity_id);
     `,
   },
 ];

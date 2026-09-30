@@ -443,25 +443,27 @@ describe('reporting workflow gates', () => {
     expect(res.body.report.verifiedBy).toBe(userId('tech2'));
   });
 
-  it('refuses verification by the originating technologist', async () => {
+  it('allows the originating technologist to verify their own report', async () => {
     insertReport('rpt-1', 'RPT-1', userId('tech1'));
     const client = authed(await login('tech1', 'tech-password-1234'));
 
     const res = await client.post('/api/reports/rpt-1/verify');
-    expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/two-person|cannot be verified by the technologist/i);
+    expect(res.status).toBe(200);
+    expect(res.body.report.status).toBe('verified');
+    expect(res.body.report.verifiedBy).toBe(userId('tech1'));
   });
 
-  it('records a refused self-verification in the audit log', async () => {
-    insertReport('rpt-1', 'RPT-1', userId('tech1'));
+  it('records author self-verification as a normal verification in the audit log', async () => {
+    insertReport('rpt-self-audit', 'RPT-SELF-AUDIT', userId('tech1'));
     const client = authed(await login('tech1', 'tech-password-1234'));
-    await client.post('/api/reports/rpt-1/verify');
+    await client.post('/api/reports/rpt-self-audit/verify');
 
     const sup = authed(await login('super1', 'super-password-1234'));
     const audit = await sup.get('/api/audit');
-    const refusal = audit.body.entries.find(e => e.action === 'VERIFICATION_REFUSED');
-    expect(refusal).toBeDefined();
-    expect(refusal.details).toMatch(/self-verification/i);
+    const entry = audit.body.entries.find(
+      e => e.action === 'REPORT_VERIFIED' && e.entityId === 'rpt-self-audit'
+    );
+    expect(entry).toBeDefined();
   });
 
   it('allows a different supervisor to verify', async () => {

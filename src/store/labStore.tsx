@@ -338,6 +338,17 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       try {
         const { sample } = await samplesApi.create(data);
         setSamples(prev => [sample, ...prev]);
+        setPatients(prev => prev.map(p => {
+          if (p.id !== sample.patientId) return p;
+          const newTypes = new Set(p.sampleTypes || []);
+          newTypes.add(sample.sampleType);
+          return {
+            ...p,
+            sampleTypes: Array.from(newTypes),
+            primarySampleType: p.primarySampleType || sample.sampleType,
+            sampleCount: (p.sampleCount || 0) + 1
+          };
+        }));
         return sample;
       } catch (err) {
         handleError(err, 'Could not accession the specimen.');
@@ -532,14 +543,9 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       if (!report) throw new ReportGateError('Report not found.');
       if (report.status === 'verified') return;
 
-      if (!currentUser) throw new ReportGateError('Sign in before verifying a report.');
-      if (currentUser?.id === report.technologistId) {
-        throw new ReportGateError(
-          `${report.reportNumber} was prepared by ${report.technologistName}. A different authorised user must verify it.`
-        );
-      }
+    if (!currentUser) throw new ReportGateError('Sign in before verifying a report.');
 
-      try {
+    try {
         const { report: verified } = await reportsApi.verify(reportId);
         setReports(prev =>
           prev.map(r => (r.id === reportId ? { ...verified, laboratoryInfo: LAB_INFO } : r))

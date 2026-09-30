@@ -110,6 +110,47 @@ function mapSupabasePatient(row) {
   };
 }
 
+async function attachSupabaseSampleSummaries(supabase, patients) {
+  if (!patients || patients.length === 0) return patients;
+
+  const patientIds = patients.map(p => p.id);
+  const { data, error } = await supabase
+    .from('samples')
+    .select('patient_id, sample_type, collection_datetime')
+    .in('patient_id', patientIds);
+
+  if (error) throw error;
+
+  const byPatient = new Map();
+  for (const row of (data || [])) {
+    if (!byPatient.has(row.patient_id)) byPatient.set(row.patient_id, new Map());
+    const types = byPatient.get(row.patient_id);
+    if (!types.has(row.sample_type)) {
+      types.set(row.sample_type, row.collection_datetime);
+    } else {
+      const existing = types.get(row.sample_type);
+      if (new Date(row.collection_datetime) < new Date(existing)) {
+        types.set(row.sample_type, row.collection_datetime);
+      }
+    }
+  }
+
+  for (const patient of patients) {
+    const summaryMap = byPatient.get(patient.id);
+    const summary = summaryMap
+      ? Array.from(summaryMap.entries())
+          .map(([type, collected]) => ({ type, collected }))
+          .sort((a, b) => a.type.localeCompare(b.type))
+      : [];
+
+    patient.sampleTypes = summary.map(s => s.type);
+    patient.primarySampleType = summary[0]?.type ?? null;
+    patient.collectionDatetime = summary[0]?.collected ?? null;
+    patient.sampleCount = summary.length;
+  }
+  return patients;
+}
+
 function mapSupabaseReport(row) {
   if (!row) return null;
   return {
@@ -145,8 +186,9 @@ export async function listSupabasePatients(supabase, { limit = 50, offset = 0, s
     .range(Number(offset) || 0, (Number(offset) || 0) + (Number(limit) || 50) - 1);
 
   if (error) throw error;
+  const items = await attachSupabaseSampleSummaries(supabase, (data ?? []).map(mapSupabasePatient));
   return {
-    items: (data ?? []).map(mapSupabasePatient),
+    items,
     total: count ?? (data ?? []).length,
     limit: Number(limit) || 50,
     offset: Number(offset) || 0,
@@ -164,7 +206,10 @@ export async function getSupabasePatient(supabase, id) {
     .maybeSingle();
 
   if (error) throw error;
-  return mapSupabasePatient(data);
+  const mapped = mapSupabasePatient(data);
+  if (!mapped) return null;
+  const attached = await attachSupabaseSampleSummaries(supabase, [mapped]);
+  return attached[0];
 }
 
 export async function createSupabasePatient(supabase, payload) {
@@ -192,7 +237,7 @@ export async function createSupabasePatient(supabase, payload) {
     .single();
 
   if (error) throw error;
-  return mapSupabasePatient(data);
+  return getSupabasePatient(supabase, data.id);
 }
 
 export async function updateSupabasePatient(supabase, id, updates) {
@@ -219,7 +264,7 @@ export async function updateSupabasePatient(supabase, id, updates) {
     .single();
 
   if (error) throw error;
-  return mapSupabasePatient(data);
+  return getSupabasePatient(supabase, data.id);
 }
 
 export async function deleteSupabasePatient(supabase, id) {
@@ -240,12 +285,84 @@ export async function listSupabaseReports(supabase, { limit = 50, offset = 0, st
     .range(Number(offset) || 0, (Number(offset) || 0) + (Number(limit) || 50) - 1);
 
   if (error) throw error;
+  const items = await attachSupabaseReportContext(supabase, (data ?? []).map(mapSupabaseReport));
   return {
-    items: (data ?? []).map(mapSupabaseReport),
+    items,
     total: count ?? (data ?? []).length,
     limit: Number(limit) || 50,
     offset: Number(offset) || 0
   };
+}
+
+/**
+ * Attaches the patient, sample, and computed findings a report needs to
+ * render, in batched queries rather than one round trip per report.
+ * Mirrors `reportContext` in repository.js for the local SQLite path.
+ */
+export async function attachSupabaseReportContext(supabase, reports) {
+  if (!reports || reports.length === 0) return reports;
+
+  const analysisIds = [...new Set(reports.map(r => r.analysisId).filter(Boolean))];
+  if (analysisIds.length === 0) {
+    for (const report of reports) {
+      report.patient = null;
+      report.sample = null;
+      report.findings = [];
+    }
+    return reports;
+  }
+
+  const { data: analysisRows, error: analysisError } = await supabase
+    .from('analyses')
+    .select('id, sample_id')
+    .in('id', analysisIds);
+  if (analysisError) throw analysisError;
+  const analysisMap = new Map((analysisRows ?? []).map(row => [row.id, row]));
+
+  const sampleIds = [...new Set((analysisRows ?? []).map(row => row.sample_id).filter(Boolean))];
+  const sampleMap = new Map();
+  if (sampleIds.length) {
+    const { data: sampleRows, error: sampleError } = await supabase
+      .from('samples')
+      .select('*')
+      .in('id', sampleIds);
+    if (sampleError) throw sampleError;
+    for (const row of sampleRows ?? []) sampleMap.set(row.id, mapSupabaseSample(row));
+  }
+
+  const patientIds = [...new Set([...sampleMap.values()].map(s => s.patientId).filter(Boolean))];
+  const patientMap = new Map();
+  if (patientIds.length) {
+    const { data: patientRows, error: patientError } = await supabase
+      .from('patients')
+      .select('*')
+      .in('id', patientIds);
+    if (patientError) throw patientError;
+    for (const row of patientRows ?? []) patientMap.set(row.id, mapSupabasePatient(row));
+  }
+
+  const { data: detectionRows, error: detectionError } = await supabase
+    .from('detections')
+    .select('*')
+    .in('analysis_id', analysisIds);
+  if (detectionError) throw detectionError;
+  const detectionMap = new Map();
+  for (const row of detectionRows ?? []) {
+    if (!detectionMap.has(row.analysis_id)) detectionMap.set(row.analysis_id, []);
+    detectionMap.get(row.analysis_id).push(mapSupabaseDetection(row));
+  }
+
+  for (const report of reports) {
+    const analysis = analysisMap.get(report.analysisId);
+    const sample = analysis ? sampleMap.get(analysis.sample_id) ?? null : null;
+    const patient = sample ? patientMap.get(sample.patientId) ?? null : null;
+    const detections = analysis ? (detectionMap.get(analysis.id) ?? []) : [];
+
+    report.patient = patient;
+    report.sample = sample;
+    report.findings = quantifyDetections(detections, sample?.fieldsExamined ?? 10);
+  }
+  return reports;
 }
 
 export async function getSupabaseReport(supabase, id) {
@@ -258,7 +375,9 @@ export async function getSupabaseReport(supabase, id) {
     .maybeSingle();
 
   if (error) throw error;
-  return mapSupabaseReport(data);
+  const mapped = mapSupabaseReport(data);
+  if (!mapped) return null;
+  return (await attachSupabaseReportContext(supabase, [mapped]))[0];
 }
 
 export async function createSupabaseReport(supabase, payload) {
@@ -284,7 +403,8 @@ export async function createSupabaseReport(supabase, payload) {
     .single();
 
   if (error) throw error;
-  return mapSupabaseReport(data);
+  const created = mapSupabaseReport(data);
+  return (await attachSupabaseReportContext(supabase, [created]))[0];
 }
 
 export async function verifySupabaseReport(supabase, id, verifierId) {
@@ -300,7 +420,7 @@ export async function verifySupabaseReport(supabase, id, verifierId) {
     .single();
 
   if (error) throw error;
-  return mapSupabaseReport(data);
+  return (await attachSupabaseReportContext(supabase, [mapSupabaseReport(data)]))[0];
 }
 
 export async function releaseSupabaseReport(supabase, id) {
@@ -315,7 +435,7 @@ export async function releaseSupabaseReport(supabase, id) {
     .single();
 
   if (error) throw error;
-  return mapSupabaseReport(data);
+  return (await attachSupabaseReportContext(supabase, [mapSupabaseReport(data)]))[0];
 }
 
 export async function updateSupabaseReport(supabase, id, updates) {
@@ -335,7 +455,7 @@ export async function updateSupabaseReport(supabase, id, updates) {
     .single();
 
   if (error) throw error;
-  return mapSupabaseReport(data);
+  return (await attachSupabaseReportContext(supabase, [mapSupabaseReport(data)]))[0];
 }
 
 export async function deleteSupabaseReport(supabase, id) {

@@ -34,8 +34,8 @@ const app = createApp({ dbPath: DB_PATH, logger });
  * Legacy SQLite fallback accounts, only when Supabase Auth is disabled.
  *
  * These role-labelled accounts are not used by the Supabase signup flow.
- * Supabase users all receive the same access; report authors still cannot
- * verify their own reports.
+ * All users, including Supabase signups, receive the same access and any of
+ * them may verify a report (including their own).
  *
  * Passwords come from the environment. A missing one is generated and printed,
  * never defaulted to a guessable constant.

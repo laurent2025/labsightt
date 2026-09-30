@@ -48,7 +48,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
   // result set, so it stays local rather than becoming a server round trip.
   // A patient matches if any of their specimens is of the selected type.
   const filteredPatients = patients.filter(
-    p => sampleFilter === 'all' || p.sampleTypes.includes(sampleFilter as SampleType)
+    p => sampleFilter === 'all' || (p.sampleTypes || []).includes(sampleFilter as SampleType)
   );
 
   return (
@@ -192,9 +192,9 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
                         </td>
 
                         <td className="py-3 px-4">
-                          {pat.sampleTypes.length > 0 ? (
+                          {(pat.sampleTypes || []).length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {pat.sampleTypes.map(type => (
+                              {(pat.sampleTypes || []).map(type => (
                                 <span
                                   key={type}
                                   className="inline-block px-2.5 py-0.5 rounded text-[11px] font-medium capitalize bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
