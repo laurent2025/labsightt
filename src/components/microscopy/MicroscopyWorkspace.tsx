@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Patient, Sample, Analysis, AIModelConfig, Detection, LaboratoryReport } from '../../types';
 import { MicroscopeViewer } from './MicroscopeViewer';
 import { TechnologistReview } from './TechnologistReview';
@@ -11,7 +11,10 @@ import {
   FileText,
   Code2,
   Terminal,
-  AlertTriangle
+  AlertTriangle,
+  Camera,
+  Video,
+  X
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
@@ -79,6 +82,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [inferenceError, setInferenceError] = useState<string | null>(null);
   // Report/verification gate rejections surface here.
   const [gateError, setGateError] = useState<string | null>(null);
+
+  // Camera capture from microscope
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (currentAnalysisId && currentAnalysisId !== selectedAnalysisId) {
@@ -165,6 +174,69 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     }
   };
 
+  // Camera capture from connected microscope
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: cameraFacing,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        }
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setShowCameraModal(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setInferenceError(`Camera access failed: ${message}. Ensure a microscope camera is connected and browser permissions are granted.`);
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCameraModal(false);
+  };
+
+  const switchCamera = () => {
+    setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment');
+    if (cameraStream && videoRef.current) {
+      stopCamera();
+      setTimeout(startCamera, 100);
+    }
+  };
+
+  const captureFrame = () => {
+    if (!videoRef.current || !activePatient || !activeSample) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    stopCamera();
+    setCustomSlideDataUrl(dataUrl);
+    // Trigger analysis with the captured frame
+    void handleTriggerAnalysis();
+  };
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
   /**
    * Summarises what the technologist has actually adjudicated.
    *
@@ -227,7 +299,75 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-3">
                   This saved specimen does not have an analysis yet.
                 </p>
-              )}
+)}
+
+      {/* Camera Capture Modal */}
+      {showCameraModal && cameraStream && (
+        <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-800/50">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-emerald-400" />
+                <span className="font-semibold text-slate-100">Microscope Camera Capture</span>
+                <span className="text-[10px] px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded font-mono">
+                  LIVE
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={switchCamera}
+                  className="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition"
+                  title="Switch camera (front/back)"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="ml-1 hidden sm:inline">Switch</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="p-2 hover:bg-slate-700 text-slate-400 hover:text-white rounded transition"
+                  aria-label="Close camera"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="relative bg-black p-2">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    const res = document.getElementById('cameraResolution');
+                    if (res) res.textContent = `${videoRef.current.videoWidth} x ${videoRef.current.videoHeight}`;
+                  }
+                }}
+                className="w-full aspect-video object-contain bg-black"
+              />
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded-lg text-xs text-slate-300 font-mono">
+                  <span>Resolution:</span>
+                  <span id="cameraResolution">-- x --</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={captureFrame}
+                  disabled={isAnalyzing}
+                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>Capture Frame</span>
+                </button>
+              </div>
+            </div>
+            <div className="p-3 border-t border-slate-700 bg-slate-800/50 text-xs text-slate-400 text-center">
+              Position the specimen in the field of view, then click <strong>Capture Frame</strong> to run AI analysis.
+            </div>
+          </div>
+        </div>
+      )}
               <button
                 type="button"
                 onClick={() => void handleTriggerAnalysis()}
@@ -410,6 +550,18 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             <span className="hidden sm:inline">Load Slide</span>
             <input type="file" accept="image/*" onChange={handleCustomUpload} className="hidden" />
           </label>
+
+          {/* Capture from microscope camera */}
+          <button
+            type="button"
+            onClick={startCamera}
+            disabled={isAnalyzing}
+            className="px-3 py-1.5 border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+            title="Capture live frame from connected microscope camera"
+          >
+            <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Capture from Microscope</span>
+          </button>
 
           <button
             type="button"
