@@ -30,6 +30,17 @@ if (process.env.USE_SUPABASE_DB !== 'true' || process.env.USE_SUPABASE_AUTH !== 
 
 const app = createApp({ dbPath: ':memory:', logger: createLogger({ pretty: false }) });
 
+// Log which credentials are present (never their values) so a missing key is
+// visible in the Vercel function log instead of surfacing as a 503 mid-request.
+console.log(
+  `[api] env-check: supabase_db=${process.env.USE_SUPABASE_DB === 'true'} ` +
+    `supabase_auth=${process.env.USE_SUPABASE_AUTH === 'true'} ` +
+    `supabase_url=${Boolean(process.env.SUPABASE_URL)} ` +
+    `service_key=${Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)} ` +
+    `phi_key=${Boolean(process.env.PHI_ENCRYPTION_KEY)} ` +
+    `roboflow_key=${Boolean(process.env.ROBOFLOW_API_KEY)}`
+);
+
 // Plain handler wrapper: Vercel's Node runtime passes Node http req/res pairs,
 // and Express handles the request lifecycle (including its error middleware)
 // without needing to be `listen`-ed.
