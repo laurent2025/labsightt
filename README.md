@@ -66,44 +66,46 @@ For local email verification, keep `SUPABASE_AUTH_REDIRECT_URL=http://localhost:
 `SESSION_COOKIE_SAME_SITE=strict` in `.env`. The Vite server proxies `/api` to
 the local API, so do not set `VITE_API_URL` locally.
 
-### Deploying the web client to Vercel
+### Deploying to Vercel (frontend + API in one project)
 
-Vercel hosts the Vite frontend; it does not run this Express API as part of the
-static deployment. Deploy the Express API separately on a Node 22.5+ host with
-persistent storage for its local audit database. Use `npm start` as its start
-command; this uses the host's injected environment instead of requiring a
-`.env` file. Set the following variables on the API host (replace the sample values):
+The repository deploys to Vercel as a single project: the Vite build is served
+as the static site, and the Express API runs as a serverless function at
+`/api/*` (`api/index.js`, wired up by `vercel.json`). The browser stays
+same-origin for the session cookie, so no `VITE_` variables are needed —
+`/api` resolves to the Vercel host itself.
+
+Set these variables on the Vercel project (Production and Preview as needed),
+then redeploy:
 
 ```env
-NODE_ENV=production
+USE_SUPABASE_AUTH=true
+USE_SUPABASE_DB=true
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-rotated-service-role-key
-USE_SUPABASE_AUTH=true
-USE_SUPABASE_DB=true
 SUPABASE_AUTH_REDIRECT_URL=https://your-app.vercel.app/
-CORS_ORIGINS=https://your-app.vercel.app
-SESSION_COOKIE_SAME_SITE=none
 PHI_ENCRYPTION_KEY=your-generated-32-byte-key
 ROBOFLOW_API_KEY=your-server-only-inference-key
 ```
 
-Set these variables in the Vercel project for **Production** and **Preview** as
-needed, then redeploy:
+Notes for the Vercel deployment:
 
-```env
-VITE_API_URL=https://your-api-host.example.com/api
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-```
+- `PHI_ENCRYPTION_KEY` must be the **same key** that was used when the
+  Supabase data was written, or existing patient names and notes cannot be
+  decrypted. The function refuses to start without it.
+- Vercel functions have no persistent local storage, so clinical data must
+  live in Supabase (`USE_SUPABASE_DB=true` / `USE_SUPABASE_AUTH=true`); the
+  entry point fails fast otherwise. The audit chain runs on an in-memory
+  SQLite database, so each function invocation keeps its own short-lived
+  chain: audit entries are written for the request, but `/api/audit` cannot
+  be expected to show history across invocations.
+- The function runs on the Node 22 runtime (pinned in `vercel.json`) because
+  the audit log uses the built-in `node:sqlite` module.
+- Vercel request bodies are capped (4.5 MB on the free/hobby plan), which
+  comfortably covers the slide images this app sends.
 
-In Supabase Auth URL settings, set the deployed site URL and allow both
-`https://your-app.vercel.app/` and `http://localhost:3000/` as redirect URLs.
-The API must allow the exact Vercel origin through `CORS_ORIGINS`. Production
-cookies are `Secure` and `HttpOnly`; `SameSite=None` is required for separate
-frontend/API origins. Prefer a custom frontend/API domain on the same site or
-proxy `/api` through the frontend because some browsers block third-party
-cookies. Redeploy Vercel after changing any `VITE_` variable.
+In Supabase Auth URL settings, allow `https://<your-app>.vercel.app/` (and
+`http://localhost:3000/` for development) as redirect URLs.
 
 ### Supabase auth and database setup
 
@@ -128,10 +130,8 @@ Users create accounts from the sign-in screen with an email address and
 password. No role selection, invitation, approval, or separate account setup is
 required. The only signup step is verifying the email address.
 
-For reliable cookie support, use a custom domain with the frontend and API on
-the same site (such as `app.example.com` and `api.example.com`) or proxy `/api`
-through the frontend origin. Some browsers block third-party cookies when the
-Vercel and API hosts are unrelated sites.
+On Vercel the frontend and API share one origin, so the session cookie is
+first-party and no cookie configuration is needed.
 
 When `USE_SUPABASE_AUTH=true`, all interactive sign-in uses a verified email
 address. The legacy SQLite username bootstrap runs only when Supabase Auth is
