@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
+import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
 interface MicroscopyWorkspaceProps {
   patients: Patient[];
@@ -83,11 +84,20 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // Report/verification gate rejections surface here.
   const [gateError, setGateError] = useState<string | null>(null);
 
-  // Camera capture from microscope
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
-  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Camera capture from microscope (shared hook: device selection, capture
+  // review, retake, actionable errors).
+  const camera = useMicroscopeCamera();
+
+  // Scan progress: elapsed seconds + a one-line result summary after each run.
+  const [scanSeconds, setScanSeconds] = useState<number>(0);
+  const [scanSummary, setScanSummary] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isAnalyzing) return;
+    setScanSeconds(0);
+    const started = Date.now();
+    const t = setInterval(() => setScanSeconds(Math.floor((Date.now() - started) / 1000)), 500);
+    return () => clearInterval(t);
+  }, [isAnalyzing]);
 
   useEffect(() => {
     if (currentAnalysisId && currentAnalysisId !== selectedAnalysisId) {
@@ -100,6 +110,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   useEffect(() => {
     setCustomSlideDataUrl(null);
     setInferenceError(null);
+    setScanSummary(null);
   }, [selectedAnalysisId]);
 
   const activeAnalysis = pendingSampleId
@@ -123,16 +134,20 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const activeModel =
     models.find(m => m.id === activeAnalysis?.modelId) || models[0];
 
-  // Re-run inference with current or selected model
-  const handleTriggerAnalysis = async () => {
+  // Re-run inference with current or selected model. An explicit image
+  // override (e.g. a fresh microscope capture) takes precedence over the
+  // last uploaded slide so a capture is analysed the instant it is taken.
+  const handleTriggerAnalysis = async (imageUrlOverride?: string) => {
     if (!activePatient || !activeSample) return;
-    const imageUrl = customSlideDataUrl || activeSample.imageUrl;
+    const imageUrl = imageUrlOverride || customSlideDataUrl || activeSample.imageUrl;
     if (!imageUrl) {
-      setInferenceError('No slide image is loaded for this specimen. Use "Load Slide" to attach one, then retry.');
+      setInferenceError('No slide image is loaded for this specimen. Use "Load Slide" or "Capture from Microscope" to attach one, then retry.');
       return;
     }
     setIsAnalyzing(true);
     setInferenceError(null);
+    setScanSummary(null);
+    const startedAt = Date.now();
     try {
       const newAna = await onRunAnalysis(
         activePatient.id,
@@ -148,9 +163,19 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       if (hasCritical) {
         setTimeout(() => playCriticalValueAlert(), 350);
       }
+
+      // Honest, one-line result. Never implies certainty about a 0-count.
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      const n = newAna.detections.length;
+      setScanSummary(
+        n === 0
+          ? `Scan finished in ${seconds}s. No objects exceeded the confidence threshold — the field may be empty, out of focus, or below the detection threshold. Review manually before concluding.`
+          : `Scan finished in ${seconds}s. ${n} candidate object${n === 1 ? '' : 's'} detected — adjudicate each before the field is confirmed.`
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setInferenceError(message);
+      setScanSummary(null);
     } finally {
       setIsAnalyzing(false);
     }
@@ -658,25 +683,33 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         </div>
       )}
 
-      {/* Inference Failure Banner - loud, never silently substituted */}
+      {/* Inference Failure Banner - loud, never silently substituted.
+          Shows the ACTUAL server error; the "add the API key" guidance only
+          appears when the server truly has no key. */}
       {inferenceError && (
         <div role="alert" className="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl text-xs flex items-start gap-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold block text-white">
-              Inference is not configured
+              {/not configured/i.test(inferenceError) ? 'Inference is not configured' : 'AI analysis failed'}
             </span>
-            <p className="leading-relaxed mt-0.5 text-slate-300">
-              The server has no Roboflow API key. Ask a Lab Director to add
-              <span className="font-mono text-amber-300"> ROBOFLOW_API_KEY</span> to the
-              server <span className="font-mono text-amber-300">.env</span> file and restart.
+            <p className="leading-relaxed mt-0.5 text-slate-300 break-words">{inferenceError}</p>
+            {/not configured/i.test(inferenceError) && (
+              <p className="leading-relaxed mt-1 text-slate-400">
+                The server has no Roboflow API key. Ask a Lab Director to add
+                <span className="font-mono text-amber-300"> ROBOFLOW_API_KEY</span> to the
+                server <span className="font-mono text-amber-300">.env</span> file (or the
+                deployment's environment) and restart.
+              </p>
+            )}
+            <p className="mt-1 text-slate-500">
               No substitute results are generated.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setInferenceError(null)}
-            className="text-slate-400 hover:text-white font-bold ml-2 cursor-pointer"
+            className="text-slate-400 hover:text-slate-100 font-bold ml-2 cursor-pointer"
             aria-label="Dismiss error"
           >
             ✕

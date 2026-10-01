@@ -150,7 +150,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         const supabase = getSupabaseClient({ admin: true });
         const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
         if (error || !data.user || !data.session) {
-          return res.status(401).json({ error: 'Email or password is incorrect, or the email has not been verified.' });
+          // Supabase distinguishes "email not confirmed" from bad credentials;
+          // surface that so the operator knows which thing to fix.
+          const unconfirmed =
+            error?.code === 'email_not_confirmed' ||
+            /not confirmed|unverified/i.test(String(error?.message ?? ''));
+          return res.status(401).json({
+            error: unconfirmed
+              ? 'This email has not been verified. Open the Supabase confirmation email and click the link, then sign in again.'
+              : 'Email or password is incorrect. Check that no extra spaces were typed and that the password matches the one saved for this email.'
+          });
         }
 
         // Fresh admin client: the `supabase` client now holds this user's
