@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
-import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
 interface MicroscopyWorkspaceProps {
   patients: Patient[];
@@ -84,9 +83,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // Report/verification gate rejections surface here.
   const [gateError, setGateError] = useState<string | null>(null);
 
-  // Camera capture from microscope (shared hook: device selection, capture
-  // review, retake, actionable errors).
-  const camera = useMicroscopeCamera();
+  // Camera capture from microscope
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Scan progress: elapsed seconds + a one-line result summary after each run.
   const [scanSeconds, setScanSeconds] = useState<number>(0);
@@ -250,8 +251,17 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     stopCamera();
     setCustomSlideDataUrl(dataUrl);
     // Trigger analysis with the captured frame
-    void handleTriggerAnalysis();
+    void handleTriggerAnalysis(dataUrl);
   };
+
+  // The <video> mounts after startCamera() resolves (videoRef.current is null
+  // while the stream is being set up), so attach the stream on render.
+  useEffect(() => {
+    if (showCameraModal && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch(() => undefined);
+    }
+  }, [showCameraModal, cameraStream]);
 
   // Cleanup camera on unmount
   useEffect(() => {
@@ -325,74 +335,6 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                   This saved specimen does not have an analysis yet.
                 </p>
 )}
-
-      {/* Camera Capture Modal */}
-      {showCameraModal && cameraStream && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-800/50">
-              <div className="flex items-center gap-2">
-                <Video className="w-5 h-5 text-emerald-400" />
-                <span className="font-semibold text-slate-100">Microscope Camera Capture</span>
-                <span className="text-[10px] px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded font-mono">
-                  LIVE
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={switchCamera}
-                  className="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition"
-                  title="Switch camera (front/back)"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="ml-1 hidden sm:inline">Switch</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="p-2 hover:bg-slate-700 text-slate-400 hover:text-white rounded transition"
-                  aria-label="Close camera"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div className="relative bg-black p-2">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                onLoadedMetadata={() => {
-                  if (videoRef.current) {
-                    const res = document.getElementById('cameraResolution');
-                    if (res) res.textContent = `${videoRef.current.videoWidth} x ${videoRef.current.videoHeight}`;
-                  }
-                }}
-                className="w-full aspect-video object-contain bg-black"
-              />
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded-lg text-xs text-slate-300 font-mono">
-                  <span>Resolution:</span>
-                  <span id="cameraResolution">-- x --</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={captureFrame}
-                  disabled={isAnalyzing}
-                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg transition disabled:opacity-50 cursor-pointer"
-                >
-                  <Camera className="w-5 h-5" />
-                  <span>Capture Frame</span>
-                </button>
-              </div>
-            </div>
-            <div className="p-3 border-t border-slate-700 bg-slate-800/50 text-xs text-slate-400 text-center">
-              Position the specimen in the field of view, then click <strong>Capture Frame</strong> to run AI analysis.
-            </div>
-          </div>
-        </div>
-      )}
               <button
                 type="button"
                 onClick={() => void handleTriggerAnalysis()}
@@ -807,6 +749,74 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           />
         </div>
       </div>
+
+      {/* Camera Capture Modal */}
+      {showCameraModal && cameraStream && (
+        <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-800/50">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-emerald-400" />
+                <span className="font-semibold text-slate-100">Microscope Camera Capture</span>
+                <span className="text-[10px] px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded font-mono">
+                  LIVE
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={switchCamera}
+                  className="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition"
+                  title="Switch camera (front/back)"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="ml-1 hidden sm:inline">Switch</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="p-2 hover:bg-slate-700 text-slate-400 hover:text-white rounded transition"
+                  aria-label="Close camera"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="relative bg-black p-2">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    const res = document.getElementById('cameraResolution');
+                    if (res) res.textContent = `${videoRef.current.videoWidth} x ${videoRef.current.videoHeight}`;
+                  }
+                }}
+                className="w-full aspect-video object-contain bg-black"
+              />
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded-lg text-xs text-slate-300 font-mono">
+                  <span>Resolution:</span>
+                  <span id="cameraResolution">-- x --</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={captureFrame}
+                  disabled={isAnalyzing}
+                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>Capture Frame</span>
+                </button>
+              </div>
+            </div>
+            <div className="p-3 border-t border-slate-700 bg-slate-800/50 text-xs text-slate-400 text-center">
+              Position the specimen in the field of view, then click <strong>Capture Frame</strong> to run AI analysis.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -124,6 +124,15 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
     setCustomImage(dataUrl);
   };
 
+  // The <video> mounts after startCamera() resolves (videoRef.current is null
+  // while the stream is being set up), so attach the stream on render.
+  React.useEffect(() => {
+    if (showCameraModal && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch(() => undefined);
+    }
+  }, [showCameraModal, cameraStream]);
+
   // Cleanup camera on unmount
   React.useEffect(() => {
     return () => {
