@@ -532,7 +532,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
 
           <button
             type="button"
-            onClick={handleTriggerAnalysis}
+            onClick={() => void handleTriggerAnalysis()}
             disabled={isAnalyzing}
             className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg font-semibold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
           >
@@ -644,9 +644,6 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 deployment's environment) and restart.
               </p>
             )}
-            <p className="mt-1 text-slate-500">
-              No substitute results are generated.
-            </p>
           </div>
           <button
             type="button"
@@ -749,6 +746,20 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           />
         </div>
       </div>
+
+      {/* Scan progress + one-line result summary */}
+      {(isAnalyzing || scanSummary) && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-xs shadow-xs">
+          {isAnalyzing ? (
+            <span className="font-mono text-slate-500 dark:text-slate-400">
+              <RotateCcw className="w-3.5 h-3.5 animate-spin text-cyan-600 dark:text-cyan-400 inline mr-1.5" />
+              Scanning field {currentField} of {totalFields} · {scanSeconds}s elapsed
+            </span>
+          ) : (
+            <span className="text-slate-600 dark:text-slate-300">{scanSummary}</span>
+          )}
+        </div>
+      )}
 
       {/* Camera Capture Modal */}
       {showCameraModal && cameraStream && (
