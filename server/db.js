@@ -219,9 +219,37 @@ const MIGRATIONS = [
       ALTER TABLE audit_log_new RENAME TO audit_log;
       CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor_id);
       CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity, entity_id);
-    `,
-  },
-];
+     `,
+   },
+   {
+     version: 7,
+     name: 'users-role-admin-member',
+     up: `
+       -- The admin-role system adds 'admin' and 'member' to the legacy role
+       -- column. SQLite cannot widen a CHECK constraint in place, so rebuild
+       -- the table. Child FKs (sessions, patients, ...) reference users by
+       -- name and rebind to the renamed table.
+       CREATE TABLE users_new (
+         id            TEXT PRIMARY KEY,
+         username      TEXT NOT NULL UNIQUE,
+         display_name  TEXT NOT NULL,
+         role          TEXT NOT NULL CHECK (role IN ('technologist','supervisor','director','admin','member')),
+         password_hash TEXT NOT NULL,
+         password_salt TEXT NOT NULL,
+         active        INTEGER NOT NULL DEFAULT 1,
+         created_at    TEXT NOT NULL,
+         last_login_at TEXT
+       );
+       INSERT INTO users_new (
+         id, username, display_name, role, password_hash, password_salt, active, created_at, last_login_at
+       )
+       SELECT id, username, display_name, role, password_hash, password_salt, active, created_at, last_login_at
+       FROM users;
+       DROP TABLE users;
+       ALTER TABLE users_new RENAME TO users;
+     `,
+   },
+ ];
 
 export function openDatabase(path) {
   if (path !== ':memory:') {

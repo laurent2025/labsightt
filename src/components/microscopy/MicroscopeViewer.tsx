@@ -616,11 +616,11 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             <Crosshair className="w-3.5 h-3.5" />
             <span>{slideLabel}</span>
           </div>
-          <span className="text-slate-600">·</span>
+          <span className="text-slate-600 dark:text-slate-400">·</span>
           <span className="font-mono text-slate-400">OBJ: {objective}</span>
-          <span className="text-slate-600">·</span>
+          <span className="text-slate-600 dark:text-slate-400">·</span>
           <span className="font-mono text-slate-400">MAG: {totalMagnification}</span>
-          <span className="text-slate-600">·</span>
+          <span className="text-slate-600 dark:text-slate-400">·</span>
           {/* Multi-field Scan Stepper */}
           <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-[11px] font-mono">
             <span className="text-slate-400">HPF:</span>
@@ -768,7 +768,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             <Camera className="w-4 h-4" />
           </button>
 
-          <span className="text-slate-700">|</span>
+          <span className="text-slate-700 dark:text-slate-400">|</span>
 
           <button
             type="button"
@@ -864,7 +864,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           <span>STAGE: X: {stageVernierX}mm · Y: {stageVernierY}mm</span>
           {mouseCoords && (
             <>
-              <span className="text-slate-600">|</span>
+              <span className="text-slate-600 dark:text-slate-400">|</span>
               <span>PX: ({Math.round(mouseCoords.x)}, {Math.round(mouseCoords.y)})</span>
             </>
           )}

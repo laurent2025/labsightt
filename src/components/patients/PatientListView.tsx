@@ -84,7 +84,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             placeholder="Patient number, or exact full name..."
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-8 py-1.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="w-full pl-9 pr-8 py-1.5 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
           {searchInput && (
             <button

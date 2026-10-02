@@ -244,25 +244,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
             </div>
           </div>
 
-          {/* Stats strip */}
-          <div className="border-y border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-              {[
-                { value: String(DEFAULT_AI_MODELS.length), label: 'detection models configured', icon: Microscope },
-                { value: '3', label: 'specimen pipelines (stool · blood · urine)', icon: FlaskConical },
-                { value: '2', label: 'sign-offs required to verify a report', icon: ShieldCheck },
-                { value: 'SHA-256', label: 'hash-chained, append-only audit log', icon: GitCommitVertical }
-              ].map(stat => (
-                <div key={stat.label} className="space-y-1.5">
-                  <div className="flex items-center justify-center gap-2">
-                    <stat.icon className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
-                    <div className="text-xl font-bold text-cyan-800 dark:text-cyan-300 font-mono">{stat.value}</div>
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
 
         {/* Features */}

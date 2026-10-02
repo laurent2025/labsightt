@@ -88,8 +88,42 @@ function query(params: Record<string, string | number | undefined>): string {
 export interface SessionUser {
   id: string;
   displayName: string;
+  email: string | null;
+  role: 'member' | 'admin';
   active: boolean;
 }
+
+// -------------------------------------------------------------- admin users ----
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string | null;
+  displayName: string;
+  role: 'member' | 'admin';
+  active: boolean;
+  createdAt: string | null;
+  lastLoginAt: string | null;
+  /** Recorded audit entries this user is the actor of. */
+  auditCount: number;
+  lastAction: string | null;
+  lastActionAt: string | null;
+}
+
+export const adminApi = {
+  listUsers: () => request<{ users: AdminUser[] }>('/admin/users'),
+
+  setRole: (id: string, role: 'member' | 'admin') =>
+    request<{ user: { id: string; role: 'member' | 'admin' } }>(
+      `/admin/users/${encodeURIComponent(id)}/role`,
+      { method: 'PATCH', body: JSON.stringify({ role }) }
+    ),
+
+  removeUser: (id: string) =>
+    request<{ ok: true; id: string; suspended: boolean }>(`/admin/users/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    })
+};
 
 export const authApi = {
   login: (email: string, password: string) =>

@@ -9,11 +9,17 @@ create table if not exists profiles (
   email text not null unique,
   username text not null unique,
   display_name text not null,
+  role text not null default 'member' check (role in ('member','admin')),
+  suspended boolean not null default false,
   created_at timestamptz not null default now()
 );
 
--- Remove legacy role and manual-approval fields on existing installations.
-alter table profiles drop column if exists role;
+-- Existing installations: add the admin flag (default keeps everyone a member).
+alter table profiles add column if not exists role
+  text not null default 'member' check (role in ('member','admin'));
+-- Existing installations: suspension flag used by the admin user management.
+alter table profiles add column if not exists suspended boolean not null default false;
+-- Remove the legacy manual-approval field on existing installations.
 alter table profiles drop column if exists approved;
 
 create or replace function public.handle_new_lab_user()
@@ -23,12 +29,13 @@ security definer
 set search_path = ''
 as $$
 begin
-  insert into public.profiles (id, email, username, display_name)
+  insert into public.profiles (id, email, username, display_name, role)
   values (
     new.id,
     lower(new.email),
     lower(split_part(new.email, '@', 1)) || '_' || left(new.id::text, 8),
-    coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), split_part(new.email, '@', 1))
+    coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), split_part(new.email, '@', 1)),
+    'member'
   )
   on conflict (id) do nothing;
   return new;

@@ -13,7 +13,6 @@ import {
   Analysis,
   LaboratoryReport,
   AIModelConfig,
-  AuditLog,
   Detection,
   NewPatient
 } from '../types';
@@ -29,15 +28,15 @@ import {
   analysesApi,
   detectionsApi,
   reportsApi,
-  auditApi,
   onSessionExpired,
-  type SessionUser,
-  type AuditEntry
+  type SessionUser
 } from '../services/api';
 
 export interface UserSession {
   id: string;
   name: string;
+  email: string | null;
+  isAdmin: boolean;
 }
 
 export class ReportGateError extends Error {
@@ -50,7 +49,9 @@ export class ReportGateError extends Error {
 export function toUserSession(user: SessionUser): UserSession {
   return {
     id: user.id,
-    name: user.displayName
+    name: user.displayName,
+    email: user.email ?? null,
+    isAdmin: user.role === 'admin'
   };
 }
 
@@ -60,7 +61,6 @@ export interface LabStoreValue {
   analyses: Analysis[];
   reports: LaboratoryReport[];
   models: AIModelConfig[];
-  auditLogs: AuditLog[];
 
   user: UserSession | null;
   authChecked: boolean;
@@ -133,7 +133,6 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [reports, setReports] = useState<LaboratoryReport[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   // Model configuration is operator preference, not patient data. It stays on
   // the client; the model credential itself lives only on the server.
   const [models, setModels] = useState<AIModelConfig[]>(DEFAULT_AI_MODELS);
@@ -247,28 +246,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       setSamples([]);
       setAnalyses([]);
       setReports([]);
-      setAuditLogs([]);
     }
   }, [user, refresh]);
-  useEffect(() => {
-    if (!user) {
-      setAuditLogs([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { entries } = await auditApi.list(300);
-        if (!cancelled) setAuditLogs(entries.map(toAuditLog));
-      } catch {
-        // A denied or failed audit read is not fatal to the workspace.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, analyses.length]);
-
   const login = useCallback(async (email: string, password: string) => {
     const { user: sessionUser } = await authApi.login(email, password);
     setUser(toUserSession(sessionUser));
@@ -646,7 +625,6 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       analyses,
       reports,
       models,
-      auditLogs,
       user,
       authChecked,
       loading,
@@ -682,7 +660,7 @@ updatePatient,
       verifyReport
     }),
     [
-      patients, samples, analyses, reports, models, auditLogs, user, authChecked, loading,
+      patients, samples, analyses, reports, models, user, authChecked, loading,
       connectionError, storageIssue, loadError, pendingIds, login, logout, changePassword,
       refresh, isSelf, patientSearch, setPatientSearch, patientOffset, setPatientOffset,
       patientTotal, updatePatient, deleteReport, updateReport, addPatient, addSample, createAndRunAnalysis,
@@ -728,13 +706,4 @@ function hydrateAnalysis(
   };
 }
 
-function toAuditLog(entry: AuditEntry): AuditLog {
-  return {
-    id: entry.id,
-    timestamp: entry.timestamp,
-    userId: entry.actorId ?? 'system',
-    userName: entry.actorName ?? 'System',
-    action: entry.action,
-    details: [entry.entity, entry.entityId, entry.details].filter(Boolean).join(' · ') || entry.action
-  };
-}
+

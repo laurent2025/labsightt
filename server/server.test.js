@@ -40,6 +40,12 @@ async function seedUsers() {
     role: 'director',
     password: 'director-password-1234'
   });
+  await createUser(db, {
+    username: 'admin1',
+    displayName: 'System Administrator',
+    role: 'admin',
+    password: 'admin-password-1234'
+  });
 }
 
 function userId(username) {
@@ -221,10 +227,16 @@ describe('login', () => {
 // ------------------------------------------------------------------- rbac ----
 
 describe('equal authenticated access', () => {
-  it('lets any authenticated user create patients and hides removed admin endpoints', async () => {
+  it('lets any authenticated user create patients and denies admin endpoints to non-admins', async () => {
     const client = authed(await login('tech1', 'tech-password-1234'));
     expect((await client.post('/api/patients', { patientNumber: 'PT-9', fullName: 'A B' })).status).toBe(201);
-    expect((await client.get('/api/admin/users')).status).toBe(404);
+    expect((await client.get('/api/admin/users')).status).toBe(403);
+    expect((await client.get('/api/audit')).status).toBe(403);
+  });
+
+  it('denies admin endpoints to unauthenticated requests', async () => {
+    expect((await request(app).get('/api/admin/users')).status).toBe(401);
+    expect((await request(app).get('/api/audit')).status).toBe(401);
   });
 
   it('lets any authenticated user delete patients and hides deleted patients from all lists', async () => {
@@ -271,15 +283,92 @@ describe('equal authenticated access', () => {
     expect(res.body.patient.clinicalNotes).toBe('Updated notes');
   });
 
-  it('lets every authenticated user read the audit log', async () => {
-    const client = authed(await login('tech1', 'tech-password-1234'));
-    expect((await client.get('/api/audit')).status).toBe(200);
+  it('restricts audit log reads to administrators', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    expect((await tech.get('/api/audit')).status).toBe(403);
+    expect((await tech.get('/api/audit/verify')).status).toBe(403);
+
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const audit = await admin.get('/api/audit');
+    expect(audit.status).toBe(200);
+    expect(Array.isArray(audit.body.entries)).toBe(true);
+    expect(typeof audit.body.integrity.intact).toBe('boolean');
+    expect((await admin.get('/api/audit/verify')).status).toBe(200);
   });
 
-  it('keeps removed user administration unavailable to all accounts', async () => {
+  it('denies user administration endpoints to every non-admin account', async () => {
     const client = authed(await login('super1', 'super-password-1234'));
-    expect((await client.get('/api/audit')).status).toBe(200);
-    expect((await client.get('/api/admin/users')).status).toBe(404);
+    expect((await client.get('/api/admin/users')).status).toBe(403);
+    expect((await client.patch('/api/admin/users/someone/role').send({ role: 'admin' })).status).toBe(403);
+    expect((await client.delete('/api/admin/users/someone')).status).toBe(403);
+  });
+});
+
+// ------------------------------------------------------- admin users ----
+
+describe('admin user operations', () => {
+  it('lists accounts with roles and recorded activity for an admin', async () => {
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const res = await admin.get('/api/admin/users');
+    expect(res.status).toBe(200);
+    const byUsername = Object.fromEntries(res.body.users.map(u => [u.username, u]));
+    expect(byUsername.admin1.role).toBe('admin');
+    expect(byUsername.tech1.role).toBe('member');
+    expect(byUsername.tech1.active).toBe(true);
+    expect(typeof byUsername.tech1.auditCount).toBe('number');
+  });
+
+  it('promotes a user to admin, which unlocks admin endpoints immediately', async () => {
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const techId = userId('tech1');
+
+    const promote = await admin.patch(`/api/admin/users/${techId}/role`).send({ role: 'admin' });
+    expect(promote.status).toBe(200);
+    expect(promote.body.user.role).toBe('admin');
+
+    // The promoted session must now pass the admin gate.
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    expect((await tech.get('/api/audit')).status).toBe(200);
+
+    // Demoting restores the denial for the same session.
+    const demote = await admin.patch(`/api/admin/users/${techId}/role`).send({ role: 'member' });
+    expect(demote.status).toBe(200);
+    expect((await tech.get('/api/audit')).status).toBe(403);
+  });
+
+  it('rejects an unknown role value', async () => {
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const res = await admin.patch(`/api/admin/users/${userId('tech1')}/role`).send({ role: 'director' });
+    expect(res.status).toBe(400);
+  });
+
+  it('prevents an admin from removing their own account', async () => {
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const res = await admin.delete(`/api/admin/users/${userId('admin1')}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('removes a user: their session dies and re-login is refused', async () => {
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const techCookie = await login('tech1', 'tech-password-1234');
+    const techId = userId('tech1');
+
+    expect((await admin.delete(`/api/admin/users/${techId}`)).status).toBe(200);
+
+    // The existing session is invalidated immediately.
+    expect((await request(app).get('/api/patients').set('Cookie', techCookie)).status).toBe(401);
+    // New sign-in is refused: the account is no longer active.
+    expect(
+      (
+        await request(app)
+          .post('/api/auth/login')
+          .send({ username: 'tech1', password: 'tech-password-1234' })
+      ).status
+    ).toBe(401);
+
+    // The removal is recorded in the audit chain.
+    const audit = await admin.get('/api/audit?limit=200');
+    expect(audit.body.entries.some(e => e.action === 'USER_DISABLED' && e.entityId === techId)).toBe(true);
   });
 });
 
@@ -334,8 +423,8 @@ describe('audit chain', () => {
     expect(rows[1].prev_hash).toBe(rows[0].row_hash);
   });
 
-  it('reports integrity over HTTP for supervisors', async () => {
-    const client = authed(await login('super1', 'super-password-1234'));
+  it('reports integrity over HTTP for administrators', async () => {
+    const client = authed(await login('admin1', 'admin-password-1234'));
     const res = await client.get('/api/audit/verify');
     expect(res.status).toBe(200);
     expect(res.body.intact).toBe(true);
@@ -418,13 +507,13 @@ describe('reporting workflow gates', () => {
 
   it('records a report generation in the audit log', async () => {
     const tech = authed(await login('tech1', 'tech-password-1234'));
-    const sup = authed(await login('super1', 'super-password-1234'));
+    const admin = authed(await login('admin1', 'admin-password-1234'));
     const sample = await makeSample(tech);
     insertAnalysis('ana-test', sample.id, 'in_review', 1);
     insertDetection('det-1', 'ana-test', { confirmed: 1 });
     await tech.post('/api/reports', { analysisId: 'ana-test' });
 
-    const audit = await sup.get('/api/audit');
+    const audit = await admin.get('/api/audit');
     expect(audit.body.entries.some(e => e.action === 'REPORT_GENERATED')).toBe(true);
   });
 
@@ -458,8 +547,8 @@ describe('reporting workflow gates', () => {
     const client = authed(await login('tech1', 'tech-password-1234'));
     await client.post('/api/reports/rpt-self-audit/verify');
 
-    const sup = authed(await login('super1', 'super-password-1234'));
-    const audit = await sup.get('/api/audit');
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const audit = await admin.get('/api/audit');
     const entry = audit.body.entries.find(
       e => e.action === 'REPORT_VERIFIED' && e.entityId === 'rpt-self-audit'
     );

@@ -11,13 +11,14 @@ import {
 import { SLIDE_ASSETS } from '../../lib/constants';
 import { useLabStore } from '../../store/labStore';
 import { EmptyState } from '../ui/States';
+import { AdminOversight } from '../admin/AdminOversight';
 
 interface DashboardOverviewProps {
   patients: Patient[];
   analyses: Analysis[];
   reports: LaboratoryReport[];
   samples: Sample[];
-  onNavigateTab: (tab: 'microscopy' | 'patients' | 'reports' | 'models') => void;
+  onNavigateTab: (tab: 'microscopy' | 'patients' | 'reports' | 'audit' | 'users') => void;
   onSelectAnalysis: (analysisId: string) => void;
   onOpenReport: (report: LaboratoryReport) => void;
   onOpenNewPatientModal: () => void;
@@ -79,6 +80,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     type,
     count: analyses.filter(a => samples.find(s => s.id === a.sampleId)?.sampleType === type).length
   }));
+
+  // This operator's own work: runs they initiated and reports they generated.
+  const MY_WORK_LIMIT = 5;
+  const myAnalyses = user ? analyses.filter(a => a.initiatedBy === user.id).slice(0, MY_WORK_LIMIT) : [];
+  const myReports = user ? reports.filter(r => r.technologistId === user.id).slice(0, MY_WORK_LIMIT) : [];
   const typeMax = Math.max(1, ...bySampleType.map(t => t.count));
 
   // Reference pipelines. These describe the specimen, the stain, the objective,
@@ -443,7 +449,102 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* Recent Analyses Activity Queue */}
+      {/* My Recent Work — the signed-in operator's own runs and reports */}
+      {(myAnalyses.length > 0 || myReports.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">My Microscopy Runs</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Analyses you initiated</p>
+            </div>
+            <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+              {myAnalyses.map(ana => {
+                const patient = patients.find(p => p.id === ana.patientId);
+                const sample = samples.find(s => s.id === ana.sampleId);
+                return (
+                  <li key={ana.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        {patient?.fullName || 'Unknown Patient'}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                        {sample?.sampleType ? sample.sampleType.toUpperCase() : '—'} · {new Date(ana.analyzedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                          ana.status === 'verified'
+                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                            : ana.status === 'confirmed'
+                            ? 'bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300'
+                            : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                        }`}
+                      >
+                        {ana.status.replace('_', ' ')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onSelectAnalysis(ana.id)}
+                        className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 cursor-pointer"
+                      >
+                        Open
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">My Reports</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Laboratory reports you generated</p>
+            </div>
+            <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+              {myReports.map(report => (
+                <li key={report.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                      {report.reportNumber}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {new Date(report.generatedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                        report.status === 'released'
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                          : report.status === 'verified'
+                          ? 'bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300'
+                          : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                      }`}
+                    >
+                      {report.status.replace('_', ' ')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onOpenReport(report)}
+                      className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 cursor-pointer"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Administrative oversight: account, chain, and activity summary — admin only */}
+      {user?.isAdmin && <AdminOversight onNavigateTab={onNavigateTab} />}
+
+      {/* Recent Analyses Activity Queue — administrative oversight; admin only */}
+      {user?.isAdmin && (
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
@@ -597,6 +698,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

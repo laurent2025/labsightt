@@ -14,11 +14,12 @@ import { PatientEditModal } from './components/patients/PatientEditModal';
 import { MicroscopyWorkspace } from './components/microscopy/MicroscopyWorkspace';
 import { ReportsListView } from './components/reports/ReportsListView';
 import { LaboratoryReportModal } from './components/reports/LaboratoryReportModal';
-import { AIModelsView } from './components/models/AIModelsView';
-import { AuditLogView } from './components/audit/AuditLogView';
 import { LegalModal } from './components/legal/LegalModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LandingPage } from './components/marketing/LandingPage';
+import { AuditLogView } from './components/admin/AuditLogView';
+import { AIModelsView } from './components/admin/AIModelsView';
+import { UsersAdminView } from './components/admin/UsersAdminView';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { Skeleton } from './components/ui/States';
 import { authApi } from './services/api';
@@ -58,7 +59,6 @@ export default function App() {
     analyses,
     reports,
     models,
-    auditLogs,
     user,
     authChecked,
     connectionError,
@@ -75,7 +75,6 @@ export default function App() {
     confirmAllDetections,
     addManualDetection,
     updateAnalysisNotes,
-    updateModelConfig,
     generateReport,
     verifyReport,
     updatePatient,
@@ -85,8 +84,15 @@ export default function App() {
   } = useLabStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'patients' | 'microscopy' | 'reports' | 'models' | 'audit'
+    'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users'
   >('dashboard');
+
+  // Administrative tabs exist in state for both roles; a non-admin who lands
+  // on one (stale state, back button) is redirected to the dashboard.
+  const effectiveTab =
+    (activeTab === 'audit' || activeTab === 'models' || activeTab === 'users') && !user?.isAdmin
+      ? 'dashboard'
+      : activeTab;
 
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -233,11 +239,13 @@ export default function App() {
     <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-cyan-100 dark:selection:bg-cyan-900/60 selection:text-cyan-900 dark:selection:text-cyan-200 antialiased transition-colors duration-200">
       {/* Top Application Header */}
       <Header
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         onSelectTab={setActiveTab}
         onOpenNewPatient={() => setIsNewPatientModalOpen(true)}
         onOpenLegal={handleOpenLegal}
         operatorName={user.name}
+        operatorEmail={user.email}
+        isAdmin={Boolean(user.isAdmin)}
         onLogout={() => void logout()}
         onChangePassword={() => setIsChangePasswordOpen(true)}
       />
@@ -265,7 +273,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'dashboard' && (
+        {effectiveTab === 'dashboard' && (
           <ErrorBoundary resetKey="dashboard">
             {loading ? (
               <DashboardSkeleton />
@@ -287,7 +295,7 @@ export default function App() {
           </ErrorBoundary>
         )}
 
-        {activeTab === 'patients' && (
+        {effectiveTab === 'patients' && (
           <PatientListView
             patients={patients}
             samples={samples}
@@ -299,7 +307,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'microscopy' && (
+        {effectiveTab === 'microscopy' && (
           <ErrorBoundary resetKey={`microscopy-${selectedAnalysisId ?? 'none'}`}>
             <MicroscopyWorkspace
             patients={patients}
@@ -323,7 +331,7 @@ export default function App() {
           </ErrorBoundary>
         )}
 
-        {activeTab === 'reports' && (
+        {effectiveTab === 'reports' && (
           <ReportsListView
             reports={reports}
             currentUserName={user.name}
@@ -337,18 +345,28 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'models' && (
-          <AIModelsView
-            models={models}
-            onUpdateModel={updateModelConfig}
-          />
+        {effectiveTab === 'models' && user.isAdmin && (
+          <ErrorBoundary resetKey="models">
+            <AIModelsView models={models} />
+          </ErrorBoundary>
         )}
 
-        {activeTab === 'audit' && <AuditLogView logs={auditLogs} />}
+        {effectiveTab === 'audit' && user.isAdmin && (
+          <ErrorBoundary resetKey="audit">
+            <AuditLogView />
+          </ErrorBoundary>
+        )}
+
+        {effectiveTab === 'users' && user.isAdmin && (
+          <ErrorBoundary resetKey="users">
+            <UsersAdminView currentUserId={user.id} />
+          </ErrorBoundary>
+        )}
+
       </main>
 
       {/* High-Elegance Clinical Footer */}
-      <Footer onOpenLegal={handleOpenLegal} onSelectTab={setActiveTab} />
+      <Footer onOpenLegal={handleOpenLegal} />
 
       {/* Accession Patient Modal */}
       {isNewPatientModalOpen && (

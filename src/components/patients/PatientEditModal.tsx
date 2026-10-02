@@ -70,7 +70,7 @@ export const PatientEditModal: React.FC<PatientEditModalProps> = ({ patient, onC
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="edit-patient-title" className="text-base font-semibold text-slate-900">Edit patient</h2>
+            <h2 id="edit-patient-title" className="text-base font-semibold text-slate-900 dark:text-white">Edit patient</h2>
             <p className="mt-1 text-xs text-slate-500">Update demographics and referral details for {patient.patientNumber}.</p>
           </div>
           <button type="button" onClick={onClose} disabled={saving} aria-label="Close edit patient" className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-50">
@@ -79,44 +79,44 @@ export const PatientEditModal: React.FC<PatientEditModalProps> = ({ patient, onC
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-xs font-medium text-slate-700">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
             Patient ID / MRN
-            <input value={patientNumber} onChange={event => setPatientNumber(event.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600" />
+            <input value={patientNumber} onChange={event => setPatientNumber(event.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950" />
           </label>
-          <label className="text-xs font-medium text-slate-700">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
             Full name
-            <input value={fullName} onChange={event => setFullName(event.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600" />
+            <input value={fullName} onChange={event => setFullName(event.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950" />
           </label>
-          <label className="text-xs font-medium text-slate-700">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
             Age
-            <input type="number" min="0" max="130" step="1" value={age} onChange={event => setAge(event.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600" />
+            <input type="number" min="0" max="130" step="1" value={age} onChange={event => setAge(event.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950" />
           </label>
-          <label className="text-xs font-medium text-slate-700">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
             Gender
-            <select value={gender} onChange={event => setGender(event.target.value as Patient['gender'])} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600">
+            <select value={gender} onChange={event => setGender(event.target.value as Patient['gender'])} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600">
               <option value="Female">Female</option>
               <option value="Male">Male</option>
               <option value="Other">Other</option>
             </select>
           </label>
-          <label className="text-xs font-medium text-slate-700">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
             Referring doctor
-            <input value={referringDoctor} onChange={event => setReferringDoctor(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600" />
+            <input value={referringDoctor} onChange={event => setReferringDoctor(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950" />
           </label>
-          <label className="text-xs font-medium text-slate-700">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
             Referring facility
-            <input value={referringFacility} onChange={event => setReferringFacility(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600" />
+            <input value={referringFacility} onChange={event => setReferringFacility(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950" />
           </label>
-          <label className="text-xs font-medium text-slate-700 sm:col-span-2">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300 sm:col-span-2">
             Clinical notes
-            <textarea value={clinicalNotes} onChange={event => setClinicalNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600" />
+            <textarea value={clinicalNotes} onChange={event => setClinicalNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950" />
           </label>
         </div>
 
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">{error}</p>}
 
         <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50">Cancel</button>
+          <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 disabled:opacity-50 dark:border-slate-600">Cancel</button>
           <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
             <Save className="h-4 w-4" />
             {saving ? 'Saving...' : 'Save patient'}

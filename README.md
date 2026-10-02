@@ -124,7 +124,24 @@ Run the complete `supabase/schema.sql` in the Supabase SQL editor. It enables
 RLS on all app tables without public policies and installs a trigger that
 creates a profile for each new Auth user. The API accesses clinical data with
 the server-only service-role key. Re-run the schema after upgrading this app so
-the role-free profile definition and trigger are applied.
+the latest profile definition and trigger are applied.
+
+Admin access is a per-profile flag, not a separate account type. Every new
+account is a `member`. To grant an email the admin role, run this in the
+Supabase SQL editor (the service-role key is the only key that can touch
+`profiles`, and RLS blocks the browser from reading or changing it):
+
+```sql
+update profiles set role = 'admin'
+where email in ('you@example.com');
+
+select email, username, role from profiles order by email;
+```
+
+The API exposes the flag as `role` on the login response and `GET /api/auth/me`
+(the React store surfaces it as `user.isAdmin`). The profile is cached per
+server process, so restart the API server after changing a role before the new
+value is served.
 
 Users create accounts from the sign-in screen with an email address and
 password. No role selection, invitation, approval, or separate account setup is

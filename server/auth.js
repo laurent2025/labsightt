@@ -12,7 +12,7 @@ import {
   getSupabaseUserByToken
 } from './supabase.js';
 
-export const ROLES = ['technologist', 'supervisor', 'director'];
+export const ROLES = ['technologist', 'supervisor', 'director', 'admin'];
 
 export const SESSION_COOKIE = 'labsight_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
@@ -31,6 +31,8 @@ export function publicUser(row) {
     id: row.id,
     username: row.username ?? row.user_metadata?.username ?? row.email?.split('@')[0] ?? 'user',
     displayName: row.display_name ?? row.displayName ?? row.user_metadata?.display_name ?? row.email?.split('@')[0] ?? row.username ?? 'User',
+    email: row.email ?? null,
+    role: row.role === 'admin' ? 'admin' : 'member',
     active: typeof row.active === 'boolean' ? row.active : Boolean(row.active)
   };
 }
@@ -147,14 +149,35 @@ export function clearSessionCookie(res) {
 // for the lifetime of the server process.
 const profileCache = new Map();
 
+/**
+ * Drops one user's cached profile so the next request re-reads it from the
+ * database. Call after admin operations that mutate the profile (role change,
+ * suspension), so the change takes effect without a server restart.
+ */
+export function clearProfileCache(userId) {
+  profileCache.delete(userId);
+}
+
 function fallbackProfile(user) {
   const email = (user.email ?? '').toLowerCase();
   const localPart = email.split('@')[0] || 'user';
   return {
     email,
     username: localPart,
-    display_name: user.user_metadata?.display_name || user.user_metadata?.full_name || localPart
+    display_name: user.user_metadata?.display_name || user.user_metadata?.full_name || localPart,
+    role: 'member'
   };
+}
+
+/**
+ * Rejects the request unless the authenticated user is an administrator.
+ * Must run after requireAuth so req.user is populated.
+ */
+export function requireAdmin(req, res, next) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Administrator access is required for this operation.' });
+  }
+  next();
 }
 
 /** Rejects the request unless a valid session is present. */
@@ -183,7 +206,12 @@ export function requireAuth(db) {
           profile = fallbackProfile(user);
         }
       }
-      req.user = { id: user.id, email: profile.email, username: profile.username, displayName: profile.display_name, display_name: profile.display_name, active: true };
+      // Suspension is enforced here, not by deleting the Supabase auth user:
+      // clinical records reference those ids, so history must survive.
+      if (profile.suspended) {
+        return res.status(401).json({ error: 'This account has been suspended by an administrator.' });
+      }
+      req.user = { id: user.id, email: profile.email, username: profile.username, displayName: profile.display_name, display_name: profile.display_name, role: profile.role === 'admin' ? 'admin' : 'member', active: true };
       return next();
     }
 
@@ -191,7 +219,8 @@ export function requireAuth(db) {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated.' });
     }
-    req.user = user;
+    // Normalize the legacy role column so callers can rely on 'admin'|'member'.
+    req.user = { ...user, role: user.role === 'admin' ? 'admin' : 'member' };
     next();
   };
 }

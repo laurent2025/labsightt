@@ -107,6 +107,8 @@ export interface Analysis {
   technologistNotes: string;
   clinicalImpression: string;
   analyzedAt: string;
+  /** Auth user id that initiated the run; the server records it on creation. */
+  initiatedBy?: string | null;
   reviewedAt?: string;
   reviewedBy?: string;
   verifiedAt?: string;

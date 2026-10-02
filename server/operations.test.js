@@ -33,6 +33,12 @@ beforeEach(async () => {
     role: 'director',
     password: 'director-password-1234'
   });
+  await createUser(db, {
+    username: 'admin1',
+    displayName: 'System Administrator',
+    role: 'admin',
+    password: 'admin-password-1234'
+  });
 });
 
 async function login(username, password) {
@@ -465,8 +471,8 @@ describe('login throttling', () => {
     }
     // 12 attempts exceeds the 10-per-account budget, so this account is now
     // throttled, but the shared IP budget has plenty left for a real sign-in.
-    const dir = authed(await login('dir1', 'director-password-1234'));
-    const audit = await dir.get('/api/audit?limit=200');
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const audit = await admin.get('/api/audit?limit=200');
     expect(audit.body.entries.some(e => e.action === 'LOGIN_THROTTLED')).toBe(true);
   });
 });

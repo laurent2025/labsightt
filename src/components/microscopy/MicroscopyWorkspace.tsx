@@ -373,7 +373,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-xs">
         <Microscope className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-        <h3 className="text-sm font-semibold text-slate-800">No Specimen Accessions Ready</h3>
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">No Specimen Accessions Ready</h3>
         <p className="text-slate-500 mt-1 mb-4">
           Accession a patient specimen to initiate computer vision microscopy analysis.
         </p>

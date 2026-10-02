@@ -135,10 +135,55 @@ html.dark {
   .font-mono, .tabular-nums {
     font-family: 'JetBrains Mono', monospace;
   }
+
+  /* Form controls always inherit readable text in either theme, even when a
+     component omits a color (previously that rendered dark text on the dark
+     theme's near-black surfaces). The base layer keeps below utility classes,
+     so explicit text-* classes still win. */
+  input,
+  select,
+  textarea {
+    color: var(--text-primary);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-slate-500);
+  }
 }
 
 html.dark {
   color-scheme: dark;
+}
+
+/*
+ * Per-theme contrast tuning.
+ *
+ * Tailwind emits every scale step as a CSS variable that the utilities read,
+ * so redefining the mid slates per theme lifts (or deepens) every
+ * text-slate, border-slate, and placeholder-slate usage at once instead of
+ * touching component after component.
+ *
+ * Light theme: the stock mid grays are too faint for this app's small UI
+ * text on white — slate-400 sat at 2.9:1 and slate-500 at 4.8:1, both below
+ * comfortable for 11px captions and mono labels. Darker steps clear WCAG AA.
+ *
+ * Dark theme: the stock mid grays read muddy on the near-black surfaces —
+ * slate-500 was ~4.2:1 on slate-900. Lighter steps restore separation for
+ * descriptions, secondary labels, and table text.
+ */
+:root {
+  --color-slate-300: #94a3b8;
+  --color-slate-400: #64748b;
+  --color-slate-500: #4b5563;
+}
+
+html.dark {
+  --color-slate-400: #a9b4c7;
+  --color-slate-500: #93a1b8;
+  --color-slate-600: #72859f;
+  --color-slate-700: #5b6d88;
+  --color-slate-800: #273449;
 }
 
 /* In-page anchor navigation (landing page Features/Workflow/Governance).

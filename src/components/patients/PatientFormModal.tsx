@@ -208,14 +208,14 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
         <div className="px-5 sm:px-6 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <UserPlus className="w-4 h-4 text-cyan-700" />
-            <h2 className="text-sm font-bold text-slate-900">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
               Accession New Patient & Microscope Specimen
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -230,46 +230,46 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Patient ID / MRN</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Patient ID / MRN</label>
                 <input
                   type="text"
                   required
                   value={patientNumber}
                   onChange={e => setPatientNumber(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-slate-700 font-medium mb-1">Full Patient Name</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Full Patient Name</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Amina Makena"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Age (Years)</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Age (Years)</label>
                 <input
                   type="number"
                   min={0}
                   max={125}
                   value={age}
                   onChange={e => setAge(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Gender</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Gender</label>
                 <select
                   value={gender}
                   onChange={e => setGender(e.target.value as any)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                   <option value="Female">Female</option>
                   <option value="Male">Male</option>
@@ -278,48 +278,48 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Referring Physician</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Referring Physician</label>
                 <input
                   type="text"
                   value={referringDoctor}
                   onChange={e => setReferringDoctor(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Referring Facility</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Referring Facility</label>
                 <input
                   type="text"
                   value={referringFacility}
                   onChange={e => setReferringFacility(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Collection Date</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Collection Date</label>
                 <input
                   type="date"
                   value={collectionDate}
                   onChange={e => setCollectionDate(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Collection Time</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Collection Time</label>
                 <input
                   type="time"
                   value={collectionTime}
                   onChange={e => setCollectionTime(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
             </div>
 
             <div className="mt-3">
-              <label className="block text-slate-700 font-medium mb-1">
+              <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">
                 Clinical Indication / Symptoms
               </label>
               <input
@@ -327,7 +327,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
                 placeholder="e.g. Diarrhea for 1 week, abdominal cramps, travel history"
                 value={clinicalNotes}
                 onChange={e => setClinicalNotes(e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               />
             </div>
           </div>
@@ -340,11 +340,11 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Specimen Type</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Specimen Type</label>
                 <select
                   value={sampleType}
                   onChange={e => handleSampleTypeChange(e.target.value as SampleType)}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                   <option value="stool">Stool Microscopy</option>
                   <option value="blood">Peripheral Blood Film</option>
@@ -355,11 +355,11 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Objective Lens</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Objective Lens</label>
                 <select
                   value={objective}
                   onChange={e => setObjective(e.target.value as MicroscopeObjective)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                   <option value="10x">10x (Low Power)</option>
                   <option value="40x">40x (High Dry)</option>
@@ -368,21 +368,21 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Stain / Prep</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Stain / Prep</label>
                 <input
                   type="text"
                   value={stainMethod}
                   onChange={e => setStainMethod(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Eyepiece / Ocular</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Eyepiece / Ocular</label>
                 <select
                   value={eyepiece}
                   onChange={e => setEyepiece(e.target.value as EyepieceMagnification)}
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                   <option value="10x">10x</option>
                   <option value="15x">15x</option>
@@ -390,24 +390,24 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Fields Examined</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Fields Examined</label>
                 <input
                   type="number"
                   min={1}
                   max={100}
                   value={fieldsExamined}
                   onChange={e => setFieldsExamined(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Slide Label</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Slide Label</label>
                 <input
                   type="text"
                   value={slideLabel}
                   onChange={e => setSlideLabel(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full p-2 border border-slate-300 bg-white rounded-lg dark:border-slate-600 dark:bg-slate-950 font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
             </div>
@@ -422,7 +422,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Reference Slides */}
               <div className="space-y-2">
-                <span className="text-[11px] text-slate-600 block">
+                <span className="text-[11px] text-slate-600 dark:text-slate-400 block">
                   Select Calibrated Clinical Reference Slide:
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -464,12 +464,12 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
 
               {/* Upload Custom Camera / Microscope File */}
               <div>
-                <span className="text-[11px] text-slate-600 block mb-2">
+                <span className="text-[11px] text-slate-600 dark:text-slate-400 block mb-2">
                   Or Upload Specimen Photo:
                 </span>
                 <label className="border-2 border-dashed border-slate-300 hover:border-cyan-500 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition h-20 bg-slate-50 hover:bg-cyan-50/30">
                   <Upload className="w-4 h-4 text-slate-400 mb-1" />
-                  <span className="text-[11px] text-slate-600 font-medium">
+                  <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                     {customImage ? 'Custom Image Loaded' : 'Upload Microscope Image'}
                   </span>
                   <input
@@ -507,7 +507,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>

@@ -284,7 +284,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
               <select
                 value={minConfidenceFilter}
                 onChange={e => setMinConfidenceFilter(parseFloat(e.target.value))}
-                className="bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-[11px]"
+                className="bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-800 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-600"
               >
                 <option value={0}>All (&gt;0%)</option>
                 <option value={0.6}>&gt; 60%</option>

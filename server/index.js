@@ -11,11 +11,14 @@ import {
   authenticate,
   createSession,
   destroySession,
+  destroyAllSessionsForUser,
   findUserById,
   publicUser,
   requireAuth,
+  requireAdmin,
   setSessionCookie,
   clearSessionCookie,
+  clearProfileCache,
   purgeExpiredSessions
 } from './auth.js';
 import { appendAudit, verifyChain, chainHead } from './audit.js';
@@ -168,12 +171,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         // instead of running with the service role.
         const profile = await ensureSupabaseProfile(getSupabaseClient({ admin: true }), data.user);
 
+        if (profile.suspended) {
+          return res.status(401).json({ error: 'This account has been suspended by an administrator.' });
+        }
+
         const expiresAt = new Date(
           (data.session.expires_at ?? Math.floor(Date.now() / 1000) + (data.session.expires_in ?? 8 * 60 * 60)) * 1000
         );
         setSessionCookie(res, data.session.access_token, expiresAt);
         return res.json({
-          user: { id: data.user.id, username: profile.username, displayName: profile.display_name, active: true },
+          user: { id: data.user.id, username: profile.username, displayName: profile.display_name, email: profile.email ?? null, role: profile.role === 'admin' ? 'admin' : 'member', active: true },
           expiresAt: expiresAt.toISOString()
         });
       }
@@ -1226,15 +1233,250 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
+  // ------------------------------------------------------------ admin users ----
+  // Admin operations: view the account list, edit a role, and remove an
+  // account (suspension, which stops sign-in while keeping clinical history
+  // intact). Every operation is recorded in the audit chain.
+
+  function userAuditStats(database) {
+    const rows = database.prepare('SELECT actor_id, action, timestamp FROM audit_log ORDER BY seq ASC').all();
+    const stats = new Map();
+    for (const row of rows) {
+      if (!row.actor_id) continue;
+      const st = stats.get(row.actor_id) ?? { count: 0, lastAction: null, lastActionAt: null };
+      st.count += 1;
+      st.lastAction = row.action;
+      st.lastActionAt = row.timestamp;
+      stats.set(row.actor_id, st);
+    }
+    return stats;
+  }
+
+  function mapAdminUser(row, stats) {
+    const st = stats.get(row.id) ?? { count: 0, lastAction: null, lastActionAt: null };
+    return {
+      id: row.id,
+      username: row.username,
+      email: row.email ?? null,
+      displayName: row.displayName,
+      role: row.role === 'admin' ? 'admin' : 'member',
+      active: Boolean(row.active),
+      createdAt: row.createdAt ?? null,
+      lastLoginAt: row.lastLoginAt ?? null,
+      auditCount: st.count,
+      lastAction: st.lastAction,
+      lastActionAt: st.lastActionAt
+    };
+  }
+
+  app.get('/api/admin/users', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const stats = userAuditStats(db);
+
+      if (process.env.USE_SUPABASE_AUTH === 'true') {
+        const supabase = getSupabaseClient({ admin: true });
+        const { data, error } = await supabase.auth.admin.listUsers({ page: 0, perPage: 200 });
+        if (error) throw error;
+        const authUsers = data.users ?? [];
+        const ids = authUsers.map(u => u.id);
+        let profileRows = [];
+        if (ids.length) {
+          const { data: pData, error: pError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', ids);
+          if (pError) throw pError;
+          profileRows = pData ?? [];
+        }
+        const profileMap = new Map(profileRows.map(p => [p.id, p]));
+        const users = authUsers.map(u => {
+          const p = profileMap.get(u.id);
+          const email = u.email ?? null;
+          const localPart = (email ?? '').split('@')[0] || 'user';
+          return mapAdminUser({
+            id: u.id,
+            username: p?.username ?? localPart,
+            email,
+            displayName: p?.display_name || u.user_metadata?.display_name || localPart,
+            role: p?.role,
+            active: p ? !p.suspended : true,
+            createdAt: u.created_at ?? null,
+            lastLoginAt: u.last_sign_in_at ?? null
+          }, stats);
+        });
+        return res.json({ users });
+      }
+
+      const rows = db.prepare('SELECT * FROM users ORDER BY created_at ASC').all();
+      const users = rows.map(row =>
+        mapAdminUser(
+          {
+            id: row.id,
+            username: row.username,
+            email: null,
+            displayName: row.display_name,
+            role: row.role,
+            active: row.active,
+            createdAt: row.created_at,
+            lastLoginAt: row.last_login_at ?? null
+          },
+          stats
+        )
+      );
+      res.json({ users });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.patch('/api/admin/users/:id/role', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const role = req.body?.role;
+      if (role !== 'admin' && role !== 'member') {
+        return res.status(400).json({ error: "role must be 'admin' or 'member'." });
+      }
+      const targetId = req.params.id;
+
+      if (process.env.USE_SUPABASE_AUTH === 'true') {
+        const supabase = getSupabaseClient({ admin: true });
+        const { data: authUser, error: userError } = await supabase.auth.admin.getUserById(targetId);
+        if (userError || !authUser) return res.status(404).json({ error: 'User not found.' });
+
+        // Update the role only, when the profile row already exists, so an
+        // existing profile is never clobbered with derived values.
+        const { data: existing, error: readError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', targetId)
+          .maybeSingle();
+        if (readError) throw readError;
+
+        let updated;
+        if (existing) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .update({ role })
+            .eq('id', targetId)
+            .select('id, role')
+            .single();
+          if (error) throw error;
+          updated = data;
+        } else {
+          const email = (authUser.email ?? '').toLowerCase();
+          const localPart = email.split('@')[0] || 'user';
+          const { data, error } = await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: targetId,
+                email,
+                username: localPart,
+                display_name: authUser.user_metadata?.display_name || localPart,
+                role
+              },
+              { onConflict: 'id' }
+            )
+            .select('id, role')
+            .single();
+          if (error) throw error;
+          updated = data;
+        }
+
+        clearProfileCache(targetId);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'USER_ROLE_CHANGED',
+          entity: 'user',
+          entityId: targetId,
+          details: `Role set to ${role}`
+        });
+        return res.json({ user: { id: updated.id, role } });
+      }
+
+      const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
+      if (!target) return res.status(404).json({ error: 'User not found.' });
+      db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, targetId);
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'USER_ROLE_CHANGED',
+        entity: 'user',
+        entityId: targetId,
+        details: `${target.display_name} role set to ${role}`
+      });
+      return res.json({ user: { id: targetId, role } });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete('/api/admin/users/:id', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const targetId = req.params.id;
+      if (targetId === req.user.id) {
+        return res.status(400).json({ error: 'You cannot remove your own account.' });
+      }
+
+      if (process.env.USE_SUPABASE_AUTH === 'true') {
+        const supabase = getSupabaseClient({ admin: true });
+        // Suspension rather than hard deletion: clinical records keep their
+        // references to the auth user id, and audit history must stay
+        // attributable. The session stops working immediately.
+        const { data: existing, error: readError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', targetId)
+          .maybeSingle();
+        if (readError) throw readError;
+        if (!existing) return res.status(404).json({ error: 'User not found.' });
+
+        const { error } = await supabase
+          .from('profiles')
+          .update({ suspended: true })
+          .eq('id', targetId);
+        if (error) throw error;
+        clearProfileCache(targetId);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'USER_SUSPENDED',
+          entity: 'user',
+          entityId: targetId,
+          details: 'Account suspended by administrator'
+        });
+        return res.json({ ok: true, id: targetId, suspended: true });
+      }
+
+      const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
+      if (!target) return res.status(404).json({ error: 'User not found.' });
+      db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(targetId);
+      destroyAllSessionsForUser(db, targetId);
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'USER_DISABLED',
+        entity: 'user',
+        entityId: targetId,
+        details: `${target.display_name} account disabled`
+      });
+      return res.json({ ok: true, id: targetId, suspended: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // -------------------------------------------------------------- audit ----
 
-  app.get('/api/audit', auth, (req, res) => {
+  // The audit trail records every clinical write; only administrators may
+  // read it or re-verify the hash chain.
+  app.get('/api/audit', auth, requireAdmin, (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 200, 1000);
     const rows = db.prepare('SELECT * FROM audit_log ORDER BY seq DESC LIMIT ?').all(limit);
     res.json({ entries: rows.map(mapAudit), integrity: verifyChain(db) });
   });
 
-  app.get('/api/audit/verify', auth, (_req, res) => {
+  app.get('/api/audit/verify', auth, requireAdmin, (_req, res) => {
     res.json(verifyChain(db));
   });
 

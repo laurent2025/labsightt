@@ -37,7 +37,7 @@ export function getSupabaseClient({ admin = false } = {}) {
 export async function getSupabaseProfile(supabase, userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('email, username, display_name')
+    .select('email, username, display_name, role, suspended')
     .eq('id', userId)
     .maybeSingle();
 
@@ -66,6 +66,9 @@ export async function ensureSupabaseProfile(supabase, authUser) {
     authUser.user_metadata?.full_name ||
     localPart;
 
+  // role is intentionally omitted from the upsert payload: new rows get the
+  // column default ('member') and an existing row keeps its current role, so
+  // this auto-create path can never demote an admin account.
   const { data, error } = await supabase
     .from('profiles')
     .upsert(
@@ -77,7 +80,7 @@ export async function ensureSupabaseProfile(supabase, authUser) {
       },
       { onConflict: 'id' }
     )
-    .select('email, username, display_name')
+    .select('email, username, display_name, role, suspended')
     .single();
 
   if (error) {
