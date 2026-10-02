@@ -1466,6 +1466,224 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
+  // ------------------------------------------------------------- admin analyses ----
+  // Administrative oversight of microscopy runs: view, edit status, or
+  // delete analyses across the whole server. Every mutation is recorded
+  // in the hash-chained audit trail.
+
+  app.get('/api/admin/analyses', auth, requireAdmin, async (req, res, next) => {
+    try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const limit = Math.min(Number(req.query.limit) || 50, 200);
+        const offset = Number(req.query.offset) || 0;
+        let query = supabase
+          .from('analyses')
+          .select('*', { count: 'exact' })
+          .order('started_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        if (req.query.status) query = query.eq('status', req.query.status);
+        if (req.query.sampleId) query = query.eq('sample_id', req.query.sampleId);
+        const { data: analyses, error, count } = await query;
+        if (error) throw error;
+        const rows = analyses ?? [];
+        const sampleIds = [...new Set(rows.map(row => row.sample_id))];
+        const patientIds = new Set();
+        const sampleMap = new Map();
+        if (sampleIds.length) {
+          const { data: sampleRows, error: sampleError } = await supabase
+            .from('samples')
+            .select('id, patient_id, sample_type, slide_label, stain_method, total_magnification, collection_datetime')
+            .in('id', sampleIds);
+          if (sampleError) throw sampleError;
+          for (const s of sampleRows ?? []) {
+            sampleMap.set(s.id, s);
+            patientIds.add(s.patient_id);
+          }
+        }
+        const patientMap = new Map();
+        if (patientIds.size) {
+          const { data: patientRows, error: patientError } = await supabase
+            .from('patients')
+            .select('id, patient_number, full_name, gender, age')
+            .in('id', [...patientIds]);
+          if (patientError) throw patientError;
+          for (const p of patientRows ?? []) patientMap.set(p.id, p);
+        }
+        const items = rows.map(row => {
+          const sample = sampleMap.get(row.sample_id);
+          const patient = sample ? patientMap.get(sample.patient_id) : null;
+          return {
+            id: row.id,
+            sampleId: row.sample_id,
+            patientId: sample?.patient_id ?? null,
+            patientNumber: patient?.patient_number ?? null,
+            patientName: patient?.full_name ?? null,
+            sampleType: sample?.sample_type ?? null,
+            slideLabel: sample?.slide_label ?? null,
+            status: row.status,
+            totalDetections: row.total_detections ?? 0,
+            startedAt: row.started_at,
+            completedAt: row.completed_at ?? null,
+            initiatedBy: row.initiated_by ?? null,
+            modelId: row.model_id ?? null,
+            modelName: row.model_name ?? null
+          };
+        });
+        return res.json({ items, total: count ?? rows.length, limit, offset });
+      }
+
+      const where = [];
+      const params = [];
+      if (req.query.status) { where.push('a.status = ?'); params.push(req.query.status); }
+      if (req.query.sampleId) { where.push('a.sample_id = ?'); params.push(req.query.sampleId); }
+      const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const offset = Number(req.query.offset) || 0;
+      const rows = db
+        .prepare(`SELECT a.*, s.patient_id, s.sample_type, s.slide_label, s.total_magnification, s.collection_datetime FROM analyses a LEFT JOIN samples s ON s.id = a.sample_id ${whereSql} ORDER BY a.started_at DESC LIMIT ? OFFSET ?`)
+        .all(...params, limit, offset);
+      const totalRow = db.prepare(`SELECT COUNT(*) AS n FROM analyses a ${whereSql}`).get(...params);
+      const items = rows.map(row => {
+        const patient = row.patient_id ? db.prepare('SELECT patient_number, full_name, gender, age FROM patients WHERE id = ?').get(row.patient_id) : null;
+        return {
+          id: row.id,
+          sampleId: row.sample_id,
+          patientId: row.patient_id ?? null,
+          patientNumber: patient?.patient_number ?? null,
+          patientName: patient?.full_name ?? null,
+          sampleType: row.sample_type ?? null,
+          slideLabel: row.slide_label ?? null,
+          status: row.status,
+          totalDetections: row.total_detections ?? 0,
+          startedAt: row.started_at,
+          completedAt: row.completed_at ?? null,
+          initiatedBy: row.initiated_by ?? null,
+          modelId: row.model_id ?? null,
+          modelName: row.model_name ?? null
+        };
+      });
+      return res.json({ items, total: totalRow.n, limit, offset });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.patch('/api/admin/analyses/:id', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const allowed = ['processing', 'in_review', 'confirmed', 'verified'];
+      const nextStatus = String(req.body?.status ?? '');
+      if (!allowed.includes(nextStatus)) {
+        return res.status(400).json({ error: `status must be one of: ${allowed.join(', ')}.` });
+      }
+      const notes = req.body?.notes ? String(req.body.notes).slice(0, 500) : null;
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const { data: existing, error: readError } = await supabase
+          .from('analyses')
+          .select('id, status, sample_id')
+          .eq('id', req.params.id)
+          .maybeSingle();
+        if (readError) throw readError;
+        if (!existing) return res.status(404).json({ error: 'Analysis not found.' });
+
+        const { data: updated, error: updateError } = await supabase
+          .from('analyses')
+          .update({ status: nextStatus, completed_at: nextStatus === 'verified' ? new Date().toISOString() : existing.completed_at })
+          .eq('id', req.params.id)
+          .select('id, status, completed_at')
+          .single();
+        if (updateError) throw updateError;
+
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'ANALYSIS_STATUS_CHANGED',
+          entity: 'analysis',
+          entityId: req.params.id,
+          details: `Admin set status to ${nextStatus}${notes ? `; notes: ${notes}` : ''}`
+        });
+        return res.json({ analysis: updated });
+      }
+
+      const existing = db.prepare('SELECT id, status FROM analyses WHERE id = ?').get(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Analysis not found.' });
+      db.prepare('UPDATE analyses SET status = ?, completed_at = ? WHERE id = ?').run(
+        nextStatus,
+        nextStatus === 'verified' ? new Date().toISOString() : existing.completed_at,
+        req.params.id
+      );
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'ANALYSIS_STATUS_CHANGED',
+        entity: 'analysis',
+        entityId: req.params.id,
+        details: `Admin set status to ${nextStatus}${notes ? `; notes: ${notes}` : ''}`
+      });
+      return res.json({ analysis: { id: req.params.id, status: nextStatus } });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete('/api/admin/analyses/:id', auth, requireAdmin, async (req, res, next) => {
+    try {
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const { data: existing, error: readError } = await supabase
+          .from('analyses')
+          .select('id, status, sample_id')
+          .eq('id', req.params.id)
+          .maybeSingle();
+        if (readError) throw readError;
+        if (!existing) return res.status(404).json({ error: 'Analysis not found.' });
+        if (existing.status === 'verified') {
+          return res.status(409).json({ error: 'Cannot delete a verified analysis. Contact data governance.' });
+        }
+        const { error: delError } = await supabase
+          .from('detections')
+          .delete()
+          .eq('analysis_id', req.params.id);
+        if (delError) throw delError;
+        const { error: analysisDelError } = await supabase
+          .from('analyses')
+          .delete()
+          .eq('id', req.params.id);
+        if (analysisDelError) throw analysisDelError;
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'ANALYSIS_DELETED',
+          entity: 'analysis',
+          entityId: req.params.id,
+          details: `Admin removed analysis ${req.params.id}`
+        });
+        return res.status(204).send();
+      }
+
+      const existing = db.prepare('SELECT id, status FROM analyses WHERE id = ?').get(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Analysis not found.' });
+      if (existing.status === 'verified') {
+        return res.status(409).json({ error: 'Cannot delete a verified analysis. Contact data governance.' });
+      }
+      db.prepare('DELETE FROM detections WHERE analysis_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM analyses WHERE id = ?').run(req.params.id);
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'ANALYSIS_DELETED',
+        entity: 'analysis',
+        entityId: req.params.id,
+        details: `Admin removed analysis ${req.params.id}`
+      });
+      return res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // -------------------------------------------------------------- audit ----
 
   // The audit trail records every clinical write; only administrators may

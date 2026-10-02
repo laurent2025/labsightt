@@ -87,6 +87,14 @@ export default function App() {
     'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users'
   >('dashboard');
 
+  const [microscopyBrowseFilter, setMicroscopyBrowseFilter] = useState<string | null>(null);
+
+  const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users', filter?: string | null) => {
+    setActiveTab(tab);
+    setMicroscopyBrowseFilter(filter ?? null);
+    setSelectedAnalysisId(null);
+  };
+
   // Administrative tabs exist in state for both roles; a non-admin who lands
   // on one (stale state, back button) is redirected to the dashboard.
   const effectiveTab =
@@ -283,9 +291,10 @@ export default function App() {
               analyses={analyses}
               reports={reports}
               samples={samples}
-              onNavigateTab={tab => setActiveTab(tab)}
+              onNavigateTab={(tab, filter) => switchTab(tab, filter)}
               onSelectAnalysis={anaId => {
                 setSelectedAnalysisId(anaId);
+                setMicroscopyBrowseFilter(null);
                 setActiveTab('microscopy');
               }}
               onOpenReport={report => setActiveReportModal(report)}
@@ -327,6 +336,8 @@ export default function App() {
             onGenerateReport={generateReport}
             onOpenReportModal={report => setActiveReportModal(report)}
             onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
+            onSelectAnalysis={setSelectedAnalysisId}
+            browseFilter={microscopyBrowseFilter}
             />
           </ErrorBoundary>
         )}

@@ -58,81 +58,102 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => handleTabClick('dashboard')}
-            className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`py-1 transition-colors whitespace-nowrap cursor-pointer relative ${
               activeTab === 'dashboard'
-                ? 'text-cyan-700 dark:text-cyan-400 border-b-2 border-cyan-700 dark:border-cyan-400 font-bold'
+                ? 'text-cyan-700 dark:text-cyan-400 font-bold'
                 : 'hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Dashboard
+            {activeTab === 'dashboard' && (
+              <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 rounded-full" />
+            )}
           </button>
           <button
             type="button"
             onClick={() => handleTabClick('patients')}
-            className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`py-1 transition-colors whitespace-nowrap cursor-pointer relative ${
               activeTab === 'patients'
-                ? 'text-cyan-700 dark:text-cyan-400 border-b-2 border-cyan-700 dark:border-cyan-400 font-bold'
+                ? 'text-cyan-700 dark:text-cyan-400 font-bold'
                 : 'hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Patients
+            {activeTab === 'patients' && (
+              <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 rounded-full" />
+            )}
           </button>
           <button
             type="button"
             onClick={() => handleTabClick('microscopy')}
-            className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`py-1 transition-colors whitespace-nowrap cursor-pointer relative ${
               activeTab === 'microscopy'
-                ? 'text-cyan-700 dark:text-cyan-400 border-b-2 border-cyan-700 dark:border-cyan-400 font-bold'
+                ? 'text-cyan-700 dark:text-cyan-400 font-bold'
                 : 'hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Microscopy
+            {activeTab === 'microscopy' && (
+              <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 rounded-full" />
+            )}
           </button>
           <button
             type="button"
             onClick={() => handleTabClick('reports')}
-            className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
+            className={`py-1 transition-colors whitespace-nowrap cursor-pointer relative ${
               activeTab === 'reports'
-                ? 'text-cyan-700 dark:text-cyan-400 border-b-2 border-cyan-700 dark:border-cyan-400 font-bold'
+                ? 'text-cyan-700 dark:text-cyan-400 font-bold'
                 : 'hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Reports
+            {activeTab === 'reports' && (
+              <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 rounded-full" />
+            )}
           </button>
           {isAdmin && (
             <>
               <button
                 type="button"
                 onClick={() => handleTabClick('models')}
-                className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
+                className={`py-1 transition-colors whitespace-nowrap cursor-pointer relative ${
                   activeTab === 'models'
-                    ? 'text-cyan-700 dark:text-cyan-400 border-b-2 border-cyan-700 dark:border-cyan-400 font-bold'
+                    ? 'text-cyan-700 dark:text-cyan-400 font-bold'
                     : 'hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Models
+                {activeTab === 'models' && (
+                  <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 rounded-full" />
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => handleTabClick('audit')}
-                className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
+                className={`py-1 transition-colors whitespace-nowrap cursor-pointer relative ${
                   activeTab === 'audit'
-                    ? 'text-cyan-700 dark:text-cyan-400 border-b-2 border-cyan-700 dark:border-cyan-400 font-bold'
+                    ? 'text-cyan-700 dark:text-cyan-400 font-bold'
                     : 'hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Audit
+                {activeTab === 'audit' && (
+                  <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 rounded-full" />
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => handleTabClick('users')}
-                className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
+                className={`py-1 transition-colors whitespace-nowrap cursor-pointer relative ${
                   activeTab === 'users'
-                    ? 'text-cyan-700 dark:text-cyan-400 border-b-2 border-cyan-700 dark:border-cyan-400 font-bold'
+                    ? 'text-cyan-700 dark:text-cyan-400 font-bold'
                     : 'hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 Users
+                {activeTab === 'users' && (
+                  <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-cyan-600 dark:bg-cyan-400 rounded-full" />
+                )}
               </button>
             </>
           )}
@@ -264,9 +285,9 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => handleTabClick('dashboard')}
-            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer ${
+            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer transition-colors ${
               activeTab === 'dashboard'
-                ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300 font-semibold'
+                ? 'bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
@@ -275,20 +296,20 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => handleTabClick('patients')}
-            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer ${
+            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer transition-colors ${
               activeTab === 'patients'
-                ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300 font-semibold'
+                ? 'bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
-            Patients & Accessions
+            Patients &amp; Accessions
           </button>
           <button
             type="button"
             onClick={() => handleTabClick('microscopy')}
-            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer ${
+            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer transition-colors ${
               activeTab === 'microscopy'
-                ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300 font-semibold'
+                ? 'bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
@@ -297,9 +318,9 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => handleTabClick('reports')}
-            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer ${
+            className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer transition-colors ${
               activeTab === 'reports'
-                ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300 font-semibold'
+                ? 'bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
@@ -310,9 +331,9 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabClick('models')}
-                className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer ${
+                className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer transition-colors ${
                   activeTab === 'models'
-                    ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300 font-semibold'
+                    ? 'bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold'
                     : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
                 }`}
               >
@@ -321,9 +342,9 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabClick('audit')}
-                className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer ${
+                className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer transition-colors ${
                   activeTab === 'audit'
-                    ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300 font-semibold'
+                    ? 'bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold'
                     : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
                 }`}
               >
@@ -332,9 +353,9 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabClick('users')}
-                className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer ${
+                className={`w-full text-left px-3 py-3 min-h-[44px] rounded-lg text-xs font-medium cursor-pointer transition-colors ${
                   activeTab === 'users'
-                    ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300 font-semibold'
+                    ? 'bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold'
                     : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
                 }`}
               >
@@ -363,7 +384,7 @@ export const Header: React.FC<HeaderProps> = ({
               }}
               className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
-              Privacy & HIPAA
+              Privacy &amp; HIPAA
             </button>
           </div>
         </div>

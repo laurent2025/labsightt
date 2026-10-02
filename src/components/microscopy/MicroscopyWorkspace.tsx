@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   Camera,
   Video,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
@@ -38,6 +39,8 @@ interface MicroscopyWorkspaceProps {
   onGenerateReport: (analysisId: string) => Promise<LaboratoryReport>;
   onOpenReportModal: (report: LaboratoryReport) => void;
   onOpenNewPatientModal: () => void;
+  onSelectAnalysis?: (analysisId: string) => void;
+  browseFilter?: string | null;
 }
 
 export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
@@ -57,7 +60,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   onSaveAnalysisNotes,
   onGenerateReport,
   onOpenReportModal,
-  onOpenNewPatientModal
+  onOpenNewPatientModal,
+  onSelectAnalysis,
+  browseFilter
 }) => {
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string>(
     currentAnalysisId || analyses[0]?.id || ''
@@ -70,28 +75,16 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [showRawInspector, setShowRawInspector] = useState<boolean>(false);
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(null);
 
-  // Multi-field scanning. The field count comes from the specimen record: it
-  // was hardcoded to 10, which contradicted blood films accessioned at 20.
   const [currentField, setCurrentField] = useState<number>(1);
-
-  // Responsive device view switcher for small/medium screens (< lg)
   const [mobileActivePane, setMobileActivePane] = useState<'microscope' | 'review'>('microscope');
-
-  // Adjudication summary state
   const [aiAssistantImpression, setAiAssistantImpression] = useState<string | null>(null);
-
-  // Inference failures are shown to the operator, never substituted.
   const [inferenceError, setInferenceError] = useState<string | null>(null);
-  // Report/verification gate rejections surface here.
   const [gateError, setGateError] = useState<string | null>(null);
-
-  // Camera capture from microscope
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
-  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+  const [cameraDeviceId, setCameraDeviceId] = useState<string>('default');
+  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Scan progress: elapsed seconds + a one-line result summary after each run.
   const [scanSeconds, setScanSeconds] = useState<number>(0);
   const [scanSummary, setScanSummary] = useState<string | null>(null);
   useEffect(() => {
@@ -106,7 +99,121 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     if (currentAnalysisId && currentAnalysisId !== selectedAnalysisId) {
       setSelectedAnalysisId(currentAnalysisId);
     }
-  }, [currentAnalysisId]);
+  }, [currentAnalysisId, selectedAnalysisId]);
+
+  const handleBrowseSelect = (id: string) => {
+    setSelectedAnalysisId(id);
+    onSelectAnalysis?.(id);
+  };
+
+  if (!currentAnalysisId && analyses.length > 1) {
+    const visibleAnalyses = browseFilter
+      ? analyses.filter(a => a.status === browseFilter)
+      : analyses;
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
+              <Microscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Microscopy Workstation</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {browseFilter
+                  ? `Showing ${visibleAnalyses.length} pending review${visibleAnalyses.length === 1 ? '' : 's'}`
+                  : 'Select a run to open full details'}
+              </p>
+            </div>
+          </div>
+
+          {visibleAnalyses.length === 0 ? (
+            <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400">
+              {browseFilter ? 'No pending analyses right now.' : 'No analyses available.'}
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <th className="py-2.5 px-4 font-semibold">Patient &amp; Specimen</th>
+                    <th className="py-2.5 px-4 font-semibold">Slide Preparation</th>
+                    <th className="py-2.5 px-4 font-semibold">Primary Finding</th>
+                    <th className="py-2.5 px-4 font-semibold">Status</th>
+                    <th className="py-2.5 px-4 font-semibold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {visibleAnalyses.map(ana => {
+                    const patient = patients.find(p => p.id === ana.patientId);
+                    const sample = samples.find(s => s.id === ana.sampleId);
+                    return (
+                      <tr key={ana.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900 dark:text-white">{patient?.fullName || 'Unknown Patient'}</div>
+                          <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                            {patient?.patientNumber} · {sample?.sampleType}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="text-slate-800 dark:text-slate-200 font-medium">{sample?.stainMethod}</div>
+                          <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            {sample?.totalMagnification} ({sample?.fieldsExamined} HPFs)
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {ana.findings.length > 0 ? (
+                            <div>
+                              <span className="font-semibold text-slate-900 dark:text-white italic">
+                                {ana.findings.reduce((best, f) =>
+                                  f.clinicalSignificance === 'normal' ? best : f,
+                                  ana.findings[0]
+                                ).displayName}
+                              </span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-mono">
+                                {ana.findings[0].standardizedQuantity}
+                              </span>
+                            </div>
+                          ) : ana.status === 'processing' ? (
+                            <span className="text-slate-400 dark:text-slate-500">Analysis in progress</span>
+                          ) : ana.totalDetections === 0 ? (
+                            <span className="text-slate-400 dark:text-slate-500">No candidates proposed</span>
+                          ) : (
+                            <span className="text-slate-400 dark:text-slate-500">All candidates rejected by reviewer</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                            ana.status === 'verified'
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                              : ana.status === 'confirmed'
+                              ? 'bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300'
+                              : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                          }`}>
+                            {ana.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleBrowseSelect(ana.id)}
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition cursor-pointer"
+                          >
+                            <span>Open</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // A locally uploaded slide belongs to one analysis. Drop it when the
   // operator switches, so patient B is never shown patient A's image.
@@ -223,22 +330,43 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // Camera capture from connected microscope
   const startCamera = async () => {
     try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera capture is not supported in this browser. Use HTTPS or localhost.');
+      }
+
+      let devices = cameraDevices;
+      if (!devices.length) {
+        const all = await navigator.mediaDevices.enumerateDevices();
+        devices = all.filter(d => d.kind === 'videoinput');
+        setCameraDevices(devices);
+        if (devices.length > 0 && cameraDeviceId === 'default') {
+          setCameraDeviceId(devices[0].deviceId);
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: cameraFacing,
+          deviceId: cameraDeviceId && cameraDeviceId !== 'default' ? { exact: cameraDeviceId } : undefined,
           width: { ideal: 1920 },
           height: { ideal: 1080 }
-        }
+        },
+        audio: false
       });
       setCameraStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        await videoRef.current.play().catch(() => undefined);
       }
       setShowCameraModal(true);
+      setInferenceError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setInferenceError(`Camera access failed: ${message}. Ensure a microscope camera is connected and browser permissions are granted.`);
+      const hint = /not supported|secure context|permission|not found|device/i.test(message)
+        ? 'Check that the microscope camera is connected, not in use by another app, and that the browser has camera permission.'
+        : 'Ensure a microscope camera is connected and browser permissions are granted.';
+      setInferenceError(`Camera access failed: ${message}. ${hint}`);
+      setShowCameraModal(false);
+      setCameraStream(null);
     }
   };
 
@@ -251,10 +379,17 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   };
 
   const switchCamera = () => {
-    setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment');
-    if (cameraStream && videoRef.current) {
+    if (!cameraDevices.length) return;
+    const currentIndex = cameraDevices.findIndex(d => d.deviceId === cameraDeviceId);
+    const nextIndex = (currentIndex + 1) % cameraDevices.length;
+    switchCameraDevice(cameraDevices[nextIndex].deviceId);
+  };
+
+  const switchCameraDevice = async (deviceId: string) => {
+    setCameraDeviceId(deviceId);
+    if (cameraStream) {
       stopCamera();
-      setTimeout(startCamera, 100);
+      setTimeout(startCamera, 120);
     }
   };
 
@@ -270,9 +405,37 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     stopCamera();
     setCustomSlideDataUrl(dataUrl);
-    // Trigger analysis with the captured frame
+    setInferenceError(null);
+    setScanSummary(`Captured live frame from microscope camera. ${new Date().toLocaleTimeString()}. Click "Scan Field with Roboflow" to analyse this capture.`);
     void handleTriggerAnalysis(dataUrl);
   };
+
+  // Enumerate video devices when the camera modal opens so the user can
+  // choose the correct microscope source instead of relying on facing mode.
+  useEffect(() => {
+    if (!showCameraModal) return;
+    let cancelled = false;
+    const enumerate = async () => {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          if (!cancelled) {
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+            setCameraDevices(videoDevices);
+            if (videoDevices.length > 0 && !videoDevices.some(d => d.deviceId === cameraDeviceId)) {
+              setCameraDeviceId(videoDevices[0].deviceId);
+            }
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+    };
+    void enumerate();
+    return () => {
+      cancelled = true;
+    };
+  }, [showCameraModal, cameraDeviceId]);
 
   // The <video> mounts after startCamera() resolves (videoRef.current is null
   // while the stream is being set up), so attach the stream on render.
@@ -782,7 +945,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       )}
 
       {/* Camera Capture Modal */}
-      {showCameraModal && cameraStream && (
+      {showCameraModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
           <div className="relative w-full max-w-2xl bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-800/50">
@@ -798,10 +961,10 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                   type="button"
                   onClick={switchCamera}
                   className="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition"
-                  title="Switch camera (front/back)"
+                  title="Flip camera"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="ml-1 hidden sm:inline">Switch</span>
+                  <span className="ml-1 hidden sm:inline">Flip</span>
                 </button>
                 <button
                   type="button"
@@ -813,6 +976,24 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 </button>
               </div>
             </div>
+
+            {cameraDevices.length > 1 && (
+              <div className="px-3 py-2 border-b border-slate-700 bg-slate-800/40 flex items-center gap-2 text-xs">
+                <span className="text-slate-400">Camera source:</span>
+                <select
+                  value={cameraDeviceId}
+                  onChange={event => switchCameraDevice(event.target.value)}
+                  className="flex-1 bg-slate-900 border border-slate-700 text-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600"
+                >
+                  {cameraDevices.map(d => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Camera ${d.deviceId.slice(0, 8)}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="relative bg-black p-2">
               <video
                 ref={videoRef}
@@ -843,7 +1024,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
               </div>
             </div>
             <div className="p-3 border-t border-slate-700 bg-slate-800/50 text-xs text-slate-400 text-center">
-              Position the specimen in the field of view, then click <strong>Capture Frame</strong> to run AI analysis.
+              Position the specimen in the field of view, then click <strong>Capture Frame</strong> to link it into the microscope viewer and run AI analysis.
             </div>
           </div>
         </div>

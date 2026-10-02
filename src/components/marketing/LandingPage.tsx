@@ -170,15 +170,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 <FlaskConical className="w-3.5 h-3.5" />
                 AI-ASSISTED CLINICAL MICROSCOPY
               </p>
-              <h1 className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight leading-tight">
+              <h1 className="mt-5 text-4xl sm:text-5xl font-bold tracking-tight leading-tight text-slate-900 dark:text-white">
                 Every field scanned.
                 <br />
                 Every finding verified.
               </h1>
-              <p className="mt-3 text-sm font-mono text-slate-500 dark:text-slate-400">
-                {LAB_METADATA.subtitle}
-              </p>
-              <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
+              <p className="mt-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
                 LabSight pairs automated computer-vision detection with a disciplined laboratory
                 workflow: accession the specimen, scan the slide, adjudicate every detection, and
                 release a two-person verified report — with an unbroken chain of custody.
@@ -250,7 +247,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         <section id="features" className="scroll-mt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
             <div className="max-w-2xl">
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Built around the laboratory workflow, not just the model
               </h2>
               <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -262,9 +259,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
               {FEATURES.map(feature => (
                 <div
                   key={feature.title}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 hover:border-cyan-300 dark:hover:border-cyan-800 transition-colors"
+                  className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 hover:border-cyan-300 dark:hover:border-cyan-800 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <feature.icon className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
                   </div>
                   <h3 className="mt-4 text-sm font-bold text-slate-900 dark:text-white">{feature.title}</h3>
@@ -279,7 +276,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         <section id="workflow" className="scroll-mt-20 bg-white dark:bg-slate-900/40 border-y border-slate-200 dark:border-slate-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
             <div className="max-w-2xl">
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">From slide to signed report</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">From slide to signed report</h2>
               <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
                 Every stage leaves a record. No report can be verified, let alone released, without
                 the full chain of custody behind it.
@@ -287,7 +284,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
             </div>
             <ol className="mt-10 grid grid-cols-1 md:grid-cols-5 gap-5">
               {WORKFLOW.map((item, index) => (
-                <li key={item.step} className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
+                <li key={item.step} className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 hover:border-cyan-300 dark:hover:border-cyan-800 transition-colors">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-mono font-bold text-cyan-700 dark:text-cyan-400">{item.step}</span>
                     <CheckCircle2 className="w-4 h-4 text-slate-300 dark:text-slate-600" />

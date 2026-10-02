@@ -18,7 +18,7 @@ interface DashboardOverviewProps {
   analyses: Analysis[];
   reports: LaboratoryReport[];
   samples: Sample[];
-  onNavigateTab: (tab: 'microscopy' | 'patients' | 'reports' | 'audit' | 'users') => void;
+  onNavigateTab: (tab: 'microscopy' | 'patients' | 'reports' | 'audit' | 'users', filter?: string | null) => void;
   onSelectAnalysis: (analysisId: string) => void;
   onOpenReport: (report: LaboratoryReport) => void;
   onOpenNewPatientModal: () => void;
@@ -41,9 +41,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const verifiedReportsCount = reports.filter(r => r.status === 'verified').length;
   const pendingReviewCount = analyses.filter(a => a.status === 'in_review').length;
   const openMostRecentAnalysis = (status?: Analysis['status']) => {
+    if (status === 'in_review') {
+      const pending = analyses.filter(item => item.status === 'in_review');
+      if (pending.length > 0) {
+        onNavigateTab('microscopy', 'in_review');
+        return;
+      }
+      onNavigateTab('microscopy', null);
+      return;
+    }
     const analysis = analyses.find(item => !status || item.status === status);
     if (analysis) onSelectAnalysis(analysis.id);
-    else onNavigateTab('microscopy');
+    else onNavigateTab('microscopy', null);
   };
 
   // The overview shows only the newest runs; the full history stays reachable
@@ -133,10 +142,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     <div className="space-y-6">
       {/* Hero Welcome & Quick Launch Banner */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-200">
-        <div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
-              PATHOLOGY & CLINICAL MICROSCOPY WORKSTATION
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
+              Pathology &amp; Clinical Microscopy Workstation
             </span>
             <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
               {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -145,7 +154,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Welcome back, {user?.name ?? 'Operator'}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
             {pendingReviewCount > 0
               ? `${pendingReviewCount} analysis${pendingReviewCount === 1 ? '' : 'es'} awaiting review. Open one below to continue adjudication.`
               : 'No analyses are awaiting review. Accession a specimen to start a new microscopy workflow.'}
@@ -165,7 +174,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <button
               type="button"
               onClick={() => openMostRecentAnalysis(pendingReviewCount > 0 ? 'in_review' : undefined)}
-              className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition whitespace-nowrap cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition whitespace-nowrap cursor-pointer hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm"
             >
               <span>
                 {pendingReviewCount > 0 ? `Review ${pendingReviewCount} pending` : 'Open workstation'}
@@ -178,37 +187,43 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       {/* Primary Telemetry Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button type="button" onClick={() => onNavigateTab('patients')} className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Accessioned Patients</span>
-            <Users className="w-4 h-4 text-slate-500" />
+        <button type="button" onClick={() => onNavigateTab('patients')} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Accessioned Patients</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950 transition-colors">
+              <Users className="w-4 h-4 text-slate-500 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" />
+            </div>
           </div>
           <div className="text-3xl font-mono font-bold text-slate-900 dark:text-white tabular-nums">
             {patients.length}
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Active lab cohorts</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Active lab cohorts</div>
         </button>
 
-        <button type="button" onClick={() => openMostRecentAnalysis()} className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Microscopy Runs</span>
-            <Microscope className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+        <button type="button" onClick={() => openMostRecentAnalysis()} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Microscopy Runs</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950 transition-colors">
+              <Microscope className="w-4 h-4 text-cyan-600 dark:text-cyan-400 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors" />
+            </div>
           </div>
           <div className="text-3xl font-mono font-bold text-slate-900 dark:text-white tabular-nums">
             {analyses.length}
           </div>
-          <div className="text-xs text-cyan-700 dark:text-cyan-400 font-medium mt-1">Roboflow vision scans complete</div>
+          <div className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium mt-1">Roboflow vision scans complete</div>
         </button>
 
-        <button type="button" onClick={() => openMostRecentAnalysis('in_review')} className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Pending Review</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+        <button type="button" onClick={() => openMostRecentAnalysis('in_review')} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 transition-all duration-200">
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Pending Review</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-amber-50 dark:group-hover:bg-amber-950 transition-colors">
+              <Clock className="w-4 h-4 text-amber-500 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors" />
+            </div>
           </div>
           <div className="text-3xl font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
             {pendingReviewCount}
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">Awaiting technologist sign-off</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Awaiting technologist sign-off</div>
         </button>
 
         <button
@@ -218,28 +233,30 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             if (report) onOpenReport(report);
             else onNavigateTab('reports');
           }}
-          className="w-full text-left bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-colors duration-200"
+          className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
         >
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Verified Reports</span>
-            <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Verified Reports</span>
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950 transition-colors">
+              <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors" />
+            </div>
           </div>
           <div className="text-3xl font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
             {verifiedReportsCount}
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">ISO 15189 authorized & released</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">ISO 15189 authorized &amp; released</div>
         </button>
       </div>
 
       {/* Interactive Quick-Test Pipeline Stage & Live Slide Previewer */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs transition-colors duration-200">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 gap-3 mb-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
+        <div className="p-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              Interactive Roboflow Vision Pipelines
+              Diagnostic Pipelines
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Select calibrated diagnostic models to preview automated morphology classification
+              Select a calibrated specimen workflow to review targets and staining protocol
             </p>
           </div>
 
@@ -280,13 +297,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Pipeline Details & Interactive Slide Preview */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          {/* Left: Specimen Details & Targets (5 cols) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center px-6 pb-6">
           <div className="lg:col-span-5 space-y-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400 font-mono">
-                DIAGNOSTIC PIPELINE
+                ACTIVE PIPELINE
               </span>
               <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">{activePipeline.name}</h3>
               <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
@@ -322,13 +337,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1.5">
-                CLASSIFICATION TARGETS
+                Classification Targets
               </span>
               <div className="flex flex-wrap gap-1.5 text-[11px]">
                 {activePipeline.targets.map((t, idx) => (
                   <span
                     key={idx}
-                    className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-md text-slate-800 dark:text-slate-200 italic"
+                    className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-md text-slate-800 dark:text-slate-200"
                   >
                     {t}
                   </span>
@@ -336,10 +351,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="button"
-                onClick={() => onNavigateTab('microscopy')}
+                onClick={() => onNavigateTab('microscopy', null)}
                 className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5 fill-current text-cyan-400 dark:text-white" />
@@ -348,7 +363,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
 
-          {/* Right: Reference slide image (7 cols) */}
           <div className="lg:col-span-7">
             <figure className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-lg aspect-4/3 flex items-center justify-center">
               <img
@@ -357,12 +371,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 className="w-full h-full object-cover"
               />
 
-              {/*
-                This is a stock reference photograph of the specimen type. No
-                model has run on it, so it carries no detections. The earlier
-                version overlaid dashed boxes with organism labels here, which
-                made fabricated output indistinguishable from a real result.
-              */}
               <div className="absolute bottom-3 left-3 right-3 bg-slate-950/85 backdrop-blur-sm border border-amber-700/50 rounded-lg px-3 py-2 text-[11px] text-amber-200">
                 <strong className="font-semibold">Reference image.</strong> Illustrative
                 photograph of this specimen type &mdash; not an analysed slide, and no
@@ -376,52 +384,52 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       {/* Specimen Workflows & Distribution Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Analyses by specimen type, derived from the local case list */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs flex flex-col justify-between transition-colors duration-200">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Analyses by Specimen Type</h2>
-              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Last 200 runs</span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-              Counted from the cases stored on the laboratory server
-            </p>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs transition-colors duration-200">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Analyses by Specimen Type</h2>
+            <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Last 200 runs</span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
+            Counted from the cases stored on the laboratory server
+          </p>
 
-            <div className="h-44 w-full flex items-end gap-6 px-2">
-              {bySampleType.map(entry => (
-                <div key={entry.type} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
-                    {entry.count}
-                  </span>
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t-md flex items-end" style={{ height: '120px' }}>
-                    <div
-                      className="w-full bg-cyan-500/80 dark:bg-cyan-500/70 rounded-t-md transition-all duration-300"
-                      style={{ height: `${Math.max(2, (entry.count / typeMax) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-[11px] capitalize text-slate-500 dark:text-slate-400">{entry.type}</span>
+          <div className="h-44 w-full flex items-end gap-6 px-2">
+            {bySampleType.map(entry => (
+              <div key={entry.type} className="flex-1 flex flex-col items-center gap-2">
+                <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
+                  {entry.count}
+                </span>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t-md flex items-end" style={{ height: '120px' }}>
+                  <div
+                    className="w-full bg-cyan-500/80 dark:bg-cyan-500/70 rounded-t-md transition-all duration-300"
+                    style={{ height: `${Math.max(2, (entry.count / typeMax) * 100)}%` }}
+                  />
                 </div>
-              ))}
-            </div>
+                <span className="text-[11px] capitalize text-slate-500 dark:text-slate-400">{entry.type}</span>
+              </div>
+            ))}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+          <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
             <span className="text-slate-500 dark:text-slate-400">Positive detection rate:</span>
             <span className="font-mono font-bold text-slate-800 dark:text-white">{detectionRate}%</span>
           </div>
         </div>
 
         {/* Technologist-confirmed organism counts */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs flex flex-col justify-between transition-colors duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs transition-colors duration-200">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Confirmed Organism Counts</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
               Only technologist-confirmed detections, across all stored cases
             </p>
 
             {topOrganisms.length === 0 ? (
-              <p className="text-xs text-slate-400 dark:text-slate-500 py-8 text-center">
-                No confirmed detections yet. Confirm candidate bounding boxes to populate this panel.
-              </p>
+              <div className="py-10 text-center">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  No confirmed detections yet. Confirm candidate bounding boxes to populate this panel.
+                </p>
+              </div>
             ) : (
               <div className="space-y-3 text-xs">
                 {topOrganisms.map(([name, count]) => (
@@ -442,7 +450,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
             <span>Total confirmed detections:</span>
             <span className="font-mono font-semibold text-cyan-800 dark:text-cyan-400">{confirmedDetectionTotal}</span>
           </div>
@@ -452,7 +460,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       {/* My Recent Work — the signed-in operator's own runs and reports */}
       {(myAnalyses.length > 0 || myReports.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
             <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800">
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">My Microscopy Runs</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">Analyses you initiated</p>
@@ -497,7 +505,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </ul>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
             <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800">
               <h2 className="text-sm font-bold text-slate-900 dark:text-white">My Reports</h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">Laboratory reports you generated</p>
@@ -545,10 +553,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       {/* Recent Analyses Activity Queue — administrative oversight; admin only */}
       {user?.isAdmin && (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Recent Microscopy Accessions & Reviews</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Recent Microscopy Accessions &amp; Reviews</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">Review, adjust bounding boxes, or sign laboratory reports</p>
           </div>
           <button
@@ -580,7 +588,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <table className="w-full text-left text-xs border-collapse min-w-[620px]">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                <th className="py-2.5 px-4 font-semibold">Patient & Specimen</th>
+                <th className="py-2.5 px-4 font-semibold">Patient &amp; Specimen</th>
                 <th className="py-2.5 px-4 font-semibold">Slide Preparation</th>
                 <th className="py-2.5 px-4 font-semibold">Primary Microscopic Finding</th>
                 <th className="py-2.5 px-4 font-semibold">Review Status</th>

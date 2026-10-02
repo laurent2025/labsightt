@@ -110,6 +110,23 @@ export interface AdminUser {
   lastActionAt: string | null;
 }
 
+export interface AdminAnalysis {
+  id: string;
+  sampleId: string;
+  patientId: string | null;
+  patientNumber: string | null;
+  patientName: string | null;
+  sampleType: string | null;
+  slideLabel: string | null;
+  status: string;
+  totalDetections: number;
+  startedAt: string;
+  completedAt: string | null;
+  initiatedBy: string | null;
+  modelId: string | null;
+  modelName: string | null;
+}
+
 export const adminApi = {
   listUsers: () => request<{ users: AdminUser[] }>('/admin/users'),
 
@@ -122,7 +139,21 @@ export const adminApi = {
   removeUser: (id: string) =>
     request<{ ok: true; id: string; suspended: boolean }>(`/admin/users/${encodeURIComponent(id)}`, {
       method: 'DELETE'
-    })
+    }),
+
+  listAnalyses: (params: { limit?: number; offset?: number; status?: string; sampleId?: string } = {}) =>
+    request<{ items: AdminAnalysis[]; total: number; limit: number; offset: number }>(
+      `/admin/analyses${query(params)}`
+    ),
+
+  updateAnalysis: (id: string, payload: { status: string; notes?: string }) =>
+    request<{ analysis: { id: string; status: string; completed_at: string | null } }>(
+      `/admin/analyses/${encodeURIComponent(id)}`,
+      { method: 'PATCH', body: JSON.stringify(payload) }
+    ),
+
+  deleteAnalysis: (id: string) =>
+    request<void>(`/admin/analyses/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };
 
 export const authApi = {
