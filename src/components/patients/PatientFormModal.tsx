@@ -203,9 +203,9 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
         role="dialog"
         aria-modal="true"
         aria-label="Accession new patient specimen"
-        className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden text-xs my-auto">
+        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden text-xs my-auto">
         {/* Header */}
-        <div className="px-5 sm:px-6 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+        <div className="px-5 sm:px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <UserPlus className="w-4 h-4 text-cyan-700" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -467,7 +467,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
                 <span className="text-[11px] text-slate-600 dark:text-slate-400 block mb-2">
                   Or Upload Specimen Photo:
                 </span>
-                <label className="border-2 border-dashed border-slate-300 hover:border-cyan-500 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition h-20 bg-slate-50 hover:bg-cyan-50/30">
+                <label className="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-cyan-500 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition h-20 bg-slate-50 dark:bg-slate-950 hover:bg-cyan-50/30 dark:hover:bg-cyan-950/30">
                   <Upload className="w-4 h-4 text-slate-400 mb-1" />
                   <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                     {customImage ? 'Custom Image Loaded' : 'Upload Microscope Image'}
@@ -514,7 +514,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-2 shadow-sm transition"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 disabled:bg-slate-600 dark:disabled:bg-cyan-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center gap-2 shadow-sm transition"
               >
                 {submitting ? (
                   <>

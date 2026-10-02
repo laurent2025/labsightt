@@ -54,7 +54,14 @@ export async function getSupabaseProfile(supabase, userId) {
  * @returns {Promise<{ email: string; username: string; display_name: string }>}
  */
 export async function ensureSupabaseProfile(supabase, authUser) {
-  const existing = await getSupabaseProfile(supabase, authUser.id);
+  let existing = null;
+  try {
+    existing = await getSupabaseProfile(supabase, authUser.id);
+  } catch {
+    // The live profiles table may lag behind this schema (a pending column
+    // migration). Treat it as "no row yet" and let the auto-create below
+    // surface any real problem instead of 500-ing every request.
+  }
   if (existing) return existing;
 
   // Derive the same values the database trigger would have produced.
