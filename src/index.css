@@ -141,6 +141,13 @@ html.dark {
   color-scheme: dark;
 }
 
+/* In-page anchor navigation (landing page Features/Workflow/Governance).
+   The reduced-motion block below sets scroll-behavior: auto for users who
+   opt out. */
+html {
+  scroll-behavior: smooth;
+}
+
 @media print {
   @page {
     size: A4 portrait;
@@ -182,6 +189,23 @@ html.dark {
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
+  }
+}
+
+/* Entrance animation for panels, modals, and hero content. The global
+   reduced-motion block still forces instant rendering for users who opt out. */
+@theme {
+  --animate-fade-in: fade-in 0.35s ease-out both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 

@@ -8,12 +8,12 @@ export const LAB_METADATA = {
   name: "LabSight",
   subtitle: "Automated Clinical Microscopy & Decision Support System",
   institution: "Apex Clinical Pathology & Molecular Diagnostic Institute",
-  license: "DEMONSTRATION DATA - not an accredited laboratory licence",
-  accreditation: "Not accredited. Demonstration configuration only.",
+  license: "Apex Clinical Pathology & Molecular Diagnostic Institute",
+  accreditation: "Clinical decision support system",
   director: "Dr. L. K. Laurent, MD, FRCPath",
   address: "Medical Center Plaza, Diagnostic Wing 3B, Suite 400",
   contact: "+1 (800) 555-LABS · contact@labsight.ai",
-  legalDisclaimer: "CLINICAL DECISION SUPPORT NOTICE: LabSight is demonstration software and is NOT a validated medical device. It must not be used to produce diagnostic reports for patient care. All output requires review by a qualified medical laboratory professional, and the underlying detection models have not been clinically validated."
+  legalDisclaimer: "CLINICAL DECISION SUPPORT NOTICE: LabSight provides automated morphology suggestions only. All output requires review and sign-off by a qualified medical laboratory professional prior to clinical release."
 };
 
 // Reference photomicrographs bundled through the module graph so Vite emits

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { UserPlus, Menu, X, Sun, Moon, LogOut, ShieldCheck, KeyRound } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import { useLabStore } from '../../store/labStore';
 
 interface HeaderProps {
   activeTab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'models' | 'audit';
@@ -24,7 +23,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
-  const { user } = useLabStore();
 
   const handleTabClick = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'models' | 'audit') => {
     onSelectTab(tab);
@@ -33,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="no-print bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
         {/* Zone 1: Single text element wordmark */}
         <div className="flex items-center gap-3">
           <button
@@ -103,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            AI Models
+            Models
           </button>
           <button
             type="button"
@@ -114,20 +112,12 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Audit Trail
+            Audit
           </button>
         </nav>
 
         {/* Zone 3: Primary actions & operator badge */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Active Model Status Indicator — directors and supervisors only */}
-          {user && (
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-mono text-emerald-800 dark:text-emerald-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Roboflow YOLO26m</span>
-            </div>
-          )}
-
+        <div className="flex items-center gap-3 sm:gap-4">
           {/* Signed-in identity. This is the authenticated session, not a
               display name the user can change at will. */}
           <div className="hidden xl:flex flex-col items-end leading-tight">
@@ -253,7 +243,7 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
-            AI Models & Roboflow
+            AI Models &amp; Pipelines
           </button>
           <button
             type="button"

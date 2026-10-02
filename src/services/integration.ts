@@ -184,7 +184,7 @@ export function generateDICOMMetadata(report: LaboratoryReport) {
     PatientSex:
       report.patient.gender === 'Male' ? 'M' : report.patient.gender === 'Female' ? 'F' : '',
     Modality: "SM", // Slide Microscopy
-    Manufacturer: "LabSight Demonstration Build",
+    Manufacturer: "LabSight",
     SpecimenIdentifier: report.sample.slideLabel,
     SpecimenPreparationSequence: {
       StainingSubstanceItem: report.sample.stainMethod,

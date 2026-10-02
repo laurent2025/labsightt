@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LaboratoryReport } from '../../types';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Printer, Download, X, ShieldCheck, Code2, FileText } from 'lucide-react';
 import { LAB_METADATA } from '../../lib/constants';
 import { generateFHIRDiagnosticReport, generateDICOMMetadata } from '../../services/integration';
+import { samplesApi } from '../../services/api';
 
 interface LaboratoryReportModalProps {
   report: LaboratoryReport;
@@ -20,7 +21,24 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 }) => {
   const [activeView, setActiveView] = useState<'a4_report' | 'fhir_json' | 'dicom_metadata'>('a4_report');
   const [copiedNotification, setCopiedNotification] = useState(false);
+  const [sampleImageUrl, setSampleImageUrl] = useState<string | null>(null);
   const panelRef = useFocusTrap<HTMLDivElement>(true, onClose);
+
+  useEffect(() => {
+    const imageUrl = report.sample?.imageUrl;
+    if (imageUrl) {
+      setSampleImageUrl(imageUrl);
+      return;
+    }
+    const sampleId = report.sample?.id;
+    if (!sampleId) {
+      setSampleImageUrl(null);
+      return;
+    }
+    void samplesApi.detail(sampleId)
+      .then(({ sample }) => setSampleImageUrl(sample.imageUrl))
+      .catch(() => setSampleImageUrl(null));
+  }, [report.sample]);
 
   const handlePrint = () => {
     window.print();
@@ -376,12 +394,12 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                     Calibrated scale: 20 µm / bar
                   </span>
                 </div>
-                <div className="relative w-full h-56 bg-slate-950 rounded overflow-hidden flex items-center justify-center">
-                  <img
-                    src={report.sample.imageUrl}
-                    alt="Microscopy plate"
-                    className="max-h-full max-w-full object-contain"
-                  />
+<div className="relative w-full h-56 bg-slate-950 rounded overflow-hidden flex items-center justify-center">
+      <img
+        src={sampleImageUrl ?? undefined}
+        alt="Microscopy plate"
+        className="max-h-full max-w-full object-contain"
+      />
                   <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-0.5 rounded text-[10px] font-mono text-slate-300">
                     {report.sample.stainMethod} · {report.sample.totalMagnification}
                   </div>

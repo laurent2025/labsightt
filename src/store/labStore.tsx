@@ -155,25 +155,46 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     try {
       // Four independent reads run concurrently; a slow one no longer blocks
       // the others from rendering.
-      const [p, s, a, r] = await Promise.all([
+      const results = await Promise.allSettled([
         patientsApi.list({ limit: PAGE_SIZE, offset: patientOffset, search: patientSearch || undefined }),
         samplesApi.list({ limit: 200 }),
         analysesApi.list({ limit: 200 }),
         reportsApi.list({ limit: 200 })
       ]);
-      setPatients(p.patients);
-      setPatientTotal(p.pagination.total);
-      setSamples(s.samples);
-      setAnalyses(a.analyses.map(row => hydrateAnalysis(row)));
-      setReports(r.reports.map(report => ({ ...report, laboratoryInfo: LAB_INFO })));
-      setStorageIssue(null);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 0) {
-        setConnectionError(err.message);
-      } else if (err instanceof SessionExpiredError) {
-        // The listener already cleared the session; no banner needed.
+
+      const value = <T,>(res: PromiseSettledResult<T>): T | null =>
+        res.status === 'fulfilled' ? res.value : null;
+      const p = value(results[0]);
+      const s = value(results[1]);
+      const a = value(results[2]);
+      const r = value(results[3]);
+
+      if (p) {
+        setPatients(p.patients);
+        setPatientTotal(p.pagination.total);
+      }
+      if (s) setSamples(s.samples);
+      if (a) setAnalyses(a.analyses.map(row => hydrateAnalysis(row)));
+      if (r) setReports(r.reports.map(report => ({ ...report, laboratoryInfo: LAB_INFO })));
+
+      // A transient 500 on one section must not blank the whole application:
+      // render everything that loaded and name only the part that failed.
+      const rejected = results.filter((res): res is PromiseRejectedResult => res.status === 'rejected');
+      if (rejected.length === 0) {
+        setStorageIssue(null);
       } else {
-        setLoadError(err instanceof ApiError ? err.message : 'Could not load laboratory data.');
+        const err = rejected[0].reason;
+        if (err instanceof ApiError && err.status === 0) {
+          setConnectionError(err.message);
+        } else if (err instanceof SessionExpiredError) {
+          // The listener already cleared the session; no banner needed.
+        } else if (results.some(res => res.status === 'fulfilled')) {
+          setLoadError(
+            `Some sections did not load: ${err instanceof ApiError ? err.message : 'server error'}. Refresh to retry.`
+          );
+        } else {
+          setLoadError(err instanceof ApiError ? err.message : 'Could not load laboratory data.');
+        }
       }
     } finally {
       setLoading(false);
@@ -371,7 +392,17 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     ): Promise<Analysis> => {
       const sample = samples.find(s => s.id === sampleId);
       const model = models.find(m => m.id === modelId) || models[0];
-      const imageUrl = imageUrlOverride || sample?.imageUrl;
+      // The list endpoint omits the stored slide image to keep refresh payloads
+      // small; fetch the detail row when the cached list item has no URL yet.
+      let imageUrl = imageUrlOverride || sample?.imageUrl;
+      if (!imageUrl) {
+        try {
+          const { sample: fullSample } = await samplesApi.detail(sampleId);
+          imageUrl = fullSample?.imageUrl;
+        } catch {
+          // Non-fatal: the caller will surface a clearer error below.
+        }
+      }
       if (!imageUrl) throw new ReportGateError('Invalid specimen for analysis.');
 
       const source = await loadImageSource(imageUrl);

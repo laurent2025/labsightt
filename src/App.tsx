@@ -18,10 +18,11 @@ import { AIModelsView } from './components/models/AIModelsView';
 import { AuditLogView } from './components/audit/AuditLogView';
 import { LegalModal } from './components/legal/LegalModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { LoginScreen } from './components/auth/LoginScreen';
+import { LandingPage } from './components/marketing/LandingPage';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { Skeleton } from './components/ui/States';
 import { authApi } from './services/api';
+import { Microscope } from 'lucide-react';
 
 /** Matches the dashboard's layout so content does not jump when it arrives. */
 function DashboardSkeleton() {
@@ -202,18 +203,30 @@ export default function App() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-        <p className="text-sm text-slate-500 dark:text-slate-400">Restoring session...</p>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
+            <Microscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+          </div>
+          <div>
+            <div className="text-base font-bold tracking-tight text-slate-900 dark:text-white">LabSight</div>
+            <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">AI CLINICAL</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400" role="status" aria-live="polite">
+          <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-700 border-t-cyan-600 animate-spin motion-reduce:animate-none" />
+          <span>Restoring your session...</span>
+        </div>
       </div>
     );
   }
 
   if (!user) {
-    // The store owns the session. LoginScreen only collects credentials and
+    // The store owns the session. The auth panel only collects credentials and
     // surfaces the failure; it must not call the API itself, or the cookie
     // would be set while the store stayed unauthenticated and the app would
     // bounce straight back to this screen.
-    return <LoginScreen onSubmit={login} onSignup={authApi.signup} />;
+    return <LandingPage onSubmit={login} onSignup={authApi.signup} />;
   }
 
   return (

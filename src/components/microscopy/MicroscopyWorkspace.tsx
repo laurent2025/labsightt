@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
+import { samplesApi } from '../../services/api';
 
 interface MicroscopyWorkspaceProps {
   patients: Patient[];
@@ -67,6 +68,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [selectedModelId, setSelectedModelId] = useState<string>(models[0]?.id || '');
   const [customSlideDataUrl, setCustomSlideDataUrl] = useState<string | null>(null);
   const [showRawInspector, setShowRawInspector] = useState<boolean>(false);
+  const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(null);
 
   // Multi-field scanning. The field count comes from the specimen record: it
   // was hardcoded to 10, which contradicted blood films accessioned at 20.
@@ -140,7 +142,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // last uploaded slide so a capture is analysed the instant it is taken.
   const handleTriggerAnalysis = async (imageUrlOverride?: string) => {
     if (!activePatient || !activeSample) return;
-    const imageUrl = imageUrlOverride || customSlideDataUrl || activeSample.imageUrl;
+    const imageUrl = imageUrlOverride || customSlideDataUrl || resolvedImageUrl;
     if (!imageUrl) {
       setInferenceError('No slide image is loaded for this specimen. Use "Load Slide" or "Capture from Microscope" to attach one, then retry.');
       return;
@@ -188,6 +190,24 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     const dataUrl = await fileToDataUrl(file);
     setCustomSlideDataUrl(dataUrl);
   };
+
+  useEffect(() => {
+    if (activeSample?.id) {
+      if (activeSample.imageUrl) {
+        // We have a slide image already (e.g., from custom upload or detail fetch).
+        setResolvedImageUrl(activeSample.imageUrl);
+      } else if (!resolvedImageUrl) {
+        // No slide image stored yet (list endpoint omitted it).
+        // Fetch the sample detail to retrieve the image URL.
+        void samplesApi.detail(activeSample.id)
+          .then(({ sample }) => setResolvedImageUrl(sample.imageUrl))
+          .catch(() => setResolvedImageUrl(null));
+      }
+    } else {
+      // No active sample — reset resolved image.
+      setResolvedImageUrl(null);
+    }
+  }, [activeSample, resolvedImageUrl]);
 
   const handleGenerateReportClick = async () => {
     if (!activeAnalysis) return;
@@ -368,7 +388,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     );
   }
 
-  const activeImageUrl = customSlideDataUrl || activeSample.imageUrl;
+  const activeImageUrl = customSlideDataUrl || resolvedImageUrl || '';
   const totalFields = Math.max(1, activeSample.fieldsExamined || 10);
   const confirmedCount = activeAnalysis.detections.filter(d => d.confirmed && !d.rejected).length;
   const totalDets = activeAnalysis.detections.filter(d => !d.rejected).length;
@@ -553,7 +573,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
 
       {/* Raw JSON Inference Inspector Drawer */}
       {showRawInspector && (
-        <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-slate-300 font-mono text-xs shadow-xl animate-fadeIn">
+        <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-slate-300 font-mono text-xs shadow-xl animate-fade-in">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-cyan-400" />

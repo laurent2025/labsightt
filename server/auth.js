@@ -141,6 +141,22 @@ export function clearSessionCookie(res) {
   res.clearCookie(SESSION_COOKIE, { path: '/' });
 }
 
+// Profiles change rarely, and every authenticated request used to add two
+// Supabase round-trips for them. That call burst on page refresh was the main
+// source of transient 500s, so resolve each user's profile once and cache it
+// for the lifetime of the server process.
+const profileCache = new Map();
+
+function fallbackProfile(user) {
+  const email = (user.email ?? '').toLowerCase();
+  const localPart = email.split('@')[0] || 'user';
+  return {
+    email,
+    username: localPart,
+    display_name: user.user_metadata?.display_name || user.user_metadata?.full_name || localPart
+  };
+}
+
 /** Rejects the request unless a valid session is present. */
 export function requireAuth(db) {
   return async (req, res, next) => {
@@ -156,7 +172,17 @@ export function requireAuth(db) {
         return res.status(401).json({ error: 'Not authenticated.' });
       }
 
-      const profile = await ensureSupabaseProfile(supabase, user);
+      let profile = profileCache.get(user.id) ?? null;
+      if (!profile) {
+        try {
+          profile = await ensureSupabaseProfile(supabase, user);
+          profileCache.set(user.id, profile);
+        } catch {
+          // A transient Supabase failure must not turn every request into a
+          // 500; the email-derived identity keeps the request working.
+          profile = fallbackProfile(user);
+        }
+      }
       req.user = { id: user.id, email: profile.email, username: profile.username, displayName: profile.display_name, display_name: profile.display_name, active: true };
       return next();
     }

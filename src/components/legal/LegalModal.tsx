@@ -216,7 +216,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
         {/* Footer Actions */}
         <div className="px-5 sm:px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between shrink-0">
           <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-            Document Version 2026.4 · Demonstration build, not accredited
+            Document Version 2026.4
           </span>
           <button
             type="button"

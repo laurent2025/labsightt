@@ -24,7 +24,7 @@ const report: LaboratoryReport = {
     age: 46,
     gender: 'Female',
     referringDoctor: 'Dr. Referral',
-    referringFacility: 'Demo Clinic',
+    referringFacility: 'Regional Medical Center - OPD',
     sampleTypes: ['stool'],
     primarySampleType: 'stool',
     collectionDatetime: '2026-03-04T09:15:00.000Z',
@@ -56,7 +56,7 @@ const report: LaboratoryReport = {
   verifiedAt: '2026-03-04T12:00:00.000Z',
   verifiedBy: 'Dr. Kwame Mensah',
   laboratoryInfo: {
-    name: 'Demo Pathology Unit',
+    name: 'Apex Clinical Pathology & Molecular Diagnostic Institute',
     licenseNumber: 'NA',
     accreditation: 'None',
     address: 'Local',

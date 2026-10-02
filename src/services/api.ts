@@ -171,6 +171,9 @@ export const samplesApi = {
   list: (params: { limit?: number; offset?: number; patientId?: string } = {}) =>
     request<{ samples: Sample[]; pagination: Pagination }>(`/samples${query(params)}`),
 
+  /** Single-sample detail, including the stored slide image. */
+  detail: (id: string) => request<{ sample: Sample }>(`/samples/${encodeURIComponent(id)}`),
+
   create: (payload: Partial<Sample> & { patientId: string; fieldsExamined: number }) =>
     request<{ sample: Sample }>('/samples', { method: 'POST', body: JSON.stringify(payload) })
 };

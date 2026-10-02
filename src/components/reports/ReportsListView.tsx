@@ -86,16 +86,16 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
           Diagnostic Pathology Reports
         </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Archived clinical reports, pathologist verification sign-offs, and A4 print / PDF export
         </p>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
@@ -103,11 +103,11 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
             placeholder="Search report #, patient name, MRN..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="w-full pl-9 pr-3 py-1.5 border border-slate-200 dark:border-slate-700 dark:bg-slate-950 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs self-stretch sm:self-auto">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg text-xs self-stretch sm:self-auto">
           {(['all', 'verified', 'pending_verification'] as const).map(st => (
             <button
               key={st}
@@ -115,8 +115,8 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
               onClick={() => setStatusFilter(st)}
               className={`px-3 py-1 rounded-md capitalize font-medium transition ${
                 statusFilter === st
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               {st === 'pending_verification' ? 'Pending Sign-Off' : st}
@@ -126,8 +126,8 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
       </div>
 
       {gateError && (
-        <div role="alert" className="flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-900 p-3 rounded-xl text-xs">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div role="alert" className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 p-3 rounded-xl text-xs">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold block">Verification refused</span>
             <p className="mt-0.5">{gateError}</p>
@@ -136,7 +136,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
       )}
 
       {actionError && (
-        <div role="alert" className="bg-rose-50 border border-rose-300 text-rose-900 p-3 rounded-xl text-xs">
+        <div role="alert" className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 p-3 rounded-xl text-xs">
           {actionError}
         </div>
       )}
@@ -187,16 +187,16 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
         </div>
       )}
 
-      <div className="text-[11px] text-slate-500 font-mono">
-        Signed in as <strong className="text-slate-700">{currentUserName}</strong>. Any signed-in
+      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+        Signed in as <strong className="text-slate-700 dark:text-slate-200">{currentUserName}</strong>. Any signed-in
         user can verify and authorise reports.
       </div>
 
       {/* Reports Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-xs">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto shadow-xs">
         <table className="w-full text-left text-xs border-collapse min-w-[680px]">
           <thead>
-            <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+            <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <th className="py-3 px-4 font-semibold">Report # & Date</th>
               <th className="py-3 px-4 font-semibold">Patient Information</th>
               <th className="py-3 px-4 font-semibold">Specimen Examination</th>
@@ -205,10 +205,10 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
               <th className="py-3 px-4 font-semibold text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {filteredReports.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-slate-400">
+                <td colSpan={6} className="py-10 text-center text-slate-400 dark:text-slate-500">
                   {searchTerm || statusFilter !== 'all' ? (
                     <>
                       <p className="font-medium text-slate-600 dark:text-slate-300">
@@ -248,51 +248,51 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                       onOpenReport(rep);
                     }
                   }}
-                  className="cursor-pointer hover:bg-cyan-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 transition-colors"
+                  className="cursor-pointer hover:bg-cyan-50/70 dark:hover:bg-cyan-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 transition-colors"
                 >
-                  <td className="py-3 px-4">
-                    <div className="font-mono font-bold text-slate-900">{rep.reportNumber}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">
-                      {new Date(rep.generatedAt).toLocaleDateString()}
-                    </div>
-                  </td>
+                    <td className="py-3 px-4">
+                      <div className="font-mono font-bold text-slate-900 dark:text-white">{rep.reportNumber}</div>
+                      <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                        {new Date(rep.generatedAt).toLocaleDateString()}
+                      </div>
+                    </td>
 
-                  <td className="py-3 px-4">
-                    <div className="font-semibold text-slate-900">{rep.patient.fullName}</div>
-                    <div className="text-[11px] text-slate-500 font-mono">
-                      {rep.patient.patientNumber} · {rep.patient.age}y / {rep.patient.gender}
-                    </div>
-                  </td>
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-slate-900 dark:text-white">{rep.patient.fullName}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                        {rep.patient.patientNumber} · {rep.patient.age}y / {rep.patient.gender}
+                      </div>
+                    </td>
 
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-slate-800 capitalize">
-                      {rep.sample.sampleType} Microscopy
-                    </div>
-                    <div className="text-[11px] text-slate-500 font-mono">
-                      {rep.sample.slideLabel} · {rep.sample.totalMagnification}
-                    </div>
-                  </td>
+                    <td className="py-3 px-4">
+                      <div className="font-medium text-slate-800 dark:text-slate-200 capitalize">
+                        {rep.sample.sampleType} Microscopy
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                        {rep.sample.slideLabel} · {rep.sample.totalMagnification}
+                      </div>
+                    </td>
 
-                  <td className="py-3 px-4 max-w-xs truncate">
-                    <span className="text-slate-700">{rep.clinicalImpression}</span>
-                  </td>
+                    <td className="py-3 px-4 max-w-xs truncate">
+                      <span className="text-slate-700 dark:text-slate-300">{rep.clinicalImpression}</span>
+                    </td>
 
-                  <td className="py-3 px-4">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
-                        rep.status === 'verified'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                          rep.status === 'verified'
+                            ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                            : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                        }`}
+                      >
                       {rep.status === 'verified' ? (
                         <>
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           <span>Verified</span>
                         </>
                       ) : (
                         <>
-                          <Clock className="w-3 h-3 text-amber-600" />
+                          <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                           <span>Pending Sign-Off</span>
                         </>
                       )}
@@ -305,8 +305,8 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleVerify(rep.id)}
-                          className="px-2.5 py-1 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg font-medium border border-emerald-200 transition"
-                          title="Sign off as pathologist"
+                            className="px-2.5 py-1 text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg font-medium border border-emerald-200 dark:border-emerald-800 transition"
+                            title="Sign off as pathologist"
                         >
                           Sign & Authorize
                         </button>
@@ -327,14 +327,14 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => onOpenReport(rep)}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium text-xs inline-flex items-center gap-1.5 shadow-xs transition"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        <span>Print / PDF</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenReport(rep)}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg font-medium text-xs inline-flex items-center gap-1.5 shadow-xs transition"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Print / PDF</span>
+                        </button>
                       {canDeleteReports && rep.status !== 'released' && (
                         <button
                           type="button"

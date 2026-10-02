@@ -42,8 +42,8 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => {
       </div>
 
       {/* Audit Log Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse min-w-full">
           <thead>
             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
               <th className="py-3 px-4 font-semibold">Timestamp (UTC)</th>

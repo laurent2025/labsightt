@@ -285,7 +285,9 @@ export async function listSupabaseReports(supabase, { limit = 50, offset = 0, st
     .range(Number(offset) || 0, (Number(offset) || 0) + (Number(limit) || 50) - 1);
 
   if (error) throw error;
-  const items = await attachSupabaseReportContext(supabase, (data ?? []).map(mapSupabaseReport));
+  const items = await attachSupabaseReportContext(supabase, (data ?? []).map(mapSupabaseReport), {
+    includeSampleImages: false
+  });
   return {
     items,
     total: count ?? (data ?? []).length,
@@ -299,7 +301,7 @@ export async function listSupabaseReports(supabase, { limit = 50, offset = 0, st
  * render, in batched queries rather than one round trip per report.
  * Mirrors `reportContext` in repository.js for the local SQLite path.
  */
-export async function attachSupabaseReportContext(supabase, reports) {
+export async function attachSupabaseReportContext(supabase, reports, { includeSampleImages = true } = {}) {
   if (!reports || reports.length === 0) return reports;
 
   const analysisIds = [...new Set(reports.map(r => r.analysisId).filter(Boolean))];
@@ -322,9 +324,12 @@ export async function attachSupabaseReportContext(supabase, reports) {
   const sampleIds = [...new Set((analysisRows ?? []).map(row => row.sample_id).filter(Boolean))];
   const sampleMap = new Map();
   if (sampleIds.length) {
+    const sampleSelect = includeSampleImages
+      ? '*'
+      : 'id, patient_id, sample_type, slide_label, stain_method, objective, eyepiece, total_magnification, fields_examined, field_area_mm2, collection_datetime, notes, created_at, created_by';
     const { data: sampleRows, error: sampleError } = await supabase
       .from('samples')
-      .select('*')
+      .select(sampleSelect)
       .in('id', sampleIds);
     if (sampleError) throw sampleError;
     for (const row of sampleRows ?? []) sampleMap.set(row.id, mapSupabaseSample(row));
@@ -525,7 +530,15 @@ function mapSupabaseAnalysis(row, sample, detections) {
 }
 
 export async function listSupabaseSamples(supabase, { limit = 50, offset = 0, patientId } = {}) {
-  let query = supabase.from('samples').select('*', { count: 'exact' });
+  // Lists omit the stored slide image: with a handful of samples the payload
+  // reaches 20+ MB of base64, which is the dominant cost of every refresh.
+  // The single-sample endpoint still returns it on demand.
+  let query = supabase
+    .from('samples')
+    .select(
+      'id, patient_id, sample_type, slide_label, stain_method, objective, eyepiece, total_magnification, fields_examined, field_area_mm2, collection_datetime, notes, created_at, created_by',
+      { count: 'exact' }
+    );
   if (patientId) query = query.eq('patient_id', patientId);
 
   const { data, error, count } = await query
@@ -597,7 +610,9 @@ export async function listSupabaseAnalyses(supabase, { limit = 50, offset = 0, s
   if (sampleIds.length) {
     const { data: sampleRows, error: sampleError } = await supabase
       .from('samples')
-      .select('*')
+      .select(
+        'id, patient_id, sample_type, slide_label, stain_method, objective, eyepiece, total_magnification, fields_examined, field_area_mm2, collection_datetime, notes, created_at, created_by'
+      )
       .in('id', sampleIds);
     if (sampleError) throw sampleError;
     for (const sampleRow of sampleRows ?? []) sampleMap.set(sampleRow.id, sampleRow);

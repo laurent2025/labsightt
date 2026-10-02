@@ -35,6 +35,7 @@ import {
   updateSupabasePatient,
   deleteSupabasePatient,
   listSupabaseSamples,
+  getSupabaseSample,
   createSupabaseSample,
   listSupabaseAnalyses,
   getSupabaseAnalysis,
@@ -656,13 +657,30 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         entityId: id,
         details: `Slide ${b.slideLabel ?? id}, ${fieldsExamined} field(s) at ${b.totalMagnification ?? '400x'}`
       });
-      res.status(201).json({ sample: repo.getSample(db, id) });
-    } catch (err) {
-      next(err);
-    }
-  });
+       res.status(201).json({ sample: repo.getSample(db, id) });
+     } catch (err) {
+       next(err);
+     }
+   });
 
-  // ----------------------------------------------------------- analyses ----
+   app.get('/api/samples/:id', auth, async (req, res, next) => {
+     try {
+       if (hasSupabaseDatabaseConfig()) {
+         const supabase = getSupabaseClient({ admin: true });
+         const sample = await getSupabaseSample(supabase, req.params.id);
+         if (!sample) return res.status(404).json({ error: 'Sample not found.' });
+         return res.json({ sample });
+       }
+
+       const sample = repo.getSample(db, req.params.id);
+       if (!sample) return res.status(404).json({ error: 'Sample not found.' });
+       return res.json({ sample });
+     } catch (err) {
+       next(err);
+     }
+   });
+
+   // ----------------------------------------------------------- analyses ----
 
   app.get('/api/analyses', auth, async (req, res, next) => {
     try {
