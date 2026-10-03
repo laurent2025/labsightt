@@ -964,6 +964,66 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(400).json({ error: 'A detection cannot be both confirmed and rejected.' });
       }
 
+      if (hasSupabaseDatabaseConfig()) {
+        // In database mode detection rows are written to Supabase only — the
+        // local mirror is never populated, so an existence check against it
+        // would 404 every adjudication. Resolve existence, lock state, and
+        // ownership in Supabase instead.
+        const supabase = getSupabaseClient({ admin: true });
+
+        const { data: detRow, error: detError } = await supabase
+          .from('detections')
+          .select('*')
+          .eq('id', req.params.id)
+          .maybeSingle();
+        if (detError) throw detError;
+        if (!detRow) return res.status(404).json({ error: 'Detection not found.' });
+
+        const { data: analysisRow, error: analysisError } = await supabase
+          .from('analyses')
+          .select('status, initiated_by, sample_id')
+          .eq('id', detRow.analysis_id)
+          .maybeSingle();
+        if (analysisError) throw analysisError;
+        if (analysisRow?.status === 'verified') {
+          return res.status(409).json({ error: 'This analysis has been verified and can no longer be edited.' });
+        }
+
+        if (req.user.role !== 'admin') {
+          let allowed = analysisRow?.initiated_by === req.user.id;
+          if (!allowed && analysisRow?.sample_id) {
+            const { data: sampleRow, error: sampleError } = await supabase
+              .from('samples')
+              .select('patient_id, created_by')
+              .eq('id', analysisRow.sample_id)
+              .maybeSingle();
+            if (sampleError) throw sampleError;
+            if (sampleRow?.created_by === req.user.id) allowed = true;
+            if (!allowed && sampleRow?.patient_id) {
+              allowed = await assertSupabaseOwnership(supabase, 'patients', 'id', sampleRow.patient_id, 'created_by', req.user.id);
+            }
+          }
+          if (!allowed) {
+            return res.status(403).json({ error: 'You do not have permission to adjudicate this detection.' });
+          }
+        }
+
+        const result = await adjudicateSupabaseDetection(supabase, req.params.id, {
+          confirmed: nextConfirmed,
+          rejected: nextRejected,
+          userId: req.user.id
+        });
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: nextConfirmed ? 'DETECTION_CONFIRMED' : nextRejected ? 'DETECTION_REJECTED' : 'DETECTION_RESET',
+          entity: 'detection',
+          entityId: req.params.id,
+          details: `${result.class} at confidence ${result.confidence.toFixed(3)}`
+        });
+        return res.json({ detection: result });
+      }
+
       const detection = db.prepare('SELECT * FROM detections WHERE id = ?').get(req.params.id);
       if (!detection) return res.status(404).json({ error: 'Detection not found.' });
 
@@ -980,24 +1040,6 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             return res.status(403).json({ error: 'You do not have permission to adjudicate this detection.' });
           }
         }
-      }
-
-      if (hasSupabaseDatabaseConfig()) {
-        const supabase = getSupabaseClient({ admin: true });
-        const result = await adjudicateSupabaseDetection(supabase, req.params.id, {
-          confirmed: nextConfirmed,
-          rejected: nextRejected,
-          userId: req.user.id
-        });
-        appendAudit(db, {
-          actorId: req.user.id,
-          actorName: req.user.display_name,
-          action: nextConfirmed ? 'DETECTION_CONFIRMED' : nextRejected ? 'DETECTION_REJECTED' : 'DETECTION_RESET',
-          entity: 'detection',
-          entityId: req.params.id,
-          details: `${result.class} at confidence ${result.confidence.toFixed(3)}`
-        });
-        return res.json({ detection: result });
       }
 
       db.prepare(`
@@ -1054,15 +1096,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   /** Full report payload for the printable/exportable view. */
   app.get('/api/reports/:id', auth, async (req, res, next) => {
     try {
-      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Report not found.' });
-      if (req.user.role !== 'admin') {
-        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
-        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
-          return res.status(403).json({ error: 'You do not have permission to view this report.' });
-        }
-      }
-
+      // Database mode first: reports written to Supabase have no local row, so
+      // a local existence check here would 404 before the Supabase path.
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         const report = await getSupabaseReport(supabase, req.params.id);
@@ -1074,6 +1109,15 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           }
         }
         return res.json({ report });
+      }
+
+      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Report not found.' });
+      if (req.user.role !== 'admin') {
+        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
+        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to view this report.' });
+        }
       }
 
       const context = repo.reportContext(db, row);
@@ -1283,15 +1327,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   // ------------------------------------------------------------ report PATCH (update) ----
   app.patch('/api/reports/:id', auth, async (req, res, next) => {
     try {
-      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Report not found.' });
-      if (req.user.role !== 'admin') {
-        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
-        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
-          return res.status(403).json({ error: 'You do not have permission to edit this report.' });
-        }
-      }
-
+      // Database mode first: Supabase-written reports have no local row, so a
+      // local existence check here would 404 before the Supabase path.
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         const existing = await getSupabaseReport(supabase, req.params.id);
@@ -1324,6 +1361,15 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           details: `Fields changed: ${filteredUpdates.join(', ')}`
         });
         return res.json({ report });
+      }
+
+      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Report not found.' });
+      if (req.user.role !== 'admin') {
+        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
+        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to edit this report.' });
+        }
       }
 
       if (row.status === 'verified' || row.status === 'released') {
@@ -1362,15 +1408,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   // ------------------------------------------------------------ report DELETE (soft) ----
   app.delete('/api/reports/:id', auth, async (req, res, next) => {
     try {
-      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Report not found.' });
-      if (req.user.role !== 'admin') {
-        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
-        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
-          return res.status(403).json({ error: 'You do not have permission to delete this report.' });
-        }
-      }
-
+      // Database mode first: Supabase-written reports have no local row, so a
+      // local existence check here would 404 before the Supabase path.
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         const existing = await getSupabaseReport(supabase, req.params.id);
@@ -1391,6 +1430,15 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           details: `Soft deleted report: ${existing.reportNumber}`
         });
         return res.status(204).send();
+      }
+
+      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Report not found.' });
+      if (req.user.role !== 'admin') {
+        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
+        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to delete this report.' });
+        }
       }
 
       db.prepare('UPDATE reports SET deleted_at = ? WHERE id = ?').run(
