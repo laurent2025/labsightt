@@ -784,7 +784,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           <pre className="max-h-48 overflow-y-auto text-[11px] text-slate-300 bg-slate-900 p-2.5 rounded border border-slate-800">
             {JSON.stringify(
               {
-                workflow_id: activeModel.roboflowWorkflowId || "labsight-vlabsight-1-yolo26m-t1-logic",
+                workflow_id: activeModel.roboflowWorkflowId || "labsight-vlabsight-3-yolo26m-t1-logic",
                 workspace: activeModel.roboflowWorkspace || "laurent-kashinje",
                 timestamp: activeAnalysis.analyzedAt,
                 predictions: activeAnalysis.detections.map(d => ({

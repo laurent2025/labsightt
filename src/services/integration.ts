@@ -209,13 +209,13 @@ export function generateDICOMMetadata(report: LaboratoryReport) {
 export const ROBOFLOW_POPULAR_MODELS = [
   {
     id: "labsight-yolo26m-workflow",
-    name: "LABSIGHT vlabsight-1-yolo26m-t1 Logic",
+    name: "LABSIGHT vlabsight-3-yolo26m-t1 Logic",
     workspace: "laurent-kashinje",
-    project: "labsight-vlabsight-1-yolo26m-t1-logic",
+    project: "labsight-vlabsight-3-yolo26m-t1-logic",
     version: 1,
     description: "Serverless workflow bundled with this build for enteric parasite detection",
     category: "stool" as const,
-    endpoint: "https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-1-yolo26m-t1-logic",
+    endpoint: "https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-3-yolo26m-t1-logic",
     isWorkflow: true,
     classes: [
       "Giardia lamblia cyst",

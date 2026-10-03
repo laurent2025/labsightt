@@ -244,7 +244,7 @@ async function runRoboflowWorkflow(
 ): Promise<PixelDetection[]> {
   const {
     workspace = 'laurent-kashinje',
-    workflowId = 'labsight-vlabsight-1-yolo26m-t1-logic',
+    workflowId = 'labsight-vlabsight-3-yolo26m-t1-logic',
     endpoint = `https://serverless.roboflow.com/${workspace}/workflows/${workflowId}`
   } = options;
 

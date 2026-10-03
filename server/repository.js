@@ -246,6 +246,7 @@ export function listAnalyses(db, { limit, offset, sampleId, status, createdBy } 
     const detections = rawDetections.map(mapDetection);
     return {
       ...mapAnalysisRow(row),
+      patientId: sample?.patient_id ?? '',
       fieldsExamined: sample?.fields_examined ?? 10,
       detections,
       findings: quantifyDetections(detections, sample?.fields_examined ?? 10)
@@ -265,6 +266,7 @@ export function getAnalysis(db, id) {
 
   return {
     ...mapAnalysisRow(row),
+    patientId: sample?.patient_id ?? '',
     fieldsExamined: sample?.fields_examined ?? 10,
     detections: mapped,
     findings: quantifyDetections(mapped, sample?.fields_examined ?? 10)

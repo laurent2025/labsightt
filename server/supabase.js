@@ -526,6 +526,7 @@ function mapSupabaseAnalysis(row, sample, detections) {
   return {
     id: row.id,
     sampleId: row.sample_id,
+    patientId: sample?.patient_id ?? '',
     modelId: row.model_id,
     status: row.status,
     totalDetections: row.total_detections,

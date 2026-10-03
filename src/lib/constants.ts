@@ -29,14 +29,14 @@ export const SLIDE_ASSETS = {
 export const DEFAULT_AI_MODELS: AIModelConfig[] = [
   {
     id: "model-labsight-yolo26m-workflow",
-    name: "LABSIGHT vlabsight-1-yolo26m-t1 Logic",
+    name: "LABSIGHT vlabsight-3-yolo26m-t1 Logic",
     category: "stool",
     architecture: "YOLO26m Serverless Workflow",
     version: "t1",
-    endpoint: "https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-1-yolo26m-t1-logic",
+    endpoint: "https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-3-yolo26m-t1-logic",
     roboflowWorkspace: "laurent-kashinje",
-    roboflowWorkflowId: "labsight-vlabsight-1-yolo26m-t1-logic",
-    roboflowModel: "labsight-vlabsight-1-yolo26m-t1-logic",
+    roboflowWorkflowId: "labsight-vlabsight-3-yolo26m-t1-logic",
+    roboflowModel: "labsight-vlabsight-3-yolo26m-t1-logic",
     roboflowVersion: "1",
     isWorkflow: true,
     confidenceThreshold: 0.50,
