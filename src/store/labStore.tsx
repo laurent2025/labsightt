@@ -427,6 +427,23 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
 
       await track(detectionId, async () => {
         try {
+          // Manual detections are client-only (no server row), so adjudicate
+          // them locally. Without this guard, Confirm All would send their
+          // IDs to PATCH /api/detections/:id and hit a 404.
+          if (detectionId.startsWith('det-manual-')) {
+            setAnalyses(prev =>
+              prev.map(ana => {
+                if (ana.id !== analysisId) return ana;
+                const updated = ana.detections.map(det =>
+                  det.id === detectionId ? { ...det, ...decision, rejected: decision.rejected ?? false } : det
+                );
+                return requantify(ana, updated);
+              })
+            );
+            setStorageIssue(null);
+            return;
+          }
+
           await detectionsApi.adjudicate(detectionId, decision);
           setAnalyses(prev =>
             prev.map(ana => {
@@ -467,7 +484,10 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       const analysis = analyses.find(a => a.id === analysisId);
       if (!analysis) return;
       // Adjudicate sequentially so a mid-way failure leaves an honest state.
+      // Manual detections are local-only and already confirmed; there is no
+      // server record to adjudicate, so skip them to avoid 404s.
       for (const det of analysis.detections) {
+        if (det.manual) continue;
         if (det.confirmed && !det.rejected) continue;
         await applyDetection(analysisId, det.id, { confirmed: true, rejected: false });
       }
