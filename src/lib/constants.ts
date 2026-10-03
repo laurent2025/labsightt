@@ -7,11 +7,8 @@ import laboratoryRoom from '../assets/images/laboratory_microscope_room_17905219
 export const LAB_METADATA = {
   name: "LenziAI",
   subtitle: "Automated Clinical Microscopy & Decision Support System",
-  institution: "",
   license: "LenziAI Diagnostic Systems Inc.",
   accreditation: "Clinical decision support system",
-  director: "",
-  address: "Medical Center Plaza, Diagnostic Wing 3B, Suite 400",
   contact: "+1 (800) 555-LENZ · contact@lenziai.com"
 };
 

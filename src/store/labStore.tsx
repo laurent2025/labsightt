@@ -709,9 +709,7 @@ const LAB_INFO = {
   name: LAB_METADATA.name,
   licenseNumber: LAB_METADATA.license,
   accreditation: LAB_METADATA.accreditation,
-  address: LAB_METADATA.address,
-  contact: LAB_METADATA.contact,
-  director: LAB_METADATA.director
+  contact: LAB_METADATA.contact
 };
 
 function hydrateAnalysis(

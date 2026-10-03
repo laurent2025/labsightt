@@ -135,9 +135,7 @@ export interface LaboratoryReport {
     name: string;
     licenseNumber: string;
     accreditation: string;
-    address: string;
     contact: string;
-    director: string;
   };
 }
 

@@ -73,11 +73,11 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             <span className="font-mono text-cyan-400 font-semibold text-xs">
               {report.reportNumber}
             </span>
-            <span className="text-slate-500">·</span>
+            <span className="text-slate-600">·</span>
             <span className="text-xs text-slate-300">
               Patient: <strong>{report.patient.fullName}</strong>
             </span>
-            <span className="text-slate-500">·</span>
+            <span className="text-slate-600">·</span>
             <span
               className={`text-[11px] font-mono px-2 py-0.5 rounded font-medium ${
                 report.status === 'verified'
@@ -142,7 +142,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                       {LAB_METADATA.name}
                     </h1>
                     <p className="text-slate-600 text-xs font-medium mt-0.5">
-                      {LAB_METADATA.institution}
+                      {LAB_METADATA.subtitle}
                     </p>
                   </div>
 
@@ -150,7 +150,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                     <div className="font-mono text-sm font-bold text-slate-900">
                       REPORT #: {report.reportNumber}
                     </div>
-                    <div className="text-xs text-slate-500 font-mono mt-0.5">
+                    <div className="text-xs text-slate-600 font-mono mt-0.5">
                       {LAB_METADATA.license}
                     </div>
                     <div className="text-xs text-rose-700 font-mono font-semibold mt-1">
@@ -164,8 +164,8 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
               {/* Document Title Banner */}
               <div className="my-4 py-1.5 px-3 bg-slate-100 rounded text-center">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  CLINICAL MICROSCOPY & DIAGNOSTIC PATHOLOGY REPORT
+<span className="text-sm font-bold uppercase tracking-wider text-slate-900">
+                  CLINICAL MICROSCOPY &amp; DIAGNOSTIC PATHOLOGY REPORT
                 </span>
               </div>
 
@@ -173,56 +173,56 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-slate-50 rounded-lg border border-slate-200 mb-5">
                 {/* Left: Patient */}
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-200 pb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block border-b border-slate-200 pb-1">
                     PATIENT DEMOGRAPHICS
                   </span>
                   <div className="grid grid-cols-3 gap-1">
-                    <span className="text-slate-500">Patient Name:</span>
+                    <span className="text-slate-600">Patient Name:</span>
                     <span className="col-span-2 font-bold text-slate-900">{report.patient.fullName}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 font-mono">
-                    <span className="text-slate-500">Patient ID:</span>
+                    <span className="text-slate-600">Patient ID:</span>
                     <span className="col-span-2 font-semibold text-slate-800">{report.patient.patientNumber}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
-                    <span className="text-slate-500">Age / Gender:</span>
+                    <span className="text-slate-600">Age / Gender:</span>
                     <span className="col-span-2 text-slate-800 font-mono">{report.patient.age} yrs / {report.patient.gender}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
-                    <span className="text-slate-500">Referring Dr:</span>
+                    <span className="text-slate-600">Referring Dr:</span>
                     <span className="col-span-2 text-slate-800">{report.patient.referringDoctor}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
-                    <span className="text-slate-500">Facility:</span>
+                    <span className="text-slate-600">Facility:</span>
                     <span className="col-span-2 text-slate-800 truncate">{report.patient.referringFacility}</span>
                   </div>
                 </div>
 
                 {/* Right: Specimen & Examination Details */}
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-200 pb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block border-b border-slate-200 pb-1">
                     SPECIMEN & MICROSCOPY METRICS
                   </span>
                   <div className="grid grid-cols-3 gap-1">
-                    <span className="text-slate-500">Specimen Type:</span>
+                    <span className="text-slate-600">Specimen Type:</span>
                     <span className="col-span-2 font-bold text-slate-900 capitalize">{report.sample.sampleType} Microscopy</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 font-mono">
-                    <span className="text-slate-500">Slide ID:</span>
+                    <span className="text-slate-600">Slide ID:</span>
                     <span className="col-span-2 text-slate-800">{report.sample.slideLabel}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
-                    <span className="text-slate-500">Preparation:</span>
+                    <span className="text-slate-600">Preparation:</span>
                     <span className="col-span-2 text-slate-800">{report.sample.stainMethod}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 font-mono">
-                    <span className="text-slate-500">Magnification:</span>
+                    <span className="text-slate-600">Magnification:</span>
                     <span className="col-span-2 text-slate-800">
                       {report.sample.totalMagnification} ({report.sample.objective} Obj / {report.sample.eyepiece} Ocular)
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 font-mono">
-                    <span className="text-slate-500">Fields Scanned:</span>
+                    <span className="text-slate-600">Fields Scanned:</span>
                     <span className="col-span-2 text-slate-800">{report.sample.fieldsExamined} Standard HPFs</span>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   <tbody>
                     {report.findings.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-4 text-center text-slate-500 border border-slate-300">
+                        <td colSpan={5} className="p-4 text-center text-slate-600 border border-slate-300">
                           No ova, parasites, or abnormal cellular elements observed in examined fields.
                         </td>
                       </tr>
@@ -260,7 +260,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                         <td className="p-2 border border-slate-300 text-center font-mono font-bold">
                           {f.confirmedCount}
                         </td>
-                        <td className="p-2 border border-slate-300 text-center font-mono text-slate-500">
+                        <td className="p-2 border border-slate-300 text-center font-mono text-slate-600">
                           {f.count}
                         </td>
                           <td className="p-2 border border-slate-300 font-mono text-slate-800">
@@ -293,7 +293,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
                     REPRESENTATIVE DIGITAL PHOTOMICROGRAPH (FIELD #04)
                   </span>
-                  <span className="text-[11px] font-mono text-slate-500">
+                  <span className="text-[11px] font-mono text-slate-600">
                     Calibrated scale: 20 µm / bar
                   </span>
                 </div>
@@ -327,7 +327,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4 border-t-2 border-slate-300 mb-4">
                 <div>
-                  <span className="text-[11px] font-bold uppercase text-slate-400 block mb-3">
+                  <span className="text-xs font-bold uppercase text-slate-500 block mb-3">
                     PERFORMED & REVIEWED BY
                   </span>
                   <div className="font-serif italic text-base text-slate-800 border-b border-dashed border-slate-300 pb-1">
@@ -336,22 +336,22 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   <div className="text-xs text-slate-600 font-mono mt-1">
                     Certified Medical Laboratory Technologist
                   </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
+                  <div className="text-[11px] text-slate-600 font-mono">
                     Timestamp: {new Date(report.generatedAt).toLocaleString()}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[11px] font-bold uppercase text-slate-400 block mb-3">
+                  <span className="text-xs font-bold uppercase text-slate-500 block mb-3">
                     VERIFIED &amp; AUTHORIZED BY
                   </span>
                   <div className="font-serif italic text-base text-slate-800 border-b border-dashed border-slate-300 pb-1">
-                    {report.supervisorName || <span className="text-slate-400 not-italic">Pending independent verification</span>}
+                    {report.supervisorName || <span className="text-slate-500 not-italic">Pending independent verification</span>}
                   </div>
                   <div className="text-xs text-slate-600 font-mono mt-1">
                     Pathologist / Laboratory Director
                   </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
+                  <div className="text-[11px] text-slate-600 font-mono">
                     {report.verifiedAt
                       ? `Verification timestamp: ${new Date(report.verifiedAt).toLocaleString()}`
                       : 'No electronic signature applied. This document is not a valid released report.'}
