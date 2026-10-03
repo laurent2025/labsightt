@@ -1,5 +1,5 @@
 /**
- * Typed client for the LabSight API.
+ * Typed client for the RenziAI API.
  *
  * Every request carries the session cookie; the model credential never appears
  * here because it never leaves the server.
@@ -48,7 +48,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch {
     throw new ApiError(
       0,
-      'Cannot reach the LabSight server. Confirm the API is running and try again.'
+      'Cannot reach the RenziAI server. Confirm the API is running and try again.'
     );
   }
 

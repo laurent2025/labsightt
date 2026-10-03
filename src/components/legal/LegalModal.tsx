@@ -85,7 +85,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
                     MANDATORY CLINICAL DECISION SUPPORT (CDS) NOTICE
                   </h4>
                   <p className="text-[11px] text-amber-900 dark:text-amber-200 mt-0.5">
-                    LabSight provides algorithmic computer-vision assistance. Under FDA CDS guidance, CLIA regulations, and ISO 15189:2022 standards, this system is NOT a fully autonomous diagnostic device. All identified morphologic features, object bounding boxes, and quantitative estimates must be reviewed, corroborated, and signed off by a certified medical laboratory technologist or pathologist prior to clinical patient disclosure.
+                    RenziAI provides algorithmic computer-vision assistance. Under FDA CDS guidance, CLIA regulations, and ISO 15189:2022 standards, this system is NOT a fully autonomous diagnostic device. All identified morphologic features, object bounding boxes, and quantitative estimates must be reviewed, corroborated, and signed off by a certified medical laboratory technologist or pathologist prior to clinical patient disclosure.
                   </p>
                 </div>
               </div>
@@ -93,7 +93,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">1. Intended Purpose & Clinical Scope</h3>
                 <p>
-                  LabSight is designed for laboratory medicine professionals to aid in the examination of biological fluids, stool wet mounts, stained peripheral blood films, and urinary sediments. The integrated Roboflow serverless vision engine executes object detection for preliminary candidate classification.
+                  RenziAI is designed for laboratory medicine professionals to aid in the examination of biological fluids, stool wet mounts, stained peripheral blood films, and urinary sediments. The integrated Roboflow serverless vision engine executes object detection for preliminary candidate classification.
                 </p>
               </div>
 
@@ -126,7 +126,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">5. Limitation of Liability</h3>
                 <p>
-                  To the maximum extent permitted by applicable health governance law, the developers and distributors of LabSight disclaim liability for indirect, punitive, or consequential damages resulting from improper optical calibration, hardware failure, unverified automated releases, or off-label specimen usage.
+                  To the maximum extent permitted by applicable health governance law, the developers and distributors of RenziAI disclaim liability for indirect, punitive, or consequential damages resulting from improper optical calibration, hardware failure, unverified automated releases, or off-label specimen usage.
                 </p>
               </div>
             </div>
@@ -140,7 +140,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
                     HIPAA PROTECTED HEALTH INFORMATION (PHI) COMMITMENT
                   </h4>
                   <p className="text-[11px] text-cyan-900 dark:text-cyan-200 mt-0.5">
-                    LabSight enforces strict cryptographic in-transit protections and client-side de-identification. Specimen photomicrographs transmitted to cloud inference endpoints contain zero direct 18 HIPAA identifiers.
+                    RenziAI enforces strict cryptographic in-transit protections and client-side de-identification. Specimen photomicrographs transmitted to cloud inference endpoints contain zero direct 18 HIPAA identifiers.
                   </p>
                 </div>
               </div>
@@ -190,7 +190,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">5. Where the Record Is Kept</h3>
                 <p>
-                  Patient records are held in the LabSight server's database, not in your browser.
+                  Patient records are held in the RenziAI server's database, not in your browser.
                   Access requires an individual account, and every action is written to an
                   append-only audit trail whose integrity can be verified. Signing out ends your
                   session on this device.
@@ -206,7 +206,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">6. Contact & Data Protection Officer</h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                   Data Protection Officer · {LAB_METADATA.name} Institute of Pathology<br />
-                  Email: privacy@labsight.ai · Legal: legal@labsight.ai · Phone: {LAB_METADATA.contact}
+                  Email: privacy@renziai.com · Legal: legal@renziai.com · Phone: {LAB_METADATA.contact}
                 </p>
               </div>
             </div>

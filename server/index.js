@@ -1,5 +1,5 @@
 /**
- * LabSight API server.
+ * RenziAI API server.
  *
  * Holds the patient record, enforces the reporting workflow, and proxies
  * inference so the model credential never reaches the browser.
@@ -133,7 +133,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.get('/api/system/status', auth, (req, res) => {
     purgeExpiredSessions(db);
     const status = {
-      service: 'labsight-api',
+      service: 'renziai-api',
       phiEncrypted: true,
       serverTime: new Date().toISOString()
     };
@@ -323,7 +323,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       return res.status(201).json({
         ok: true,
-        message: 'Check your email for a verification link. Once verified, you can sign in to LabSight.'
+        message: 'Check your email for a verification link. Once verified, you can sign in to RenziAI.'
       });
     } catch (err) {
       next(err);

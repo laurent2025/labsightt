@@ -73,7 +73,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
     }
   };
 
-  const serverUnreachable = error !== null && /Cannot reach the LabSight server/.test(error);
+  const serverUnreachable = error !== null && /Cannot reach the RenziAI server/.test(error);
   const changeMode = (nextMode: 'signin' | 'signup') => {
     setMode(nextMode);
     setError(null);
@@ -87,7 +87,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
-      aria-label={mode === 'signin' ? 'Sign in to LabSight' : 'Request a LabSight account'}
+      aria-label={mode === 'signin' ? 'Sign in to RenziAI' : 'Request a RenziAI account'}
       className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden"
     >
       {onClose && (
@@ -107,7 +107,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
             <Microscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">LabSight</h1>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white">RenziAI</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Laboratory microscopy workspace
             </p>

@@ -131,7 +131,7 @@ if (process.env.USE_SUPABASE_AUTH === 'true') {
 
 const server = app.listen(PORT, () => {
   const configured = Boolean(process.env.ROBOFLOW_API_KEY);
-  console.log(`LabSight API listening on http://localhost:${PORT}`);
+  console.log(`RenziAI API listening on http://localhost:${PORT}`);
   console.log(`  database:   ${DB_PATH}`);
   console.log(`  PHI:        encrypted at rest (AES-256-GCM)`);
   console.log(`  inference:  ${configured ? 'configured' : 'NOT CONFIGURED (set ROBOFLOW_API_KEY)'}`);

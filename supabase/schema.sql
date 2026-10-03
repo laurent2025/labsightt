@@ -1,4 +1,4 @@
--- Supabase schema for LabSight.
+-- Supabase schema for RenziAI.
 -- This file is intentionally close to the existing SQLite schema so the API can
 -- be switched to Supabase without rewriting the clinical workflow.
 

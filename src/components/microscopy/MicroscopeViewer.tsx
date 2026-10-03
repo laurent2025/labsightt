@@ -578,7 +578,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
     if (!canvas) return;
     playShutterSnapshot();
     const link = document.createElement('a');
-    link.download = `LabSight_${slideLabel}_Field_${currentField}.png`;
+    link.download = `RenziAI_${slideLabel}_Field_${currentField}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
     setSnapshotFeedback(true);

@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => handleTabClick('dashboard')}
             className="text-base font-bold tracking-tight text-slate-900 dark:text-white hover:text-cyan-800 dark:hover:text-cyan-400 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2"
           >
-            <span>LabSight</span>
+            <span>RenziAI</span>
             <span className="hidden sm:inline-block px-1.5 py-0.2 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold border border-transparent dark:border-cyan-800">
               AI CLINICAL
             </span>

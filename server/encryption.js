@@ -108,7 +108,7 @@ export function decryptFields(record) {
 
 /** Verifies the configured key actually round-trips, so a typo fails at boot. */
 export function selfTest() {
-  const probe = `labsight-${Date.now()}`;
+  const probe = `renziai-${Date.now()}`;
   return decryptPHI(encryptPHI(probe)) === probe;
 }
 

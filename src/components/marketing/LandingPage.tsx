@@ -103,7 +103,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
               <Microscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold tracking-tight">LabSight</span>
+              <span className="text-base font-bold tracking-tight">RenziAI</span>
               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold">
                 AI CLINICAL
               </span>
@@ -176,7 +176,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 Every finding verified.
               </h1>
               <p className="mt-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-                LabSight pairs automated computer-vision detection with a disciplined laboratory
+                RenziAI pairs automated computer-vision detection with a disciplined laboratory
                 workflow: accession the specimen, scan the slide, adjudicate every detection, and
                 release a two-person verified report — with an unbroken chain of custody.
               </p>
@@ -383,7 +383,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <Microscope className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
-            <span className="font-bold text-slate-900 dark:text-white">LabSight</span>
+            <span className="font-bold text-slate-900 dark:text-white">RenziAI</span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold">AI CLINICAL</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">

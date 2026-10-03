@@ -171,7 +171,7 @@ export const AuditLogView: React.FC = () => {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `labsight-runs-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `renziai-runs-${new Date().toISOString().slice(0, 10)}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -203,7 +203,7 @@ export const AuditLogView: React.FC = () => {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `labsight-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `renziai-audit-${new Date().toISOString().slice(0, 10)}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
