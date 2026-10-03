@@ -12,10 +12,11 @@ import {
   getSupabaseUserByToken
 } from './supabase.js';
 
-export const ROLES = ['technologist', 'supervisor', 'director', 'admin'];
+export const ROLES = ['admin', 'member'];
 
 export const SESSION_COOKIE = 'labsight_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
+const MAX_SESSIONS_PER_USER = 5;
 
 function findUserByUsername(db, username) {
   return db.prepare('SELECT * FROM users WHERE username = ?').get(username);
@@ -74,6 +75,11 @@ export async function authenticate(db, username, password) {
 }
 
 export function createSession(db, user, { ip, userAgent } = {}) {
+  const sessions = db.prepare('SELECT token_hash FROM sessions WHERE user_id = ? ORDER BY created_at ASC').all(user.id);
+  if (sessions.length >= MAX_SESSIONS_PER_USER) {
+    db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sessions[0].token_hash);
+  }
+
   const token = generateSessionToken();
   const now = new Date();
   db.prepare(`
@@ -126,9 +132,7 @@ export function setSessionCookie(res, token, expiresAt) {
   const configuredSameSite = process.env.SESSION_COOKIE_SAME_SITE?.toLowerCase();
   const sameSite = ['strict', 'lax', 'none'].includes(configuredSameSite)
     ? configuredSameSite
-    : process.env.NODE_ENV === 'production'
-      ? 'none'
-      : 'strict';
+    : 'lax';
 
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -156,17 +160,6 @@ const profileCache = new Map();
  */
 export function clearProfileCache(userId) {
   profileCache.delete(userId);
-}
-
-function fallbackProfile(user) {
-  const email = (user.email ?? '').toLowerCase();
-  const localPart = email.split('@')[0] || 'user';
-  return {
-    email,
-    username: localPart,
-    display_name: user.user_metadata?.display_name || user.user_metadata?.full_name || localPart,
-    role: 'member'
-  };
 }
 
 /**
@@ -198,12 +191,10 @@ export function requireAuth(db) {
       let profile = profileCache.get(user.id) ?? null;
       if (!profile) {
         try {
-          profile = await ensureSupabaseProfile(supabase, user);
+          profile = await ensureSupabaseProfile(getSupabaseClient({ admin: true }), user);
           profileCache.set(user.id, profile);
-        } catch {
-          // A transient Supabase failure must not turn every request into a
-          // 500; the email-derived identity keeps the request working.
-          profile = fallbackProfile(user);
+        } catch (err) {
+          return res.status(503).json({ error: 'Account profile could not be verified. Contact support.' });
         }
       }
       // Suspension is enforced here, not by deleting the Supabase auth user:

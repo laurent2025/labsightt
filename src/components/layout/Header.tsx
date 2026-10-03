@@ -183,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
                   }`}
                 >
                   <ShieldCheck className="w-3 h-3" />
-                  {isAdmin ? 'Administrator' : 'Technologist'}
+                  {isAdmin ? 'Administrator' : 'Member'}
                 </span>
               </span>
               <span className="w-8 h-8 rounded-full bg-cyan-100 dark:bg-cyan-950 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-300 text-xs font-bold flex items-center justify-center">
@@ -302,7 +302,7 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
-            Patients &amp; Accessions
+            Patients
           </button>
           <button
             type="button"
@@ -313,7 +313,7 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
-            Microscopy Workstation
+            Microscopy
           </button>
           <button
             type="button"
@@ -324,7 +324,7 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
             }`}
           >
-            Diagnostic Reports
+            Reports
           </button>
           {isAdmin && (
             <>

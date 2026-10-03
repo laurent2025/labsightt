@@ -24,13 +24,13 @@ beforeEach(async () => {
   await createUser(db, {
     username: 'tech1',
     displayName: 'Amara Diallo',
-    role: 'technologist',
+    role: 'member',
     password: 'tech-password-1234'
   });
   await createUser(db, {
     username: 'dir1',
     displayName: 'Lab Director',
-    role: 'director',
+    role: 'member',
     password: 'director-password-1234'
   });
   await createUser(db, {

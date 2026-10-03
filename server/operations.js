@@ -139,12 +139,10 @@ export function healthRoutes(app, db) {
 
   app.get('/readyz', (_req, res) => {
     try {
-      // A trivial query proves the database is actually reachable, not just
-      // that the process is alive.
       db.prepare('SELECT 1').get();
       res.json({ status: 'ready', database: 'ok' });
     } catch (err) {
-      res.status(503).json({ status: 'not_ready', database: err.message });
+      res.status(503).json({ status: 'not_ready', database: 'error' });
     }
   });
 }

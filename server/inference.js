@@ -11,7 +11,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 250;
 const DEFAULT_WORKFLOW_ENDPOINT =
-  'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-1-yolo26m-t1-logic';
+  'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-3-yolo26m-t1-logic';
 
 function envConfig() {
   return {

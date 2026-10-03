@@ -8,6 +8,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { openSync, closeSync, lockSync, unlockSync } from 'node:fs';
 
 const MIGRATIONS = [
   {
@@ -257,10 +258,11 @@ export function openDatabase(path) {
   }
   const db = new DatabaseSync(path);
 
-  // Enforce declared foreign keys; SQLite ignores them by default.
   db.exec('PRAGMA foreign_keys = ON');
-  // WAL keeps readers from blocking the writer during inference.
-  if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
+  if (path !== ':memory:') {
+    db.exec('PRAGMA journal_mode = WAL');
+    db.exec('PRAGMA busy_timeout = 5000');
+  }
 
   migrate(db);
   return db;

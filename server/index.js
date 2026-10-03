@@ -109,6 +109,25 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   const auth = requireAuth(db);
   const loginLimiter = createLoginLimiter();
 
+  function isAdminOrOwner(req) {
+    return req.user?.role === 'admin';
+  }
+
+  function ownerFilter(tableAlias = 't') {
+    return `${tableAlias}.created_by = ?`;
+  }
+
+  async function assertSupabaseOwnership(supabase, table, idColumn, idValue, ownerColumn, userId) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(ownerColumn)
+      .eq(idColumn, idValue)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return false;
+    return data[ownerColumn] === userId;
+  }
+
   healthRoutes(app, db);
 
   app.get('/api/system/status', auth, (req, res) => {
@@ -344,6 +363,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
         const { error } = await supabase.auth.admin.updateUserById(req.user.id, { password: newPassword });
         if (error) throw error;
+        const { error: revokeError } = await supabase.auth.admin.revokeRefreshTokensForUser(req.user.id);
+        if (revokeError) console.error('[password] token revoke failed:', revokeError.message);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'PASSWORD_CHANGED',
+          entity: 'user',
+          entityId: req.user.id,
+          details: 'Password changed; sessions invalidated'
+        });
         return res.json({ ok: true });
       }
 
@@ -372,12 +401,14 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         salt,
         user.id
       );
+      destroyAllSessionsForUser(db, user.id);
       appendAudit(db, {
         actorId: user.id,
         actorName: user.display_name,
         action: 'PASSWORD_CHANGED',
         entity: 'user',
-        entityId: user.id
+        entityId: user.id,
+        details: 'Password changed; all sessions invalidated'
       });
       res.json({ ok: true });
     } catch (err) {
@@ -391,6 +422,22 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     try {
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
+        if (req.user.role !== 'admin') {
+          const { data, error } = await supabase
+            .from('patients')
+            .select('id')
+            .eq('created_by', req.user.id);
+          if (error) throw error;
+          const allowedIds = new Set((data ?? []).map(r => r.id));
+          const { items, total, limit, offset } = await listSupabasePatients(supabase, {
+            limit: req.query.limit,
+            offset: req.query.offset,
+            search: req.query.search,
+            allowedIds: Array.from(allowedIds)
+          });
+          return res.json({ patients: items, pagination: { total, limit, offset } });
+        }
+
         const { items, total, limit, offset } = await listSupabasePatients(supabase, {
           limit: req.query.limit,
           offset: req.query.offset,
@@ -402,7 +449,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       const { items, total, limit, offset } = repo.listPatients(db, {
         limit: req.query.limit,
         offset: req.query.offset,
-        search: req.query.search
+        search: req.query.search,
+        createdBy: req.user.role !== 'admin' ? req.user.id : null
       });
       return res.json({ patients: items, pagination: { total, limit, offset } });
     } catch (err) {
@@ -493,8 +541,18 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   app.patch('/api/patients/:id', auth, async (req, res, next) => {
     try {
+      const existing = db.prepare('SELECT id, created_by FROM patients WHERE id = ?').get(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Patient not found.' });
+      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to update this record.' });
+      }
+
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
+        if (req.user.role !== 'admin') {
+          const owned = await assertSupabaseOwnership(supabase, 'patients', 'id', req.params.id, 'created_by', req.user.id);
+          if (!owned) return res.status(403).json({ error: 'You do not have permission to update this record.' });
+        }
         const patient = await updateSupabasePatient(supabase, req.params.id, req.body ?? {});
         appendAudit(db, {
           actorId: req.user.id,
@@ -506,9 +564,6 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         });
         return res.json({ patient });
       }
-
-      const existing = db.prepare('SELECT id FROM patients WHERE id = ?').get(req.params.id);
-      if (!existing) return res.status(404).json({ error: 'Patient not found.' });
 
       const updates = { ...req.body };
       for (const field of ['fullName', 'referringDoctor', 'referringFacility', 'clinicalNotes']) {
@@ -532,6 +587,12 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   app.delete('/api/patients/:id', auth, async (req, res, next) => {
     try {
+      const existing = db.prepare('SELECT id, created_by FROM patients WHERE id = ?').get(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Patient not found.' });
+      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to delete this record.' });
+      }
+
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         await deleteSupabasePatient(supabase, req.params.id);
@@ -545,9 +606,6 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         });
         return res.status(204).send();
       }
-
-      const existing = db.prepare('SELECT id, full_name FROM patients WHERE id = ?').get(req.params.id);
-      if (!existing) return res.status(404).json({ error: 'Patient not found.' });
 
       db.prepare('UPDATE patients SET active = 0 WHERE id = ?').run(req.params.id);
 
@@ -583,7 +641,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       const { items, total, limit, offset } = repo.listSamples(db, {
         limit: req.query.limit,
         offset: req.query.offset,
-        patientId: req.query.patientId
+        patientId: req.query.patientId,
+        createdBy: req.user.role !== 'admin' ? req.user.id : null
       });
       return res.json({ samples: items, pagination: { total, limit, offset } });
     } catch (err) {
@@ -628,8 +687,12 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(201).json({ sample });
       }
 
-      if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(b.patientId)) {
+      const patientOwner = db.prepare('SELECT created_by FROM patients WHERE id = ?').get(b.patientId);
+      if (!patientOwner) {
         return res.status(400).json({ error: 'A valid patientId is required.' });
+      }
+      if (req.user.role !== 'admin' && patientOwner.created_by !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to accession this patient.' });
       }
 
       const id = newId('sam');
@@ -670,22 +733,44 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
      }
    });
 
-   app.get('/api/samples/:id', auth, async (req, res, next) => {
-     try {
-       if (hasSupabaseDatabaseConfig()) {
-         const supabase = getSupabaseClient({ admin: true });
-         const sample = await getSupabaseSample(supabase, req.params.id);
-         if (!sample) return res.status(404).json({ error: 'Sample not found.' });
-         return res.json({ sample });
-       }
+    app.get('/api/samples/:id', auth, async (req, res, next) => {
+      try {
+        if (req.user.role !== 'admin') {
+          const owner = db.prepare('SELECT created_by FROM samples WHERE id = ?').get(req.params.id);
+          if (!owner || owner.created_by !== req.user.id) {
+            const patientOwner = db.prepare('SELECT created_by FROM patients WHERE id = (SELECT patient_id FROM samples WHERE id = ?)').get(req.params.id);
+            if (!patientOwner || patientOwner.created_by !== req.user.id) {
+              return res.status(403).json({ error: 'You do not have permission to view this record.' });
+            }
+          }
+        }
 
-       const sample = repo.getSample(db, req.params.id);
-       if (!sample) return res.status(404).json({ error: 'Sample not found.' });
-       return res.json({ sample });
-     } catch (err) {
-       next(err);
-     }
-   });
+        if (hasSupabaseDatabaseConfig()) {
+          const supabase = getSupabaseClient({ admin: true });
+          if (req.user.role !== 'admin') {
+            const owned = await assertSupabaseOwnership(supabase, 'samples', 'id', req.params.id, 'created_by', req.user.id);
+            if (!owned) {
+              const { data: sampleRow } = await supabase.from('samples').select('patient_id').eq('id', req.params.id).maybeSingle();
+              if (sampleRow) {
+                const patientOwned = await assertSupabaseOwnership(supabase, 'patients', 'id', sampleRow.patient_id, 'created_by', req.user.id);
+                if (!patientOwned) return res.status(403).json({ error: 'You do not have permission to view this record.' });
+              } else {
+                return res.status(404).json({ error: 'Sample not found.' });
+              }
+            }
+          }
+          const sample = await getSupabaseSample(supabase, req.params.id);
+          if (!sample) return res.status(404).json({ error: 'Sample not found.' });
+          return res.json({ sample });
+        }
+
+        const sample = repo.getSample(db, req.params.id);
+        if (!sample) return res.status(404).json({ error: 'Sample not found.' });
+        return res.json({ sample });
+      } catch (err) {
+        next(err);
+      }
+    });
 
    // ----------------------------------------------------------- analyses ----
 
@@ -706,7 +791,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         limit: req.query.limit,
         offset: req.query.offset,
         sampleId: req.query.sampleId,
-        status: req.query.status
+        status: req.query.status,
+        createdBy: req.user.role !== 'admin' ? req.user.id : null
       });
       return res.json({ analyses: items, pagination: { total, limit, offset } });
     } catch (err) {
@@ -723,8 +809,29 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     try {
       const { sampleId, imageBase64, confidence } = req.body ?? {};
 
+      if (typeof imageBase64 === 'string') {
+        const base64Length = imageBase64.length;
+        if (base64Length > 15 * 1024 * 1024) {
+          return res.status(413).json({ error: 'Image payload is too large. Maximum size is 15 MB.' });
+        }
+        const decodedLength = Math.floor(base64Length * 0.75);
+        if (decodedLength > 20 * 1024 * 1024) {
+          return res.status(413).json({ error: 'Decoded image would exceed 20 MB.' });
+        }
+      }
+
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
+        if (req.user.role !== 'admin') {
+          const { data: sampleRow } = await supabase.from('samples').select('patient_id, created_by').eq('id', sampleId).maybeSingle();
+          if (!sampleRow) return res.status(400).json({ error: 'A valid sampleId is required.' });
+          if (sampleRow.created_by !== req.user.id) {
+            const { data: patientRow } = await supabase.from('patients').select('created_by').eq('id', sampleRow.patient_id).maybeSingle();
+            if (!patientRow || patientRow.created_by !== req.user.id) {
+              return res.status(403).json({ error: 'You do not have permission to analyse this specimen.' });
+            }
+          }
+        }
         const analysisId = `ana_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const created = await createSupabaseAnalysis(supabase, {
           id: analysisId,
@@ -765,8 +872,15 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(201).json({ analysis });
       }
 
-      if (!db.prepare('SELECT 1 FROM samples WHERE id = ?').get(sampleId)) {
+      const sampleOwner = db.prepare('SELECT created_by FROM samples WHERE id = ?').get(sampleId);
+      if (!sampleOwner) {
         return res.status(400).json({ error: 'A valid sampleId is required.' });
+      }
+      if (req.user.role !== 'admin' && sampleOwner.created_by !== req.user.id) {
+        const patientOwner = db.prepare('SELECT created_by FROM patients WHERE id = (SELECT patient_id FROM samples WHERE id = ?)').get(sampleId);
+        if (!patientOwner || patientOwner.created_by !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to analyse this specimen.' });
+        }
       }
 
       const id = newId('ana');
@@ -839,9 +953,27 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(400).json({ error: 'A detection cannot be both confirmed and rejected.' });
       }
 
+      const detection = db.prepare('SELECT * FROM detections WHERE id = ?').get(req.params.id);
+      if (!detection) return res.status(404).json({ error: 'Detection not found.' });
+
+      const analysis = db
+        .prepare('SELECT status, initiated_by, sample_id FROM analyses WHERE id = ?')
+        .get(detection.analysis_id);
+      if (analysis.status === 'verified') {
+        return res.status(409).json({ error: 'This analysis has been verified and can no longer be edited.' });
+      }
+      if (req.user.role !== 'admin') {
+        if (analysis.initiated_by !== req.user.id) {
+          const sampleOwner = db.prepare('SELECT created_by FROM samples WHERE id = ?').get(analysis.sample_id);
+          if (!sampleOwner || sampleOwner.created_by !== req.user.id) {
+            return res.status(403).json({ error: 'You do not have permission to adjudicate this detection.' });
+          }
+        }
+      }
+
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
-        const detection = await adjudicateSupabaseDetection(supabase, req.params.id, {
+        const result = await adjudicateSupabaseDetection(supabase, req.params.id, {
           confirmed: nextConfirmed,
           rejected: nextRejected,
           userId: req.user.id
@@ -852,19 +984,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           action: nextConfirmed ? 'DETECTION_CONFIRMED' : nextRejected ? 'DETECTION_REJECTED' : 'DETECTION_RESET',
           entity: 'detection',
           entityId: req.params.id,
-          details: `${detection.class} at confidence ${detection.confidence.toFixed(3)}`
+          details: `${result.class} at confidence ${result.confidence.toFixed(3)}`
         });
-        return res.json({ detection });
-      }
-
-      const detection = db.prepare('SELECT * FROM detections WHERE id = ?').get(req.params.id);
-      if (!detection) return res.status(404).json({ error: 'Detection not found.' });
-
-      const analysis = db
-        .prepare('SELECT status FROM analyses WHERE id = ?')
-        .get(detection.analysis_id);
-      if (analysis.status === 'verified') {
-        return res.status(409).json({ error: 'This analysis has been verified and can no longer be edited.' });
+        return res.json({ detection: result });
       }
 
       db.prepare(`
@@ -909,7 +1031,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       const { items, total, limit, offset } = repo.listReports(db, {
         limit: req.query.limit,
         offset: req.query.offset,
-        status: req.query.status
+        status: req.query.status,
+        createdBy: req.user.role !== 'admin' ? req.user.id : null
       });
       return res.json({ reports: items, pagination: { total, limit, offset } });
     } catch (err) {
@@ -920,15 +1043,27 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   /** Full report payload for the printable/exportable view. */
   app.get('/api/reports/:id', auth, async (req, res, next) => {
     try {
+      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Report not found.' });
+      if (req.user.role !== 'admin') {
+        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
+        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to view this report.' });
+        }
+      }
+
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         const report = await getSupabaseReport(supabase, req.params.id);
         if (!report) return res.status(404).json({ error: 'Report not found.' });
+        if (req.user.role !== 'admin') {
+          const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', report.analysisId).maybeSingle();
+          if (analysisRow?.initiated_by !== req.user.id && report.technologistId !== req.user.id) {
+            return res.status(403).json({ error: 'You do not have permission to view this report.' });
+          }
+        }
         return res.json({ report });
       }
-
-      const row = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
-      if (!row || row.deleted_at) return res.status(404).json({ error: 'Report not found.' });
 
       const context = repo.reportContext(db, row);
       res.json({
@@ -955,6 +1090,12 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
+        if (req.user.role !== 'admin') {
+          const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', analysisId).maybeSingle();
+          if (!analysisRow || analysisRow.initiated_by !== req.user.id) {
+            return res.status(403).json({ error: 'You do not have permission to generate a report for this analysis.' });
+          }
+        }
         const report = await createSupabaseReport(supabase, {
           analysisId,
           technologistId: req.user.id,
@@ -978,6 +1119,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       const analysis = db.prepare('SELECT * FROM analyses WHERE id = ?').get(analysisId);
       if (!analysis) return res.status(400).json({ error: 'A valid analysisId is required.' });
+      if (req.user.role !== 'admin' && analysis.initiated_by !== req.user.id) {
+        return res.status(403).json({ error: 'You do not have permission to generate a report for this analysis.' });
+      }
 
       const pending = db
         .prepare('SELECT COUNT(*) AS n FROM detections WHERE analysis_id = ? AND confirmed = 0 AND rejected = 0')
@@ -1030,7 +1174,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   });
 
   /** Verifies a report; any signed-in user may verify. */
-  app.post('/api/reports/:id/verify', auth, async (req, res, next) => {
+  app.post('/api/reports/:id/verify', auth, requireAdmin, async (req, res, next) => {
     try {
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
@@ -1082,7 +1226,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-  app.post('/api/reports/:id/release', auth, async (req, res, next) => {
+  app.post('/api/reports/:id/release', auth, requireAdmin, async (req, res, next) => {
     try {
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
@@ -1128,10 +1272,25 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   // ------------------------------------------------------------ report PATCH (update) ----
   app.patch('/api/reports/:id', auth, async (req, res, next) => {
     try {
+      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Report not found.' });
+      if (req.user.role !== 'admin') {
+        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
+        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to edit this report.' });
+        }
+      }
+
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         const existing = await getSupabaseReport(supabase, req.params.id);
         if (!existing) return res.status(404).json({ error: 'Report not found.' });
+        if (req.user.role !== 'admin') {
+          const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', existing.analysisId).maybeSingle();
+          if (analysisRow?.initiated_by !== req.user.id && existing.technologistId !== req.user.id) {
+            return res.status(403).json({ error: 'You do not have permission to edit this report.' });
+          }
+        }
         if (existing.status === 'verified' || existing.status === 'released') {
           return res.status(409).json({ error: 'Cannot edit a verified or released report.' });
         }
@@ -1156,10 +1315,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.json({ report });
       }
 
-      const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
-      if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
-
-      if (report.status === 'verified' || report.status === 'released') {
+      if (row.status === 'verified' || row.status === 'released') {
         return res.status(409).json({ error: 'Cannot edit a verified or released report.' });
       }
       const fieldColumns = {
@@ -1195,10 +1351,25 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   // ------------------------------------------------------------ report DELETE (soft) ----
   app.delete('/api/reports/:id', auth, async (req, res, next) => {
     try {
+      const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Report not found.' });
+      if (req.user.role !== 'admin') {
+        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
+        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to delete this report.' });
+        }
+      }
+
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         const existing = await getSupabaseReport(supabase, req.params.id);
         if (!existing) return res.status(404).json({ error: 'Report not found.' });
+        if (req.user.role !== 'admin') {
+          const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', existing.analysisId).maybeSingle();
+          if (analysisRow?.initiated_by !== req.user.id && existing.technologistId !== req.user.id) {
+            return res.status(403).json({ error: 'You do not have permission to delete this report.' });
+          }
+        }
         await deleteSupabaseReport(supabase, req.params.id);
         appendAudit(db, {
           actorId: req.user.id,
@@ -1211,8 +1382,6 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(204).send();
       }
 
-      const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
-      if (!report || report.deleted_at) return res.status(404).json({ error: 'Report not found.' });
       db.prepare('UPDATE reports SET deleted_at = ? WHERE id = ?').run(
         new Date().toISOString(),
         req.params.id
@@ -1224,7 +1393,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         action: 'REPORT_DELETED',
         entity: 'report',
         entityId: req.params.id,
-        details: `Soft deleted report: ${report.report_number}`
+        details: `Soft deleted report: ${row.report_number}`
       });
 
       res.status(204).send();
@@ -1437,6 +1606,12 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           .eq('id', targetId);
         if (error) throw error;
         clearProfileCache(targetId);
+        try {
+          const { error: revokeError } = await supabase.auth.admin.revokeRefreshTokensForUser(targetId);
+          if (revokeError) console.error('[suspend] token revoke failed:', revokeError.message);
+        } catch {
+          // non-fatal
+        }
         appendAudit(db, {
           actorId: req.user.id,
           actorName: req.user.display_name,
@@ -1623,6 +1798,63 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         details: `Admin set status to ${nextStatus}${notes ? `; notes: ${notes}` : ''}`
       });
       return res.json({ analysis: { id: req.params.id, status: nextStatus } });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/api/admin/analyses/recover', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const staleThresholdMs = Number(req.body?.staleThresholdMs ?? 60 * 60 * 1000);
+      if (!Number.isFinite(staleThresholdMs) || staleThresholdMs <= 0) {
+        return res.status(400).json({ error: 'staleThresholdMs must be a positive number.' });
+      }
+      const cutoff = new Date(Date.now() - staleThresholdMs).toISOString();
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+        const { data: stale, error: readError } = await supabase
+          .from('analyses')
+          .select('id, started_at')
+          .eq('status', 'processing')
+          .lt('started_at', cutoff);
+        if (readError) throw readError;
+        const ids = (stale ?? []).map(row => row.id);
+        if (ids.length > 0) {
+          const { error: updateError } = await supabase
+            .from('analyses')
+            .update({ status: 'in_review', completed_at: new Date().toISOString() })
+            .in('id', ids);
+          if (updateError) throw updateError;
+        }
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'ANALYSIS_RECOVERED',
+          entity: 'analysis',
+          details: `Recovered ${ids.length} stale processing analysis(ies)`
+        });
+        return res.json({ recovered: ids.length });
+      }
+
+      const stale = db.prepare('SELECT id FROM analyses WHERE status = ? AND started_at < ?').all('processing', cutoff);
+      const ids = stale.map(row => row.id);
+      if (ids.length > 0) {
+        db.prepare('UPDATE analyses SET status = ?, completed_at = ? WHERE status = ? AND started_at < ?').run(
+          'in_review',
+          new Date().toISOString(),
+          'processing',
+          cutoff
+        );
+      }
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'ANALYSIS_RECOVERED',
+        entity: 'analysis',
+        details: `Recovered ${ids.length} stale processing analysis(ies)`
+      });
+      res.json({ recovered: ids.length });
     } catch (err) {
       next(err);
     }

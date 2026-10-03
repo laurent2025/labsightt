@@ -180,15 +180,19 @@ function mapSupabaseReport(row) {
   };
 }
 
-export async function listSupabasePatients(supabase, { limit = 50, offset = 0, search } = {}) {
+export async function listSupabasePatients(supabase, { limit = 50, offset = 0, search, allowedIds } = {}) {
   let query = supabase
     .from('patients')
     .select('*', { count: 'exact' })
     .eq('active', true);
 
+  if (allowedIds && allowedIds.length > 0) {
+    query = query.in('id', allowedIds);
+  }
+
   if (typeof search === 'string' && search.trim()) {
-    const term = search.trim();
-    query = query.or(`patient_number.ilike.%${term}%,full_name.ilike.%${term}%`);
+    const term = search.trim().replace(/[\\%_]/g, '\\$&');
+    query = query.or(`patient_number.ilike.%${term}%,full_name_index.ilike.%${term}%`);
   }
 
   const { data, error, count } = await query

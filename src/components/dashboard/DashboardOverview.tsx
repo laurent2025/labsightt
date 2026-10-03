@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Patient, Analysis, LaboratoryReport, Sample } from '../../types';
 import {
   Microscope,
@@ -38,9 +38,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const { user } = useLabStore();
   const canSeeModelDetails = Boolean(user);
 
-  const verifiedReportsCount = reports.filter(r => r.status === 'verified').length;
-  const pendingReviewCount = analyses.filter(a => a.status === 'in_review').length;
-  const openMostRecentAnalysis = (status?: Analysis['status']) => {
+  const verifiedReportsCount = useMemo(() => reports.filter(r => r.status === 'verified').length, [reports]);
+  const pendingReviewCount = useMemo(() => analyses.filter(a => a.status === 'in_review').length, [analyses]);
+
+  const openMostRecentAnalysis = useMemo(() => (status?: Analysis['status']) => {
     if (status === 'in_review') {
       const pending = analyses.filter(item => item.status === 'in_review');
       if (pending.length > 0) {
@@ -53,48 +54,56 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     const analysis = analyses.find(item => !status || item.status === status);
     if (analysis) onSelectAnalysis(analysis.id);
     else onNavigateTab('microscopy', null);
-  };
+  }, [analyses, onNavigateTab, onSelectAnalysis]);
 
-  // The overview shows only the newest runs; the full history stays reachable
-  // through the workstation's session ribbon rather than a 200-row table.
   const RECENT_LIMIT = 8;
-  const recentAnalyses = analyses.slice(0, RECENT_LIMIT);
+  const MY_WORK_LIMIT = 5;
 
-  const positiveAnalyses = analyses.filter(a =>
+  const recentAnalyses = useMemo(() => analyses.slice(0, RECENT_LIMIT), [analyses]);
+
+  const positiveAnalyses = useMemo(() => analyses.filter(a =>
     a.findings.some(f => f.clinicalSignificance === 'critical' || f.clinicalSignificance === 'pathological')
-  ).length;
-  const detectionRate = analyses.length > 0 ? Math.round((positiveAnalyses / analyses.length) * 100) : 0;
+  ).length, [analyses]);
 
-  // Derived from the actual analyses in this session. The previous version of
-  // this panel rendered a hardcoded SVG trend and fixed percentages (42/28/18/12)
-  // that had no relationship to any data.
-  const confirmedDetectionTotal = analyses.reduce(
+  const detectionRate = useMemo(() => analyses.length > 0 ? Math.round((positiveAnalyses / analyses.length) * 100) : 0, [analyses.length, positiveAnalyses]);
+
+  const confirmedDetectionTotal = useMemo(() => analyses.reduce(
     (sum, a) => sum + a.detections.filter(d => d.confirmed && !d.rejected).length,
     0
-  );
+  ), [analyses]);
 
-  const organismTally = new Map<string, number>();
-  for (const analysis of analyses) {
-    for (const finding of analysis.findings) {
-      organismTally.set(finding.displayName, (organismTally.get(finding.displayName) ?? 0) + finding.confirmedCount);
+  const organismTally = useMemo(() => {
+    const tally = new Map<string, number>();
+    for (const analysis of analyses) {
+      for (const finding of analysis.findings) {
+        tally.set(finding.displayName, (tally.get(finding.displayName) ?? 0) + finding.confirmedCount);
+      }
     }
-  }
-  const topOrganisms = Array.from(organismTally.entries())
-    .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+    return tally;
+  }, [analyses]);
+
+  const topOrganisms = useMemo(() => {
+    return Array.from(organismTally.entries())
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+  }, [organismTally]);
+
   const organismMax = topOrganisms[0]?.[1] ?? 1;
 
-  const bySampleType = (['stool', 'blood', 'urine'] as const).map(type => ({
-    type,
-    count: analyses.filter(a => samples.find(s => s.id === a.sampleId)?.sampleType === type).length
-  }));
+  const bySampleType = useMemo(() => {
+    const sampleMap = new Map(samples.map(s => [s.id, s]));
+    return (['stool', 'blood', 'urine'] as const).map(type => {
+      const count = analyses.filter(a => sampleMap.get(a.sampleId)?.sampleType === type).length;
+      return { type, count };
+    });
+  }, [analyses, samples]);
 
-  // This operator's own work: runs they initiated and reports they generated.
-  const MY_WORK_LIMIT = 5;
-  const myAnalyses = user ? analyses.filter(a => a.initiatedBy === user.id).slice(0, MY_WORK_LIMIT) : [];
-  const myReports = user ? reports.filter(r => r.technologistId === user.id).slice(0, MY_WORK_LIMIT) : [];
-  const typeMax = Math.max(1, ...bySampleType.map(t => t.count));
+  const typeMax = useMemo(() => Math.max(1, ...bySampleType.map(t => t.count)), [bySampleType]);
+
+  const myAnalyses = useMemo(() => user ? analyses.filter(a => a.initiatedBy === user.id).slice(0, MY_WORK_LIMIT) : [], [analyses, user]);
+
+  const myReports = useMemo(() => user ? reports.filter(r => r.technologistId === user.id).slice(0, MY_WORK_LIMIT) : [], [reports, user]);
 
   // Reference pipelines. These describe the specimen, the stain, the objective,
   // and the classes the configured endpoint reports. They deliberately carry no

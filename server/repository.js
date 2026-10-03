@@ -11,6 +11,7 @@ import { decryptPHI, blindIndex } from './encryption.js';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
+const MAX_IN_CLAUSE = 999;
 
 /** Clamps caller-supplied paging so a huge `limit` cannot exhaust memory. */
 export function normalisePaging({ limit, offset } = {}) {
@@ -68,30 +69,31 @@ function attachSampleSummaries(db, patients) {
   return patients;
 }
 
-export function listPatients(db, { limit, offset, search } = {}) {
+export function listPatients(db, { limit, offset, search, createdBy } = {}) {
   const paging = normalisePaging({ limit, offset });
   const term = typeof search === 'string' ? search.trim() : '';
 
   if (term) {
-    // Escape LIKE wildcards so a literal % or _ does not match everything.
     const pattern = `%${term.replace(/[\\%_]/g, ch => `\\${ch}`)}%`;
-
-    // The name column is ciphertext, so it can only be matched through the
-    // blind index (exact, case/whitespace insensitive). The patient number is
-    // not encrypted, so substring search works there.
     const nameHash = blindIndex(term);
-    const where = `active = 1 AND (patient_number LIKE ? ESCAPE '\\' OR full_name_index = ?)`;
+    const clauses = ["active = 1", "(patient_number LIKE ? ESCAPE '\\' OR full_name_index = ?)"];
+    const values = [pattern, nameHash];
+    if (createdBy) {
+      clauses.push('created_by = ?');
+      values.push(createdBy);
+    }
+    const where = clauses.join(' AND ');
 
     const total = db
       .prepare(`SELECT COUNT(*) AS n FROM patients WHERE ${where}`)
-      .get(pattern, nameHash).n;
+      .get(...values).n;
 
     const rows = db
       .prepare(
         `SELECT * FROM patients WHERE ${where}
          ORDER BY created_at DESC LIMIT ? OFFSET ?`
       )
-      .all(pattern, nameHash, paging.limit, paging.offset);
+      .all(...values, paging.limit, paging.offset);
 
     return {
       items: attachSampleSummaries(db, rows.map(mapPatient)),
@@ -101,10 +103,12 @@ export function listPatients(db, { limit, offset, search } = {}) {
     };
   }
 
-  const total = db.prepare('SELECT COUNT(*) AS n FROM patients WHERE active = 1').get().n;
+  const whereClause = createdBy ? 'WHERE active = 1 AND created_by = ?' : 'WHERE active = 1';
+  const countValues = createdBy ? [createdBy] : [];
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM patients ${whereClause}`).get(...countValues).n;
   const rows = db
-    .prepare('SELECT * FROM patients WHERE active = 1 ORDER BY created_at DESC LIMIT ? OFFSET ?')
-    .all(paging.limit, paging.offset);
+    .prepare(`SELECT * FROM patients ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .all(...countValues, paging.limit, paging.offset);
 
   return {
     items: attachSampleSummaries(db, rows.map(mapPatient)),
@@ -152,23 +156,24 @@ export function updatePatient(db, id, updates) {
 
 // -------------------------------------------------------------- samples ----
 
-export function listSamples(db, { limit, offset, patientId } = {}) {
+export function listSamples(db, { limit, offset, patientId, createdBy } = {}) {
   const paging = normalisePaging({ limit, offset });
-
+  const filters = [];
+  const values = [];
   if (patientId) {
-    const total = db
-      .prepare('SELECT COUNT(*) AS n FROM samples WHERE patient_id = ?')
-      .get(patientId).n;
-    const rows = db
-      .prepare('SELECT * FROM samples WHERE patient_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?')
-      .all(patientId, paging.limit, paging.offset);
-    return { items: rows.map(mapSample), ...paging, total };
+    filters.push('s.patient_id = ?');
+    values.push(patientId);
   }
+  if (createdBy) {
+    filters.push('s.created_by = ?');
+    values.push(createdBy);
+  }
+  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
-  const total = db.prepare('SELECT COUNT(*) AS n FROM samples').get().n;
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM samples s ${where}`).get(...values).n;
   const rows = db
-    .prepare('SELECT * FROM samples ORDER BY created_at DESC LIMIT ? OFFSET ?')
-    .all(paging.limit, paging.offset);
+    .prepare(`SELECT s.* FROM samples s ${where} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`)
+    .all(...values, paging.limit, paging.offset);
   return { items: rows.map(mapSample), ...paging, total };
 }
 
@@ -176,10 +181,11 @@ export function listSamples(db, { limit, offset, patientId } = {}) {
 export function samplesByIds(db, ids) {
   const map = new Map();
   if (!ids.length) return map;
-  const placeholders = ids.map(() => '?').join(',');
+  const clamped = ids.slice(0, MAX_IN_CLAUSE);
+  const placeholders = clamped.map(() => '?').join(',');
   const rows = db
     .prepare(`SELECT * FROM samples WHERE id IN (${placeholders})`)
-    .all(...ids);
+    .all(...clamped);
   for (const row of rows) map.set(row.id, row);
   return map;
 }
@@ -199,27 +205,31 @@ export function getSample(db, id) {
  * detections twice each, and it hardcoded fieldsExamined to 10 — which meant
  * the server could report a different quantity than the technologist saw.
  */
-export function listAnalyses(db, { limit, offset, sampleId, status } = {}) {
+export function listAnalyses(db, { limit, offset, sampleId, status, createdBy } = {}) {
   const paging = normalisePaging({ limit, offset });
 
-  const filters = [];
+  const filters = ['p.active = 1'];
   const params = [];
   if (sampleId) {
-    filters.push('sample_id = ?');
+    filters.push('a.sample_id = ?');
     params.push(sampleId);
   }
   if (status) {
-    filters.push('status = ?');
+    filters.push('a.status = ?');
     params.push(status);
   }
-  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+  if (createdBy) {
+    filters.push('a.initiated_by = ?');
+    params.push(createdBy);
+  }
+  const where = `WHERE ${filters.join(' AND ')}`;
 
   const total = db
-    .prepare(`SELECT COUNT(*) AS n FROM analyses ${where}`)
+    .prepare(`SELECT COUNT(*) AS n FROM analyses a JOIN samples s ON s.id = a.sample_id JOIN patients p ON p.id = s.patient_id ${where}`)
     .get(...params).n;
 
   const analysisRows = db
-    .prepare(`SELECT * FROM analyses ${where} ORDER BY started_at DESC LIMIT ? OFFSET ?`)
+    .prepare(`SELECT a.* FROM analyses a JOIN samples s ON s.id = a.sample_id JOIN patients p ON p.id = s.patient_id ${where} ORDER BY a.started_at DESC LIMIT ? OFFSET ?`)
     .all(...params, paging.limit, paging.offset);
 
   if (analysisRows.length === 0) {
@@ -265,10 +275,11 @@ export function getAnalysis(db, id) {
 export function detectionsByAnalysis(db, analysisIds) {
   const map = new Map();
   if (!analysisIds.length) return map;
-  const placeholders = analysisIds.map(() => '?').join(',');
+  const clamped = analysisIds.slice(0, MAX_IN_CLAUSE);
+  const placeholders = clamped.map(() => '?').join(',');
   const rows = db
     .prepare(`SELECT * FROM detections WHERE analysis_id IN (${placeholders}) ORDER BY class_name, id`)
-    .all(...analysisIds);
+    .all(...clamped);
   for (const row of rows) {
     if (!map.has(row.analysis_id)) map.set(row.analysis_id, []);
     map.get(row.analysis_id).push(row);
@@ -280,7 +291,8 @@ export function detectionsByAnalysis(db, analysisIds) {
 export function pendingAdjudicationCounts(db, analysisIds) {
   const counts = new Map();
   if (!analysisIds.length) return counts;
-  const placeholders = analysisIds.map(() => '?').join(',');
+  const clamped = analysisIds.slice(0, MAX_IN_CLAUSE);
+  const placeholders = clamped.map(() => '?').join(',');
   const rows = db
     .prepare(`
       SELECT analysis_id, COUNT(*) AS n
@@ -288,20 +300,24 @@ export function pendingAdjudicationCounts(db, analysisIds) {
       WHERE analysis_id IN (${placeholders}) AND confirmed = 0 AND rejected = 0
       GROUP BY analysis_id
     `)
-    .all(...analysisIds);
+    .all(...clamped);
   for (const row of rows) counts.set(row.analysis_id, row.n);
   return counts;
 }
 
 // -------------------------------------------------------------- reports ----
 
-export function listReports(db, { limit, offset, status } = {}) {
+export function listReports(db, { limit, offset, status, createdBy } = {}) {
   const paging = normalisePaging({ limit, offset });
   const clauses = ['deleted_at IS NULL'];
   const params = [];
   if (status) {
     clauses.push('status = ?');
     params.push(status);
+  }
+  if (createdBy) {
+    clauses.push('technologist_id = ?');
+    params.push(createdBy);
   }
   const where = `WHERE ${clauses.join(' AND ')}`;
 

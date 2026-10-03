@@ -305,15 +305,17 @@ export default function App() {
         )}
 
         {effectiveTab === 'patients' && (
-          <PatientListView
-            patients={patients}
-            samples={samples}
-            onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
-            onSelectPatientForAnalysis={handleSelectPatientForAnalysis}
-            onEditPatient={patient => handleEditPatient(patient)}
-            onDeletePatient={(patient) => handleDeletePatient(patient)}
-            canDeletePatients
-          />
+          <ErrorBoundary resetKey="patients">
+            <PatientListView
+              patients={patients}
+              samples={samples}
+              onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
+              onSelectPatientForAnalysis={handleSelectPatientForAnalysis}
+              onEditPatient={patient => handleEditPatient(patient)}
+              onDeletePatient={(patient) => handleDeletePatient(patient)}
+              canDeletePatients
+            />
+          </ErrorBoundary>
         )}
 
         {effectiveTab === 'microscopy' && (
@@ -343,17 +345,19 @@ export default function App() {
         )}
 
         {effectiveTab === 'reports' && (
-          <ReportsListView
-            reports={reports}
-            currentUserName={user.name}
-            currentUserId={user.id}
-            canManageReports
-            canDeleteReports
-            onOpenReport={report => setActiveReportModal(report)}
-            onVerifyReport={verifyReport}
-            onEditReport={updateReport}
-            onDeleteReport={handleDeleteReport}
-          />
+          <ErrorBoundary resetKey="reports">
+            <ReportsListView
+              reports={reports}
+              currentUserName={user.name}
+              currentUserId={user.id}
+              canManageReports
+              canDeleteReports
+              onOpenReport={report => setActiveReportModal(report)}
+              onVerifyReport={verifyReport}
+              onEditReport={updateReport}
+              onDeleteReport={handleDeleteReport}
+            />
+          </ErrorBoundary>
         )}
 
         {effectiveTab === 'models' && user.isAdmin && (

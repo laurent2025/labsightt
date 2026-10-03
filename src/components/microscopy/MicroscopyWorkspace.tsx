@@ -455,6 +455,17 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     };
   }, [cameraStream]);
 
+  useEffect(() => {
+    if (!showCameraModal) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        stopCamera();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showCameraModal]);
+
   /**
    * Summarises what the technologist has actually adjudicated.
    *
@@ -946,7 +957,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
 
       {/* Camera Capture Modal */}
       {showCameraModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Microscope camera capture"
+          className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4"
+        >
           <div className="relative w-full max-w-2xl bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-800/50">
               <div className="flex items-center gap-2">
@@ -999,6 +1015,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 ref={videoRef}
                 autoPlay
                 playsInline
+                aria-label="Microscope camera live preview"
                 onLoadedMetadata={() => {
                   if (videoRef.current) {
                     const res = document.getElementById('cameraResolution');
