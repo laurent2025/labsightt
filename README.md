@@ -1,4 +1,4 @@
-# RenziAI — AI-assisted clinical microscopy review
+# LenziAI — AI-assisted clinical microscopy review
 
 A laboratory information system for clinical microscopy: accession a specimen,
 run AI detection over a slide image, adjudicate every proposed bounding box,
@@ -209,7 +209,7 @@ It never falls back to invented detections.
 ROBOFLOW_API_KEY=<your key>
 ```
 
-The server defaults to the `RenziAI vlabsight-3-yolo26m-t1 Logic` hosted
+The server defaults to the `LenziAI vlabsight-3-yolo26m-t1 Logic` hosted
 workflow. Set `ROBOFLOW_ENDPOINT` only to override that URL.
 The API key is sent only in the `Authorization: Bearer` header. Do not put it
 in the workflow URL or request body. Requests send the specimen image as a

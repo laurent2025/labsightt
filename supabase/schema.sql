@@ -1,4 +1,4 @@
--- Supabase schema for RenziAI.
+-- Supabase schema for LenziAI.
 -- This file is intentionally close to the existing SQLite schema so the API can
 -- be switched to Supabase without rewriting the clinical workflow.
 

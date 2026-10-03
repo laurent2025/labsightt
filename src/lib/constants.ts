@@ -5,15 +5,15 @@ import urineSlide from '../assets/images/microscopy_urine_sediment_1790521932151
 import laboratoryRoom from '../assets/images/laboratory_microscope_room_1790521942556.jpg';
 
 export const LAB_METADATA = {
-  name: "RenziAI",
+  name: "LenziAI",
   subtitle: "Automated Clinical Microscopy & Decision Support System",
-  institution: "Apex Clinical Pathology & Molecular Diagnostic Institute",
-  license: "Apex Clinical Pathology & Molecular Diagnostic Institute",
+  institution: "",
+  license: "LenziAI Diagnostic Systems Inc.",
   accreditation: "Clinical decision support system",
-  director: "Dr. L. K. Laurent, MD, FRCPath",
+  director: "",
   address: "Medical Center Plaza, Diagnostic Wing 3B, Suite 400",
-  contact: "+1 (800) 555-RENZ · contact@renziai.com",
-  legalDisclaimer: "CLINICAL DECISION SUPPORT NOTICE: RenziAI provides automated morphology suggestions only. All output requires review and sign-off by a qualified medical laboratory professional prior to clinical release."
+  contact: "+1 (800) 555-LENZ · contact@lenziai.com",
+  legalDisclaimer: "CLINICAL DECISION SUPPORT NOTICE: LenziAI provides automated morphology suggestions only. All output requires review and sign-off by a qualified medical laboratory professional prior to clinical release."
 };
 
 // Reference photomicrographs bundled through the module graph so Vite emits
@@ -29,7 +29,7 @@ export const SLIDE_ASSETS = {
 export const DEFAULT_AI_MODELS: AIModelConfig[] = [
   {
     id: "model-labsight-yolo26m-workflow",
-    name: "RenziAI vlabsight-3-yolo26m-t1 Logic",
+    name: "LenziAI vlabsight-3-yolo26m-t1 Logic",
     category: "stool",
     architecture: "YOLO26m Serverless Workflow",
     version: "t1",

@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * LabSight color system.
+ * RenziAI color system.
  *
  * Palette: medical green + white + black (+ a gray axis for surfaces).
  * No blue, amber, rose, or purple accents remain — every "brand" hue has been
@@ -102,38 +102,73 @@
 :root {
   --surface-page:  #ffffff;
   --surface-panel: #ffffff;
+  --surface-raised: #f8fafc;
   --surface-strong: #14532d;   /* green-900 — for elevated/branded panels */
   --text-primary:  #111827;     /* near-black */
   --text-secondary: #4b5563;    /* gray-800 */
+  --text-tertiary: #6b7280;     /* gray-500 — captions, mono labels */
   --border-panel:  #e5e7eb;
+  --shadow-color: 0 0 0 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 0 0 1px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08);
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
 }
 
 html.dark {
   --surface-page:  #090e17;
   --surface-panel: #0f172a;
+  --surface-raised: #111b2e;
   --surface-strong: #166534;
   --text-primary:  #f9fafb;
-  --text-secondary: #9ca3af;
-  --border-panel:  #334155;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --border-panel:  #1e293b;
+  --shadow-color: 0 0 0 1px rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-elevated: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.5);
 }
 
 @layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    background-color: var(--surface-page);
-    color: var(--text-primary);
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
 
-  /* Page and panel surfaces use the white/black axis in both themes. */
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    background-color: var(--surface-page);
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  /* Surfaces */
   .surface-page { background-color: var(--surface-page); }
   .surface-panel { background-color: var(--surface-panel); }
+  .surface-raised { background-color: var(--surface-raised); }
   .surface-strong {
     background-color: var(--surface-strong);
     color: #ffffff;
   }
 
+  /* Typography */
+  .font-sans { font-family: var(--font-sans); }
   .font-mono, .tabular-nums {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Form controls always inherit readable text in either theme, even when a
@@ -144,11 +179,29 @@ html.dark {
   select,
   textarea {
     color: var(--text-primary);
+    font-family: var(--font-sans);
   }
 
   input::placeholder,
   textarea::placeholder {
-    color: var(--color-slate-500);
+    color: var(--text-tertiary);
+  }
+
+  /* Accessible focus indicator */
+  :focus-visible {
+    outline: 2.5px solid theme(colors.cyan.600);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: theme(colors.cyan.200);
+    color: theme(colors.cyan.950);
+  }
+  html.dark ::selection {
+    background-color: theme(colors.cyan.800);
+    color: theme(colors.cyan.50);
   }
 }
 
@@ -176,14 +229,29 @@ html.dark {
   --color-slate-300: #94a3b8;
   --color-slate-400: #64748b;
   --color-slate-500: #4b5563;
+  --color-slate-600: #374151;
 }
 
 html.dark {
+  --color-slate-300: #cbd5e1;
   --color-slate-400: #a9b4c7;
   --color-slate-500: #93a1b8;
   --color-slate-600: #72859f;
   --color-slate-700: #5b6d88;
   --color-slate-800: #273449;
+  --color-slate-900: #1a2744;
+}
+
+/* Responsive base: clamp fluid type for headings and body */
+:root {
+  --text-xs: clamp(0.7rem, 0.65rem + 0.25vw, 0.75rem);
+  --text-sm: clamp(0.8rem, 0.75rem + 0.25vw, 0.875rem);
+  --text-base: clamp(0.9rem, 0.85rem + 0.25vw, 1rem);
+  --text-lg: clamp(1.1rem, 1rem + 0.5vw, 1.25rem);
+  --text-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+  --text-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+  --text-3xl: clamp(1.8rem, 1.4rem + 2vw, 2.5rem);
+  --text-4xl: clamp(2rem, 1.5rem + 2.5vw, 3rem);
 }
 
 /* In-page anchor navigation (landing page Features/Workflow/Governance).
@@ -241,15 +309,39 @@ html {
    reduced-motion block still forces instant rendering for users who opt out. */
 @theme {
   --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-slide-in: slide-in 0.3s ease-out both;
+  --animate-scale-in: scale-in 0.25s ease-out both;
 
   @keyframes fade-in {
     from {
       opacity: 0;
-      transform: translateY(6px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
     }
   }
 }
@@ -258,9 +350,9 @@ html {
    every click, but keyboard navigation is never ambiguous. */
 @layer base {
   :focus-visible {
-    outline: 2px solid theme(colors.cyan.600);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: 2.5px solid theme(colors.cyan.600);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
   }
 }
 
@@ -283,3 +375,41 @@ html {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------------------------------------------------------------------------
+   Responsive helpers
+   --------------------------------------------------------------------------- */
+
+/* Prevent horizontal scroll on small viewports */
+body {
+  overflow-x: hidden;
+}
+
+/* Ensure interactive elements meet minimum touch target size on mobile */
+@media (max-width: 640px) {
+  button, [role="button"], a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Improve text readability on small screens */
+  h1 { font-size: var(--text-3xl) !important; }
+  h2 { font-size: var(--text-2xl) !important; }
+  h3 { font-size: var(--text-xl) !important; }
+  p, li, td, th { font-size: var(--text-sm) !important; }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  body {
+    font-size: var(--text-base);
+  }
+}
+
+/* Large desktop: cap line length for readability */
+@media (min-width: 1536px) {
+  .prose-max {
+    max-width: 75ch;
+  }
+}
+

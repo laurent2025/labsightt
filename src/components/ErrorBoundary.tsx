@@ -29,7 +29,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('RenziAI render failure:', error, info.componentStack);
+    console.error('LenziAI render failure:', error, info.componentStack);
   }
 
   private handleReset = () => this.setState({ error: null });

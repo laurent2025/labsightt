@@ -115,7 +115,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const pipelinePresets = {
     stool: {
       name: "Enteric Parasite & Protozoa Pipeline",
-      model: "RenziAI workflow (configured endpoint)",
+      model: "LenziAI workflow (configured endpoint)",
       configured: true,
       stain: "Lugol's Iodine Wet Mount",
       mag: "400x (High Dry 40x)",

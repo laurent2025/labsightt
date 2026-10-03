@@ -1,5 +1,5 @@
 /**
- * Vercel serverless entry for the RenziAI API.
+ * Vercel serverless entry for the LenziAI API.
  *
  * Exports the same Express app as `server/main.js`, minus the long-lived
  * process concerns (no listen, no SQLite bootstrap accounts). Clinical data

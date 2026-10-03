@@ -223,7 +223,7 @@ export default function App() {
             <Microscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
           </div>
           <div>
-            <div className="text-base font-bold tracking-tight text-slate-900 dark:text-white">RenziAI</div>
+            <div className="text-base font-bold tracking-tight text-slate-900 dark:text-white">LenziAI</div>
             <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">AI CLINICAL</div>
           </div>
         </div>

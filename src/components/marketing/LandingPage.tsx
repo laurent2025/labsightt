@@ -37,7 +37,7 @@ const FEATURES = [
   {
     icon: ScanSearch,
     title: 'Automated morphology detection',
-    body: 'A serverless YOLO26m workflow flags candidate organisms, cells, and crystals on every field — stool, blood, and urine pipelines, each tuned per specimen type.',
+    body: 'A serverless YOLO26m workflow flags candidate organisms, cells, and crystals on every field stool, blood, and urine pipelines, each tuned per specimen type.',
     accent: 'from-cyan-500/10 to-emerald-500/10 dark:from-cyan-400/10 dark:to-emerald-400/10'
   },
   {
@@ -61,7 +61,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: 'Two-person verification',
-    body: 'A report can only be verified by a second operator — the technologist who originated it cannot sign off on it alone.',
+    body: 'A report can only be verified by a second operator the technologist who originated it cannot sign off on it alone.',
     accent: 'from-sky-500/10 to-blue-500/10 dark:from-sky-400/10 dark:to-blue-400/10'
   },
   {
@@ -88,7 +88,7 @@ const WORKFLOW = [
   {
     step: '03',
     title: 'Adjudicate detections',
-    body: 'Every AI candidate is confirmed, rejected, or superseded by a manual finding — the reviewer sees each one.',
+    body: 'Every AI candidate is confirmed, rejected, or superseded by a manual finding the reviewer sees each one.',
     icon: Eye
   },
   {
@@ -128,7 +128,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
               <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-950 animate-pulse" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">RenziAI</span>
+              <span className="text-base font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">LenziAI</span>
               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-gradient-to-r from-cyan-100 to-emerald-100 dark:from-cyan-950 dark:to-emerald-950 text-cyan-800 dark:text-cyan-300 font-semibold border border-cyan-200 dark:border-cyan-800">
                 AI CLINICAL
               </span>
@@ -219,7 +219,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
               </h1>
 
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-                RenziAI pairs automated computer vision detection with a disciplined laboratory
+                LenziAI pairs automated computer vision detection with a disciplined laboratory
                 workflow: accession the specimen, scan the slide, adjudicate every detection, and
                 release a two-person verified report with an unbroken chain of custody.
               </p>
@@ -256,10 +256,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   Trusted by <span className="font-semibold text-slate-700 dark:text-slate-300">laboratory teams</span> worldwide
                 </p>
               </div>
-
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                {LAB_METADATA.institution} · Medical Director: {LAB_METADATA.director}
-              </p>
             </div>
 
             {/* Right column - preview card */}
@@ -351,8 +347,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 Built around the laboratory workflow
               </h2>
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                Detection is the starting point. Everything after it — adjudication, quantification,
-                verification, release — is built to survive review by a real laboratory team.
+                Detection is the starting point. Everything after it adjudication, quantification,
+                verification, release is built to survive review by a real laboratory team.
               </p>
             </div>
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -560,7 +556,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-emerald-600 flex items-center justify-center">
               <Microscope className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-slate-900 dark:text-white">RenziAI</span>
+            <span className="font-bold text-slate-900 dark:text-white">LenziAI</span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 font-semibold border border-cyan-200 dark:border-cyan-800">AI CLINICAL</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">

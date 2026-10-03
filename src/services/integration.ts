@@ -184,7 +184,7 @@ export function generateDICOMMetadata(report: LaboratoryReport) {
     PatientSex:
       report.patient.gender === 'Male' ? 'M' : report.patient.gender === 'Female' ? 'F' : '',
     Modality: "SM", // Slide Microscopy
-    Manufacturer: "RenziAI",
+    Manufacturer: "LenziAI",
     SpecimenIdentifier: report.sample.slideLabel,
     SpecimenPreparationSequence: {
       StainingSubstanceItem: report.sample.stainMethod,
@@ -209,7 +209,7 @@ export function generateDICOMMetadata(report: LaboratoryReport) {
 export const ROBOFLOW_POPULAR_MODELS = [
   {
     id: "labsight-yolo26m-workflow",
-    name: "RenziAI vlabsight-3-yolo26m-t1 Logic",
+    name: "LenziAI vlabsight-3-yolo26m-t1 Logic",
     workspace: "laurent-kashinje",
     project: "labsight-vlabsight-3-yolo26m-t1-logic",
     version: 1,

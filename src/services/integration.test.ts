@@ -56,7 +56,7 @@ const report: LaboratoryReport = {
   verifiedAt: '2026-03-04T12:00:00.000Z',
   verifiedBy: 'Dr. Kwame Mensah',
   laboratoryInfo: {
-    name: 'Apex Clinical Pathology & Molecular Diagnostic Institute',
+    name: 'LenziAI Diagnostic Systems Inc.',
     licenseNumber: 'NA',
     accreditation: 'None',
     address: 'Local',

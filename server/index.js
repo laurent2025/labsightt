@@ -1,5 +1,5 @@
 /**
- * RenziAI API server.
+ * LenziAI API server.
  *
  * Holds the patient record, enforces the reporting workflow, and proxies
  * inference so the model credential never reaches the browser.
@@ -323,7 +323,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       return res.status(201).json({
         ok: true,
-        message: 'Check your email for a verification link. Once verified, you can sign in to RenziAI.'
+        message: 'Check your email for a verification link. Once verified, you can sign in to LenziAI.'
       });
     } catch (err) {
       next(err);

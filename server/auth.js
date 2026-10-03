@@ -1,5 +1,5 @@
 /**
- * Authentication middleware for RenziAI sessions.
+ * Authentication middleware for LenziAI sessions.
  *
  * The client can no longer assert an identity: every request must present a
  * valid session cookie; all authenticated users have equal access.
