@@ -197,10 +197,15 @@ export function requireAuth(db) {
           return res.status(503).json({ error: 'Account profile could not be verified. Contact support.' });
         }
       }
-      // Suspension is enforced here, not by deleting the Supabase auth user:
-      // clinical records reference those ids, so history must survive.
-      if (profile.suspended) {
-        return res.status(401).json({ error: 'This account has been suspended by an administrator.' });
+      // Access is granted only to accounts an administrator has approved:
+      // email confirmed (Supabase Auth) + approved (profiles.approved). A 403
+      // with a stable code keeps the session cookie valid so an approved
+      // account regains access on the very next request after approval.
+      if (profile.approved !== true) {
+        return res.status(403).json({
+          code: 'NOT_APPROVED',
+          error: 'This account is waiting for administrator approval. An administrator must approve it before you can sign in.'
+        });
       }
       req.user = { id: user.id, email: profile.email, username: profile.username, displayName: profile.display_name, display_name: profile.display_name, role: profile.role === 'admin' ? 'admin' : 'member', active: true };
       return next();

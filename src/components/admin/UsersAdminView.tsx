@@ -6,7 +6,7 @@ import {
   Lock,
   SearchX,
   ShieldCheck,
-  Trash2,
+  ShieldOff,
   UserCog,
   Users
 } from 'lucide-react';
@@ -63,16 +63,31 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
     }
   };
 
+  const handleApprove = async (user: AdminUser) => {
+    const label = user.displayName || user.username;
+    if (!confirm(`Approve ${label}? They can sign in and use the laboratory immediately.`)) return;
+    setActingId(user.id);
+    setActionError(null);
+    try {
+      await adminApi.approveUser(user.id);
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'The account could not be approved.');
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const handleRemove = async (user: AdminUser) => {
     const label = user.displayName || user.username;
-    if (!confirm(`Remove ${label}? Their sign-in stops immediately and their audit history is retained.`)) return;
+    if (!confirm(`Revoke ${label}'s approval? They lose access immediately, but their clinical records and audit history are retained. You can approve them again later.`)) return;
     setActingId(user.id);
     setActionError(null);
     try {
       await adminApi.removeUser(user.id);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'The user could not be removed.');
+      setActionError(err instanceof Error ? err.message : 'The approval could not be revoked.');
     } finally {
       setActingId(null);
     }
@@ -98,7 +113,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">User Access Administration</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Grant or revoke administrator access, remove accounts, and review recorded activity
+              Approve or revoke account access, assign administrator roles, and review recorded activity
             </p>
           </div>
         </div>
@@ -187,10 +202,10 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
                           className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
                             user.active
                               ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
-                              : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300'
+                              : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
                           }`}
                         >
-                          {user.active ? 'Active' : 'Removed'}
+                          {user.active ? 'Approved' : 'Pending approval'}
                         </span>
                       </td>
                       <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">
@@ -207,10 +222,22 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center justify-end gap-2">
+                          {!user.active && (
+                            <button
+                              type="button"
+                              onClick={() => void handleApprove(user)}
+                              disabled={busy}
+                              title="Approve this account for access"
+                              className="px-3 py-1.5 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                              <span>Approve</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => void handleSetRole(user)}
-                            disabled={busy || !user.active}
+                            disabled={busy}
                             className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                           >
                             {busy ? (
@@ -226,11 +253,11 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
                             type="button"
                             onClick={() => void handleRemove(user)}
                             disabled={busy || isSelf || !user.active}
-                            title={isSelf ? 'You cannot remove your own account' : 'Remove this account'}
+                            title={isSelf ? 'You cannot revoke your own approval' : "Revoke this account's approval"}
                             className="px-3 py-1.5 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                           >
-                            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                            <span>Remove</span>
+                            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
+                            <span>Revoke</span>
                           </button>
                         </div>
                       </td>
@@ -246,9 +273,10 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
       <div className="flex items-start gap-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
         <Lock className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
         <p>
-          Removing an account stops sign-in immediately but never erases clinical records: samples, reports, and
-          audit entries keep their references so the laboratory history remains attributable. All role and removal
-          actions are written to the audit trail.
+          New accounts are created with <strong>pending approval</strong> after email confirmation: they cannot sign
+          in until an administrator approves them. Revoking approval stops sign-in immediately but never erases
+          clinical records: samples, reports, and audit entries keep their references so the laboratory history
+          remains attributable. All approval, role, and revocation actions are written to the audit trail.
         </p>
       </div>
     </div>

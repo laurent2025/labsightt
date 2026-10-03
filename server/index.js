@@ -46,6 +46,7 @@ import {
   saveSupabaseDetections,
   finalizeSupabaseAnalysis,
   adjudicateSupabaseDetection,
+  setSupabaseUserApproval,
   listSupabaseReports,
   getSupabaseReport,
   createSupabaseReport,
@@ -201,8 +202,14 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return res.status(503).json({ error: 'Account profile could not be verified. Contact support.' });
         }
 
-        if (profile.suspended) {
-          return res.status(401).json({ error: 'This account has been suspended by an administrator.' });
+        // Access requires admin approval in addition to email confirmation.
+        // 403 (not 401) so the client keeps the rejected login on screen with
+        // the approval message instead of cycling through session handling.
+        if (profile.approved !== true) {
+          return res.status(403).json({
+            code: 'NOT_APPROVED',
+            error: 'This account is waiting for administrator approval. An administrator must approve it before you can sign in.'
+          });
         }
 
         const expiresAt = new Date(
@@ -989,25 +996,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return res.status(409).json({ error: 'This analysis has been verified and can no longer be edited.' });
         }
 
-        if (req.user.role !== 'admin') {
-          let allowed = analysisRow?.initiated_by === req.user.id;
-          if (!allowed && analysisRow?.sample_id) {
-            const { data: sampleRow, error: sampleError } = await supabase
-              .from('samples')
-              .select('patient_id, created_by')
-              .eq('id', analysisRow.sample_id)
-              .maybeSingle();
-            if (sampleError) throw sampleError;
-            if (sampleRow?.created_by === req.user.id) allowed = true;
-            if (!allowed && sampleRow?.patient_id) {
-              allowed = await assertSupabaseOwnership(supabase, 'patients', 'id', sampleRow.patient_id, 'created_by', req.user.id);
-            }
-          }
-          if (!allowed) {
-            return res.status(403).json({ error: 'You do not have permission to adjudicate this detection.' });
-          }
-        }
-
+        // Any signed-in user may adjudicate findings; the actor is recorded
+        // as adjudicated_by and in the audit chain.
         const result = await adjudicateSupabaseDetection(supabase, req.params.id, {
           confirmed: nextConfirmed,
           rejected: nextRejected,
@@ -1033,14 +1023,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       if (analysis.status === 'verified') {
         return res.status(409).json({ error: 'This analysis has been verified and can no longer be edited.' });
       }
-      if (req.user.role !== 'admin') {
-        if (analysis.initiated_by !== req.user.id) {
-          const sampleOwner = db.prepare('SELECT created_by FROM samples WHERE id = ?').get(analysis.sample_id);
-          if (!sampleOwner || sampleOwner.created_by !== req.user.id) {
-            return res.status(403).json({ error: 'You do not have permission to adjudicate this detection.' });
-          }
-        }
-      }
+      // Any signed-in user may adjudicate findings; the actor is recorded
+      // as adjudicated_by and in the audit chain.
 
       db.prepare(`
         UPDATE detections
@@ -1174,9 +1158,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       const analysis = db.prepare('SELECT * FROM analyses WHERE id = ?').get(analysisId);
       if (!analysis) return res.status(400).json({ error: 'A valid analysisId is required.' });
-      if (req.user.role !== 'admin' && analysis.initiated_by !== req.user.id) {
-        return res.status(403).json({ error: 'You do not have permission to generate a report for this analysis.' });
-      }
+      // Any signed-in user can generate and sign a report; the generator is
+      // recorded as technologist and in the audit chain.
 
       const pending = db
         .prepare('SELECT COUNT(*) AS n FROM detections WHERE analysis_id = ? AND confirmed = 0 AND rejected = 0')
@@ -1229,7 +1212,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   });
 
   /** Verifies a report; any signed-in user may verify. */
-  app.post('/api/reports/:id/verify', auth, requireAdmin, async (req, res, next) => {
+  // Any signed-in user can sign/verify a report; the acting user is recorded
+  // as verified_by and in the audit chain.
+  app.post('/api/reports/:id/verify', auth, async (req, res, next) => {
     try {
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
@@ -1281,7 +1266,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
-  app.post('/api/reports/:id/release', auth, requireAdmin, async (req, res, next) => {
+  // Any signed-in user can release a verified report; the actor is audited.
+  app.post('/api/reports/:id/release', auth, async (req, res, next) => {
     try {
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
@@ -1333,12 +1319,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         const supabase = getSupabaseClient({ admin: true });
         const existing = await getSupabaseReport(supabase, req.params.id);
         if (!existing) return res.status(404).json({ error: 'Report not found.' });
-        if (req.user.role !== 'admin') {
-          const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', existing.analysisId).maybeSingle();
-          if (analysisRow?.initiated_by !== req.user.id && existing.technologistId !== req.user.id) {
-            return res.status(403).json({ error: 'You do not have permission to edit this report.' });
-          }
-        }
+        // Any signed-in user may record notes and the clinical impression on
+        // a report that has not been verified yet.
         if (existing.status === 'verified' || existing.status === 'released') {
           return res.status(409).json({ error: 'Cannot edit a verified or released report.' });
         }
@@ -1365,12 +1347,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       const row = db.prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
       if (!row) return res.status(404).json({ error: 'Report not found.' });
-      if (req.user.role !== 'admin') {
-        const analysis = db.prepare('SELECT initiated_by FROM analyses WHERE id = ?').get(row.analysis_id);
-        if (analysis && analysis.initiated_by !== req.user.id && row.technologist_id !== req.user.id) {
-          return res.status(403).json({ error: 'You do not have permission to edit this report.' });
-        }
-      }
+      // Any signed-in user may record notes and the clinical impression on
+      // a report that has not been verified yet.
 
       if (row.status === 'verified' || row.status === 'released') {
         return res.status(409).json({ error: 'Cannot edit a verified or released report.' });
@@ -1462,9 +1440,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   });
 
   // ------------------------------------------------------------ admin users ----
-  // Admin operations: view the account list, edit a role, and remove an
-  // account (suspension, which stops sign-in while keeping clinical history
-  // intact). Every operation is recorded in the audit chain.
+  // Admin operations: view the account list, approve or revoke an account's
+  // access (profiles.approved), edit a role, and revoke sign-in while keeping
+  // clinical history intact. Every operation is recorded in the audit chain.
 
   function userAuditStats(database) {
     const rows = database.prepare('SELECT actor_id, action, timestamp FROM audit_log ORDER BY seq ASC').all();
@@ -1527,7 +1505,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             email,
             displayName: p?.display_name || u.user_metadata?.display_name || localPart,
             role: p?.role,
-            active: p ? !p.suspended : true,
+            // active now mirrors admin approval: unapproved accounts cannot sign in.
+            active: p ? p.approved === true : false,
             createdAt: u.created_at ?? null,
             lastLoginAt: u.last_sign_in_at ?? null
           }, stats);
@@ -1564,6 +1543,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(400).json({ error: "role must be 'admin' or 'member'." });
       }
       const targetId = req.params.id;
+      // The API vocabulary is admin/member; the Supabase schema stores
+      // admin/user under a check constraint, so translate on the way in.
+      const storedRole = role === 'admin' ? 'admin' : 'user';
 
       if (process.env.USE_SUPABASE_AUTH === 'true') {
         const supabase = getSupabaseClient({ admin: true });
@@ -1583,7 +1565,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         if (existing) {
           const { data, error } = await supabase
             .from('profiles')
-            .update({ role })
+            .update({ role: storedRole })
             .eq('id', targetId)
             .select('id, role')
             .single();
@@ -1600,7 +1582,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
                 email,
                 username: localPart,
                 display_name: authUser.user_metadata?.display_name || localPart,
-                role
+                role: storedRole
               },
               { onConflict: 'id' }
             )
@@ -1639,6 +1621,68 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
   });
 
+  // Grant access: sets profiles.approved = true so the account can sign in.
+  // Mirrors the database function approve_lab_user (admin-only, audited).
+  app.post('/api/admin/users/:id/approve', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const targetId = req.params.id;
+
+      if (process.env.USE_SUPABASE_AUTH === 'true') {
+        const supabase = getSupabaseClient({ admin: true });
+        const { data: authUser, error: userError } = await supabase.auth.admin.getUserById(targetId);
+        if (userError || !authUser) return res.status(404).json({ error: 'User not found.' });
+
+        const { data: existing, error: readError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', targetId)
+          .maybeSingle();
+        if (readError) throw readError;
+
+        if (existing) {
+          await setSupabaseUserApproval(supabase, targetId, { approved: true, approvedBy: req.user.id });
+        } else {
+          // Auth user exists but the profile row is missing (the trigger never
+          // ran): create it approved so sign-in works immediately.
+          const email = (authUser.email ?? '').toLowerCase();
+          const localPart = email.split('@')[0] || 'user';
+          const { error: upsertError } = await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: targetId,
+                email,
+                username: `${localPart}_${targetId.slice(0, 8)}`,
+                display_name: authUser.user_metadata?.display_name || localPart,
+                role: 'user',
+                approved: true,
+                approved_at: new Date().toISOString(),
+                approved_by: req.user.id
+              },
+              { onConflict: 'id' }
+            );
+          if (upsertError) throw upsertError;
+        }
+        clearProfileCache(targetId);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'USER_APPROVED',
+          entity: 'user',
+          entityId: targetId,
+          details: 'Account approved for access'
+        });
+        return res.json({ ok: true, id: targetId, approved: true });
+      }
+
+      const target = db.prepare('SELECT id FROM users WHERE id = ?').get(targetId);
+      if (!target) return res.status(404).json({ error: 'User not found.' });
+      return res.status(400).json({ error: 'Account approval is only available when Supabase auth is enabled.' });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.delete('/api/admin/users/:id', auth, requireAdmin, async (req, res, next) => {
     try {
       const targetId = req.params.id;
@@ -1648,7 +1692,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       if (process.env.USE_SUPABASE_AUTH === 'true') {
         const supabase = getSupabaseClient({ admin: true });
-        // Suspension rather than hard deletion: clinical records keep their
+        // Revocation rather than deletion: clinical records keep their
         // references to the auth user id, and audit history must stay
         // attributable. The session stops working immediately.
         const { data: existing, error: readError } = await supabase
@@ -1659,27 +1703,23 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         if (readError) throw readError;
         if (!existing) return res.status(404).json({ error: 'User not found.' });
 
-        const { error } = await supabase
-          .from('profiles')
-          .update({ suspended: true })
-          .eq('id', targetId);
-        if (error) throw error;
+        await setSupabaseUserApproval(supabase, targetId, { approved: false, approvedBy: null });
         clearProfileCache(targetId);
         try {
           const { error: revokeError } = await supabase.auth.admin.revokeRefreshTokensForUser(targetId);
-          if (revokeError) console.error('[suspend] token revoke failed:', revokeError.message);
+          if (revokeError) console.error('[revoke-approval] token revoke failed:', revokeError.message);
         } catch {
           // non-fatal
         }
         appendAudit(db, {
           actorId: req.user.id,
           actorName: req.user.display_name,
-          action: 'USER_SUSPENDED',
+          action: 'USER_APPROVAL_REVOKED',
           entity: 'user',
           entityId: targetId,
-          details: 'Account suspended by administrator'
+          details: 'Approval revoked by administrator'
         });
-        return res.json({ ok: true, id: targetId, suspended: true });
+        return res.json({ ok: true, id: targetId, approved: false });
       }
 
       const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
@@ -1694,7 +1734,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         entityId: targetId,
         details: `${target.display_name} account disabled`
       });
-      return res.json({ ok: true, id: targetId, suspended: true });
+      return res.json({ ok: true, id: targetId, approved: false });
     } catch (err) {
       next(err);
     }

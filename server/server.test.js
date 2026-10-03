@@ -511,7 +511,7 @@ describe('reporting workflow gates', () => {
     expect(audit.body.entries.some(e => e.action === 'REPORT_GENERATED')).toBe(true);
   });
 
-  it('allows a different technologist to verify a report', async () => {
+  it('allows a different technologist to sign/verify a report', async () => {
     await createUser(db, {
       username: 'tech2',
       displayName: 'Second Technologist',
@@ -522,7 +522,9 @@ describe('reporting workflow gates', () => {
     const verifier = authed(await login('tech2', 'tech2-password-1234'));
 
     const res = await verifier.post('/api/reports/rpt-tech-verify/verify');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.body.report.status).toBe('verified');
+    expect(res.body.report.verifiedBy).toBe(userId('tech2'));
   });
 
   it('allows the originating technologist to verify their own report', async () => {
@@ -530,7 +532,8 @@ describe('reporting workflow gates', () => {
     const client = authed(await login('tech1', 'tech-password-1234'));
 
     const res = await client.post('/api/reports/rpt-1/verify');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.body.report.status).toBe('verified');
   });
 
   it('records author self-verification as a normal verification in the audit log', async () => {

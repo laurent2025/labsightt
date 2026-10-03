@@ -101,6 +101,7 @@ export interface AdminUser {
   email: string | null;
   displayName: string;
   role: 'member' | 'admin';
+  /** Admin approval: only approved accounts can sign in and use the app. */
   active: boolean;
   createdAt: string | null;
   lastLoginAt: string | null;
@@ -108,6 +109,11 @@ export interface AdminUser {
   auditCount: number;
   lastAction: string | null;
   lastActionAt: string | null;
+}
+
+/** True when the server rejects a request because the account is unapproved. */
+export function isNotApprovedError(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status === 403 && (err.payload as { code?: string })?.code === 'NOT_APPROVED';
 }
 
 export interface AdminAnalysis {
@@ -136,8 +142,13 @@ export const adminApi = {
       { method: 'PATCH', body: JSON.stringify({ role }) }
     ),
 
+  approveUser: (id: string) =>
+    request<{ ok: true; id: string; approved: boolean }>(`/admin/users/${encodeURIComponent(id)}/approve`, {
+      method: 'POST'
+    }),
+
   removeUser: (id: string) =>
-    request<{ ok: true; id: string; suspended: boolean }>(`/admin/users/${encodeURIComponent(id)}`, {
+    request<{ ok: true; id: string; approved: boolean }>(`/admin/users/${encodeURIComponent(id)}`, {
       method: 'DELETE'
     }),
 

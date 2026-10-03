@@ -37,7 +37,7 @@ export function getSupabaseClient({ admin = false } = {}) {
 export async function getSupabaseProfile(supabase, userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('email, username, display_name, role, suspended')
+    .select('email, username, display_name, role, approved, approved_at, approved_by')
     .eq('id', userId)
     .maybeSingle();
 
@@ -83,7 +83,7 @@ export async function ensureSupabaseProfile(supabase, authUser) {
       },
       { onConflict: 'id' }
     )
-    .select('email, username, display_name, role, suspended')
+    .select('email, username, display_name, role, approved, approved_at, approved_by')
     .single();
 
   if (error) {
@@ -91,6 +91,28 @@ export async function ensureSupabaseProfile(supabase, authUser) {
     throw new Error('Account profile could not be created. Contact support.');
   }
   return data;
+}
+
+/**
+ * Approves or revokes a Supabase user's access. Mirrors the database functions
+ * `approve_lab_user` / `revoke_lab_user_approval`; the service-role client
+ * bypasses RLS, so the admin check happens in the API layer instead.
+ *
+ * @returns {Promise<true>}
+ */
+export async function setSupabaseUserApproval(supabase, userId, { approved, approvedBy }) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      approved: Boolean(approved),
+      approved_at: approved ? new Date().toISOString() : null,
+      approved_by: approved ? (approvedBy ?? null) : null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId);
+
+  if (error) throw error;
+  return true;
 }
 
 export async function getSupabaseUserByToken(supabase, token) {

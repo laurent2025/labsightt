@@ -117,35 +117,49 @@ in a `VITE_` variable or committed to source control. Set only
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the frontend deployment.
 The SDK also normalizes a mistakenly supplied `/rest/v1/` suffix. In Supabase
 Auth settings, enable email confirmations and configure the confirmation email
-redirect to `SUPABASE_AUTH_REDIRECT_URL`. Signup sends a verification email; any
-verified email account can then sign in with the same access as every other user.
+redirect to `SUPABASE_AUTH_REDIRECT_URL`. Signup sends a verification email; a
+verified email can sign in only after an administrator approves the account
+(see the access model below).
 
 Run the complete `supabase/schema.sql` in the Supabase SQL editor. It enables
-RLS on all app tables without public policies and installs a trigger that
-creates a profile for each new Auth user. The API accesses clinical data with
-the server-only service-role key. Re-run the schema after upgrading this app so
-the latest profile definition and trigger are applied.
+RLS on all app tables, installs a trigger that creates a profile for each new
+Auth user with `approved = false`, and defines the approval-gated access
+policies. The API accesses clinical data with the server-only service-role key.
+Re-run the schema after upgrading this app so the latest profile definition and
+trigger are applied.
 
-Admin access is a per-profile flag, not a separate account type. Every new
-account is a `member`. To grant an email the admin role, run this in the
-Supabase SQL editor (the service-role key is the only key that can touch
+**Access model: email confirmed + admin approved.** A new account stays in
+*pending approval* and cannot sign in until an administrator approves it.
+Approvals are granted in the app (Admin → Users → **Approve**) or directly in
+the Supabase SQL editor (the service-role key is the only key that can touch
 `profiles`, and RLS blocks the browser from reading or changing it):
 
 ```sql
-update profiles set role = 'admin'
+-- Make one account the first administrator and approve it:
+update public.profiles
+set role = 'admin', approved = true, approved_at = now()
 where email in ('you@example.com');
 
-select email, username, role from profiles order by email;
+-- Approve the accounts that should have access:
+update public.profiles set approved = true, approved_at = now()
+where email in ('technologist@example.com', 'supervisor@example.com');
+
+select email, username, role, approved from public.profiles order by email;
 ```
 
-The API exposes the flag as `role` on the login response and `GET /api/auth/me`
-(the React store surfaces it as `user.isAdmin`). The profile is cached per
-server process, so restart the API server after changing a role before the new
-value is served.
+> **Upgrading an existing installation:** the schema normalizes every
+> pre-existing profile to `approved = false`. If you skip the bootstrap SQL
+> above, nobody — including previous admins — can sign in until an account is
+> approved.
+
+The API exposes the role as `role` on the login response and `GET /api/auth/me`
+(the React store surfaces it as `user.isAdmin`). Approve/revoke and role
+changes take effect immediately: the API clears its per-process profile cache on
+every admin operation.
 
 Users create accounts from the sign-in screen with an email address and
-password. No role selection, invitation, approval, or separate account setup is
-required. The only signup step is verifying the email address.
+password. After confirming the email, they remain in **pending approval** and
+cannot sign in until an administrator approves the account.
 
 On Vercel the frontend and API share one origin, so the session cookie is
 first-party and no cookie configuration is needed.
@@ -315,8 +329,6 @@ system on top of the mechanism.
 | Access review, retention, purge | Not implemented. Data erasure is a manual server-side operation. |
 | Model validation | None. No accuracy, sensitivity, or specificity figure is displayed anywhere, because none has been measured. |
 | Clinical thresholds | The significance bands in `quantification.js` are review heuristics, not validated criteria, and are not laboratory-specific. |
-| DICOM export | Metadata preview only. Not a conformant Part 10 file; no pixel data. Cannot be imported into a PACS. |
-| FHIR export | Structurally valid R4 with resolvable references, but no conformance profile or implementation guide has been validated. |
 | Manual detections | Recorded in the client session only. The server does not yet accept technologist-added detections, so they do not survive a reload. This is stated in the UI when it happens. |
 | Multi-tenancy | Single laboratory. No tenant isolation. |
 | Database concurrency | SQLite in WAL mode, single-node. Fine for one lab; not a multi-replica deployment. |
@@ -352,7 +364,6 @@ scripts/
 src/
   services/
     api.ts        Typed client for the API
-    integration.ts FHIR / DICOM export, model presets
     roboflow.ts   Image loading (inference itself is server-side)
   store/labStore.tsx  Session + data state, talks to the API
   lib/
@@ -373,9 +384,9 @@ issued one query per analysis to load its detections.
 
 ## Testing
 
-`npm test` runs 123 tests across four files.
+`npm test` runs 118 tests across five files.
 
-- `server/server.test.js` (40) — password hashing, login and session expiry,
+- `server/server.test.js` (51) — password hashing, login and session expiry,
   tampered cookies, RBAC boundaries, audit chain tamper detection, report
   gates, verification by any signed-in user, detection locking, and that no
   endpoint or request path can extract the model credential.
@@ -383,12 +394,12 @@ issued one query per analysis to load its detections.
   detection, blind-index determinism, repository pagination clamping and
   search, per-patient specimen summaries, patient update, rate limiting,
   `/healthz` and `/readyz`, structured log shape, and security headers.
+- `server/supabase.test.js` (1) — Supabase profile upsert for a valid auth user.
+- `src/hooks/useFocusTrap.test.ts` (1) — focus-trap listeners are not
+  reattached on rerender.
 - `src/lib/quantification.test.ts` (21) — field-of-view arithmetic against the
   closed form, clinical gradings, quantity strings, rejected-detection
   exclusion, stable IDs, non-mutation, divide-by-zero safety.
-- `src/services/integration.test.ts` (18) — FHIR structure and reference
-  resolvability, UUID format, confirmed-vs-candidate counts, DICOM UID syntax
-  and the 128-bit bound.
 
 ### Why `lint` is an alias for `typecheck`
 

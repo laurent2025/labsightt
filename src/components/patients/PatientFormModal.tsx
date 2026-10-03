@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { NewPatient, Sample, SampleType, MicroscopeObjective, EyepieceMagnification } from '../../types';
 import { SLIDE_ASSETS } from '../../lib/constants';
 import { fileToDataUrl } from '../../services/roboflow';
 import { X, Upload, Microscope, UserPlus, Camera, Video, RotateCcw } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
 interface PatientFormModalProps {
   onClose: () => void;
@@ -38,11 +39,9 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
   const [selectedPresetImage, setSelectedPresetImage] = useState<string>(SLIDE_ASSETS.stool);
   const [customImage, setCustomImage] = useState<string | null>(null);
 
-  // Camera capture from microscope
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [showCameraModal, setShowCameraModal] = useState<boolean>(false);
-  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Camera capture from microscope (shared hook)
+  const camera = useMicroscopeCamera();
+  const [uploadedImages, setUploadedImages] = useState<{ id: string; name: string; dataUrl: string }[]>([]);
 
   // Auto-tune default stain and preset image when sample type changes
   const handleSampleTypeChange = (type: SampleType) => {
@@ -63,84 +62,47 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length === 0) return;
     try {
-      const dataUrl = await fileToDataUrl(file);
-      setCustomImage(dataUrl);
+      const images = await Promise.all(
+        files.map(async file => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          dataUrl: await fileToDataUrl(file)
+        }))
+      );
+      setUploadedImages(prev => [...prev, ...images]);
+      setCustomImage(images[0].dataUrl);
     } catch (err) {
       console.error("Failed reading file", err);
+      setSubmitError('Failed to read one or more images.');
     }
   };
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: cameraFacing,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
-      });
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setShowCameraModal(true);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSubmitError(`Camera access failed: ${message}. Ensure a microscope camera is connected and browser permissions are granted.`);
-    }
-  };
-
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
-    }
-    setShowCameraModal(false);
-  };
-
-  const switchCamera = () => {
-    setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment');
-    if (cameraStream) {
-      stopCamera();
-      setTimeout(startCamera, 100);
-    }
-  };
-
-  const captureFrame = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-    stopCamera();
+  const selectImage = (dataUrl: string) => {
     setCustomImage(dataUrl);
   };
 
-  // The <video> mounts after startCamera() resolves (videoRef.current is null
-  // while the stream is being set up), so attach the stream on render.
-  React.useEffect(() => {
-    if (showCameraModal && cameraStream && videoRef.current) {
-      videoRef.current.srcObject = cameraStream;
-      videoRef.current.play().catch(() => undefined);
-    }
-  }, [showCameraModal, cameraStream]);
+  const removeImage = (id: string) => {
+    setUploadedImages(prev => prev.filter(i => i.id !== id));
+  };
 
-  // Cleanup camera on unmount
-  React.useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
+  // Camera capture from the connected microscope (shared hook).
+  const switchCamera = () => {
+    if (camera.devices.length < 2) return;
+    const current = camera.devices.findIndex(d => d.deviceId === camera.deviceId);
+    const next = camera.devices[(current + 1) % camera.devices.length];
+    camera.switchDevice(next.deviceId);
+  };
+
+  const captureFrame = () => {
+    const dataUrl = camera.capture();
+    if (!dataUrl) return;
+    camera.close();
+    setCustomImage(dataUrl);
+  };
 
   // Local wall-clock time, not UTC. Appending a 'Z' to a value the operator
   // typed as local time shifted every specimen by their UTC offset.
@@ -422,7 +384,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Reference Slides */}
               <div className="space-y-2">
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 block">
+                <span className="text-xs text-slate-600 dark:text-slate-400 block">
                   Select Calibrated Clinical Reference Slide:
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -439,6 +401,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
                         onClick={() => {
                           setSelectedPresetImage(slide.src);
                           setCustomImage(null);
+                          setUploadedImages([]);
                           handleSampleTypeChange(slide.key);
                         }}
                         aria-pressed={isActive}
@@ -453,7 +416,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
                           alt={slide.alt}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute bottom-0 inset-x-0 bg-slate-950/80 text-[10px] text-white p-1 text-center truncate">
+                        <span className="absolute bottom-0 inset-x-0 bg-slate-950/80 text-[11px] text-white p-1 text-center truncate">
                           {slide.label}
                         </span>
                       </button>
@@ -464,28 +427,68 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
 
               {/* Upload Custom Camera / Microscope File */}
               <div>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 block mb-2">
+                <span className="text-xs text-slate-600 dark:text-slate-400 block mb-2">
                   Or Upload Specimen Photo:
                 </span>
                 <label className="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-cyan-500 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition h-20 bg-slate-50 dark:bg-slate-950 hover:bg-cyan-50/30 dark:hover:bg-cyan-950/30">
                   <Upload className="w-4 h-4 text-slate-400 mb-1" />
-                  <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                  <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                     {customImage ? 'Custom Image Loaded' : 'Upload Microscope Image'}
+                  </span>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    one or more photos — pick the active one below
                   </span>
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleFileUpload}
                     className="hidden"
                   />
                 </label>
+                {uploadedImages.length > 0 && (
+                  <div className="flex items-center gap-2 mt-2 overflow-x-auto no-scrollbar">
+                    {uploadedImages.map((img, index) => {
+                      const isActive = customImage === img.dataUrl;
+                      return (
+                        <div key={img.id} className="shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => selectImage(img.dataUrl)}
+                            title={`Use ${img.name}`}
+                            className={`block w-14 h-10 overflow-hidden rounded border-2 transition cursor-pointer ${
+                              isActive
+                                ? 'border-cyan-600 ring-2 ring-cyan-200'
+                                : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
+                            }`}
+                          >
+                            <img src={img.dataUrl} alt={img.name} className="w-full h-full object-cover" />
+                          </button>
+                          <div className="relative w-14 mt-0.5">
+                            <span className="block text-[9px] text-slate-500 dark:text-slate-400 text-center truncate">
+                              {index + 1}. {img.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeImage(img.id)}
+                              aria-label={`Remove ${img.name}`}
+                              className="absolute top-0 right-0 w-3.5 h-3.5 bg-slate-700 hover:bg-red-600 text-white rounded-full flex items-center justify-center cursor-pointer"
+                            >
+                              <X className="w-2 h-2" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Capture from Microscope Camera */}
               <div className="mt-3">
                 <button
                   type="button"
-                  onClick={startCamera}
+                  onClick={() => void camera.openCamera()}
                   className="w-full border-2 border-emerald-300 hover:border-emerald-500 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 dark:border-emerald-700 dark:hover:border-emerald-600 text-emerald-700 dark:text-emerald-300 rounded-lg p-3 flex items-center justify-center gap-2 font-semibold text-sm cursor-pointer transition"
                 >
                   <Camera className="w-5 h-5" />
@@ -533,14 +536,14 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
     </form>
 
       {/* Camera Capture Modal */}
-      {showCameraModal && cameraStream && (
+      {camera.open && (
         <div className="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center p-4">
           <div className="relative w-full max-w-2xl bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-800/50">
               <div className="flex items-center gap-2">
                 <Video className="w-5 h-5 text-emerald-400" />
                 <span className="font-semibold text-slate-100">Microscope Camera Capture</span>
-                <span className="text-[10px] px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded font-mono">
+                <span className="text-[11px] px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded font-mono">
                   LIVE
                 </span>
               </div>
@@ -548,31 +551,73 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
                 <button
                   type="button"
                   onClick={switchCamera}
-                  className="px-2 py-1 text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition"
-                  title="Switch camera (front/back)"
+                  className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition cursor-pointer"
+                  title="Switch camera"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span className="ml-1 hidden sm:inline">Switch</span>
                 </button>
                 <button
                   type="button"
-                  onClick={stopCamera}
-                  className="p-2 hover:bg-slate-700 text-slate-400 hover:text-white rounded transition"
+                  onClick={camera.close}
+                  className="p-2 hover:bg-slate-700 text-slate-400 hover:text-white rounded transition cursor-pointer"
                   aria-label="Close camera"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
+
+            {camera.devices.length > 0 && (
+              <div className="px-3 py-2 border-b border-slate-700 bg-slate-800/40 flex items-center gap-2 text-xs">
+                <span className="text-slate-400 shrink-0">Camera source:</span>
+                <select
+                  value={camera.deviceId}
+                  onChange={event => camera.switchDevice(event.target.value)}
+                  className="flex-1 bg-slate-900 border border-slate-700 text-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600 cursor-pointer"
+                >
+                  {camera.devices.map(d => (
+                    <option key={d.deviceId || d.groupId} value={d.deviceId}>
+                      {d.label || `Camera ${d.deviceId ? d.deviceId.slice(0, 8) : '(requesting access)'}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {camera.error ? (
+              <div className="p-6 text-center space-y-3">
+                <p className="text-sm text-slate-300">{camera.error}</p>
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void camera.openCamera()}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={camera.close}
+                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : camera.starting ? (
+              <div className="p-10 text-center text-sm text-slate-400">Opening camera…</div>
+            ) : (
             <div className="relative bg-black p-2">
               <video
-                ref={videoRef}
+                ref={camera.videoRef}
                 autoPlay
                 playsInline
                 onLoadedMetadata={() => {
-                  if (videoRef.current) {
+                  const video = camera.videoRef.current;
+                  if (video) {
                     const res = document.getElementById('cameraResolution');
-                    if (res) res.textContent = `${videoRef.current.videoWidth} x ${videoRef.current.videoHeight}`;
+                    if (res) res.textContent = `${video.videoWidth} x ${video.videoHeight}`;
                   }
                 }}
                 className="w-full aspect-video object-contain bg-black"
@@ -592,6 +637,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
                 </button>
               </div>
             </div>
+            )}
             <div className="p-3 border-t border-slate-700 bg-slate-800/50 text-xs text-slate-400 text-center">
               Position the specimen in the field of view, then click <strong>Capture Frame</strong> to save the image.
             </div>

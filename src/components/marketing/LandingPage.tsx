@@ -448,31 +448,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         {/* Governance */}
         <section id="governance" className="scroll-mt-20">
           <div className="max-w-[1440px] mx-auto gutter-x py-16 lg:py-24">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* CDS Notice */}
-              <div className="lg:col-span-2 group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-xl hover:shadow-cyan-500/5 dark:hover:shadow-cyan-900/10 transition-all duration-300 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 dark:from-amber-400/5 dark:to-orange-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center">
-                      <GitCommitVertical className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                    </div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Clinical decision support notice</h2>
-                  </div>
-                  <p className="mt-4 text-xs sm:text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {LAB_METADATA.legalDisclaimer}
-                  </p>
-                  <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-mono">
-                    <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                      {LAB_METADATA.institution}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                      NOT A MEDICAL DEVICE
-                    </span>
-                  </div>
-                </div>
-              </div>
-
+            <div className="space-y-6">
               {/* Governance links */}
               <div className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-xl hover:shadow-cyan-500/5 dark:hover:shadow-cyan-900/10 transition-all duration-300 flex flex-col overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-500/5 dark:from-cyan-400/5 dark:to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

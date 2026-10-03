@@ -205,6 +205,9 @@ html.dark {
   textarea {
     color: var(--text-primary);
     font-family: var(--font-sans);
+    /* Readability floor: form text is at least 14px in either theme. Utility
+       classes in components can still raise (or lower, for dense tables) it. */
+    font-size: 0.875rem;
   }
 
   input::placeholder,

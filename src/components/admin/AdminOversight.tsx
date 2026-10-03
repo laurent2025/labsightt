@@ -54,8 +54,8 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
   }, [load]);
 
   const adminCount = users?.filter(u => u.role === 'admin').length ?? 0;
-  const suspendedCount = users?.filter(u => !u.active).length ?? 0;
-  const memberCount = (users?.length ?? 0) - adminCount - suspendedCount;
+  const pendingCount = users?.filter(u => !u.active).length ?? 0;
+  const memberCount = (users?.length ?? 0) - adminCount - pendingCount;
 
   if (error) {
     return (
@@ -111,10 +111,10 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
             <div className="text-[11px] text-slate-500 dark:text-slate-400">Members</div>
           </div>
           <div>
-            <div className={`text-2xl font-mono font-bold ${suspendedCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-600'}`}>
-              {suspendedCount}
+            <div className={`text-2xl font-mono font-bold ${pendingCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-600'}`}>
+              {pendingCount}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">Removed</div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">Pending approval</div>
           </div>
         </div>
       </div>

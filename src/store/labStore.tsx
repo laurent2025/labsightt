@@ -22,6 +22,7 @@ import { loadImageSource } from '../services/roboflow';
 import {
   ApiError,
   SessionExpiredError,
+  isNotApprovedError,
   authApi,
   patientsApi,
   samplesApi,
@@ -222,7 +223,11 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         const { user: sessionUser } = await authApi.me();
         if (!cancelled) setUser(toUserSession(sessionUser));
       } catch (err) {
-        if (!(err instanceof SessionExpiredError) && err instanceof ApiError && (err.status === 0 || err.status === 403)) {
+        if (isNotApprovedError(err)) {
+          setConnectionError(
+            'This account is waiting for administrator approval. An administrator must approve it before you can sign in.'
+          );
+        } else if (!(err instanceof SessionExpiredError) && err instanceof ApiError && (err.status === 0 || err.status === 403)) {
           setConnectionError(err.status === 403
             ? 'Account profile could not be loaded. Please sign in again.'
             : err.message);

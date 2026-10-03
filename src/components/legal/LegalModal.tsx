@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, FileText, Lock, AlertTriangle, Scale } from 'lucide-react';
+import { X, ShieldCheck, FileText, Lock, Scale } from 'lucide-react';
 import { LAB_METADATA } from '../../lib/constants';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 
@@ -57,7 +57,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Terms of Service & Clinical Decision Support</span>
+            <span>Terms of Service</span>
           </button>
           <button
             type="button"
@@ -76,20 +76,8 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
         {/* Content Body */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5 text-slate-700 dark:text-slate-300 leading-relaxed text-xs">
           {activeTab === 'terms' ? (
-            /* TERMS & CLINICAL DECISION SUPPORT */
+            /* TERMS OF SERVICE */
             <div className="space-y-4">
-              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 p-3.5 rounded-xl flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
-                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-bold text-amber-950 dark:text-amber-100">
-                    MANDATORY CLINICAL DECISION SUPPORT (CDS) NOTICE
-                  </h4>
-                  <p className="text-[11px] text-amber-900 dark:text-amber-200 mt-0.5">
-                    LenziAI provides algorithmic computer-vision assistance. Under FDA CDS guidance, CLIA regulations, and ISO 15189:2022 standards, this system is NOT a fully autonomous diagnostic device. All identified morphologic features, object bounding boxes, and quantitative estimates must be reviewed, corroborated, and signed off by a certified medical laboratory technologist or pathologist prior to clinical patient disclosure.
-                  </p>
-                </div>
-              </div>
-
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">1. Intended Purpose & Clinical Scope</h3>
                 <p>
@@ -178,12 +166,10 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               </div>
 
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">4. Data Retention & Electronic Health Record (EHR) Export</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">4. Data Retention & Export</h3>
                 <p>
-                  Reports and findings can be exported as an HL7 FHIR R4 <code>DiagnosticReport</code> bundle, or as a
-                  DICOM VL Whole Slide Microscopy attribute preview. The DICOM export is metadata only and is not a
-                  conformant Part 10 file; it cannot be imported into a PACS without pixel data and a proper
-                  file-meta header.
+                  Reports can be printed, saved as a PDF through the browser's print dialog, or downloaded as a
+                  structured JSON document of the findings recorded in the report.
                 </p>
               </div>
 

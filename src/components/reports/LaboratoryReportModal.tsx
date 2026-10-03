@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LaboratoryReport } from '../../types';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import { Printer, Download, X, ShieldCheck, Code2, FileText } from 'lucide-react';
+import { Printer, Download, X, ShieldCheck } from 'lucide-react';
 import { LAB_METADATA } from '../../lib/constants';
-import { generateFHIRDiagnosticReport, generateDICOMMetadata } from '../../services/integration';
 import { samplesApi } from '../../services/api';
 
 interface LaboratoryReportModalProps {
@@ -19,8 +18,6 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
   onVerify,
   verifyError
 }) => {
-  const [activeView, setActiveView] = useState<'a4_report' | 'fhir_json' | 'dicom_metadata'>('a4_report');
-  const [copiedNotification, setCopiedNotification] = useState(false);
   const [sampleImageUrl, setSampleImageUrl] = useState<string | null>(null);
   const panelRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
@@ -45,34 +42,13 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
   };
 
   const handleDownloadJSON = () => {
-    let exportData: any;
-    let filename: string;
-
-    if (activeView === 'fhir_json') {
-      exportData = generateFHIRDiagnosticReport(report);
-      filename = `${report.reportNumber}_FHIR_R4.json`;
-    } else if (activeView === 'dicom_metadata') {
-      exportData = generateDICOMMetadata(report);
-      filename = `${report.reportNumber}_DICOM.json`;
-    } else {
-      exportData = report;
-      filename = `${report.reportNumber}_Diagnostic_Report.json`;
-    }
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", filename);
+    downloadAnchor.setAttribute("download", `${report.reportNumber}_Diagnostic_Report.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-  };
-
-  const handleCopyClipboard = () => {
-    const fhir = generateFHIRDiagnosticReport(report);
-    navigator.clipboard.writeText(JSON.stringify(fhir, null, 2));
-    setCopiedNotification(true);
-    setTimeout(() => setCopiedNotification(false), 2000);
   };
 
   return (
@@ -103,7 +79,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             </span>
             <span className="text-slate-500">·</span>
             <span
-              className={`text-[10px] font-mono px-2 py-0.5 rounded font-medium ${
+              className={`text-[11px] font-mono px-2 py-0.5 rounded font-medium ${
                 report.status === 'verified'
                   ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
                   : 'bg-amber-950 text-amber-300 border border-amber-800'
@@ -111,45 +87,6 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             >
               {report.status === 'verified' ? 'Verified Official' : 'Pending Sign-Off'}
             </span>
-          </div>
-
-          {/* View Mode Selector */}
-          <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-lg text-xs">
-            <button
-              type="button"
-              onClick={() => setActiveView('a4_report')}
-              className={`px-2.5 py-1 rounded transition ${
-                activeView === 'a4_report'
-                  ? 'bg-slate-700 text-white font-semibold shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5 inline mr-1" />
-              A4 Clinical Report
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('fhir_json')}
-              className={`px-2.5 py-1 rounded transition ${
-                activeView === 'fhir_json'
-                  ? 'bg-slate-700 text-white font-semibold shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Code2 className="w-3.5 h-3.5 inline mr-1" />
-              FHIR R4 JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('dicom_metadata')}
-              className={`px-2.5 py-1 rounded transition ${
-                activeView === 'dicom_metadata'
-                  ? 'bg-slate-700 text-white font-semibold shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              DICOM PACS
-            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -191,41 +128,10 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
           </div>
         </div>
 
-        {/* View Switcher Container */}
-        {activeView === 'fhir_json' ? (
-          <div className="bg-slate-900 border border-slate-800 text-slate-200 p-6 rounded-2xl shadow-2xl overflow-hidden font-mono text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
-              <span className="font-semibold text-cyan-400">
-                HL7 FHIR R4 DiagnosticReport & Observations Interoperability Payload
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyClipboard}
-                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs"
-              >
-                {copiedNotification ? '✓ Copied!' : 'Copy FHIR JSON'}
-              </button>
-            </div>
-            <pre className="overflow-x-auto max-h-[70vh] text-[11px] text-slate-300 p-2 leading-relaxed">
-              {JSON.stringify(generateFHIRDiagnosticReport(report), null, 2)}
-            </pre>
-          </div>
-        ) : activeView === 'dicom_metadata' ? (
-          <div className="bg-slate-900 border border-slate-800 text-slate-200 p-6 rounded-2xl shadow-2xl overflow-hidden font-mono text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
-              <span className="font-semibold text-cyan-400">
-                DICOM Whole Slide Microscopy (VL-SM) Image Storage Attributes
-              </span>
-            </div>
-            <pre className="overflow-x-auto max-h-[70vh] text-[11px] text-slate-300 p-2 leading-relaxed">
-              {JSON.stringify(generateDICOMMetadata(report), null, 2)}
-            </pre>
-          </div>
-        ) : (
-          /* Standard A4 Printable Laboratory Document */
-          <div
+        {/* Standard A4 Printable Laboratory Document */}
+        <div
             id="laboratory-report-container"
-            className="bg-white text-slate-900 rounded-2xl shadow-2xl p-6 sm:p-12 border border-slate-200 print:border-none print:shadow-none print:p-0 print:rounded-none max-w-[210mm] mx-auto min-h-[297mm] text-xs flex flex-col justify-between"
+            className="bg-white text-slate-900 rounded-2xl shadow-2xl p-6 sm:p-12 border border-slate-200 print:border-none print:shadow-none print:p-0 print:rounded-none max-w-[210mm] mx-auto min-h-[297mm] text-sm print:text-xs flex flex-col justify-between"
           >
             <div>
               {/* Header / Letterhead */}
@@ -238,7 +144,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                     <p className="text-slate-600 text-xs font-medium mt-0.5">
                       {LAB_METADATA.institution}
                     </p>
-                    <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">
                       {LAB_METADATA.address} · {LAB_METADATA.contact}
                     </p>
                   </div>
@@ -247,10 +153,10 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                     <div className="font-mono text-sm font-bold text-slate-900">
                       REPORT #: {report.reportNumber}
                     </div>
-                    <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                    <div className="text-xs text-slate-500 font-mono mt-0.5">
                       {LAB_METADATA.license}
                     </div>
-                    <div className="text-[11px] text-rose-700 font-mono font-semibold mt-1">
+                    <div className="text-xs text-rose-700 font-mono font-semibold mt-1">
                       ● {report.status === 'verified'
                         ? `Verified ${report.verifiedAt ? new Date(report.verifiedAt).toLocaleString() : ''}`
                         : 'NOT VERIFIED - draft output'}
@@ -270,7 +176,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-slate-50 rounded-lg border border-slate-200 mb-5">
                 {/* Left: Patient */}
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-200 pb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-200 pb-1">
                     PATIENT DEMOGRAPHICS
                   </span>
                   <div className="grid grid-cols-3 gap-1">
@@ -297,7 +203,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
                 {/* Right: Specimen & Examination Details */}
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-200 pb-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block border-b border-slate-200 pb-1">
                     SPECIMEN & MICROSCOPY METRICS
                   </span>
                   <div className="grid grid-cols-3 gap-1">
@@ -387,10 +293,10 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               {/* Microscopy Photomicrograph Plate & Legend */}
               <div className="mb-5 border border-slate-200 rounded-lg p-3 bg-slate-50">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
                     REPRESENTATIVE DIGITAL PHOTOMICROGRAPH (FIELD #04)
                   </span>
-                  <span className="text-[10px] font-mono text-slate-500">
+                  <span className="text-[11px] font-mono text-slate-500">
                     Calibrated scale: 20 µm / bar
                   </span>
                 </div>
@@ -400,7 +306,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
         alt="Microscopy plate"
         className="max-h-full max-w-full object-contain"
       />
-                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-0.5 rounded text-[10px] font-mono text-slate-300">
+                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-0.5 rounded text-[11px] font-mono text-slate-300">
                     {report.sample.stainMethod} · {report.sample.totalMagnification}
                   </div>
                 </div>
@@ -408,13 +314,13 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
               {/* Diagnostic Impression & Clinical Interpretation */}
               <div className="border border-slate-300 rounded-lg p-3.5 mb-5 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 block border-b border-slate-200 pb-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block border-b border-slate-200 pb-1">
                   DIAGNOSTIC PATHOLOGY IMPRESSION & CLINICAL REMARKS
                 </span>
-                <p className="font-bold text-slate-900 leading-relaxed text-xs">
+                <p className="font-bold text-slate-900 leading-relaxed">
                   {report.clinicalImpression}
                 </p>
-                <p className="text-slate-600 leading-relaxed text-[11px]">
+                <p className="text-slate-600 leading-relaxed text-xs">
                   {report.technologistNotes}
                 </p>
               </div>
@@ -424,31 +330,31 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4 border-t-2 border-slate-300 mb-4">
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-3">
+                  <span className="text-[11px] font-bold uppercase text-slate-400 block mb-3">
                     PERFORMED & REVIEWED BY
                   </span>
                   <div className="font-serif italic text-base text-slate-800 border-b border-dashed border-slate-300 pb-1">
                     {report.technologistName}
                   </div>
-                  <div className="text-[11px] text-slate-600 font-mono mt-1">
+                  <div className="text-xs text-slate-600 font-mono mt-1">
                     Certified Medical Laboratory Technologist
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono">
+                  <div className="text-[11px] text-slate-500 font-mono">
                     Timestamp: {new Date(report.generatedAt).toLocaleString()}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-3">
+                  <span className="text-[11px] font-bold uppercase text-slate-400 block mb-3">
                     VERIFIED &amp; AUTHORIZED BY
                   </span>
                   <div className="font-serif italic text-base text-slate-800 border-b border-dashed border-slate-300 pb-1">
                     {report.supervisorName || <span className="text-slate-400 not-italic">Pending independent verification</span>}
                   </div>
-                  <div className="text-[11px] text-slate-600 font-mono mt-1">
+                  <div className="text-xs text-slate-600 font-mono mt-1">
                     Pathologist / Laboratory Director
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono">
+                  <div className="text-[11px] text-slate-500 font-mono">
                     {report.verifiedAt
                       ? `Verification timestamp: ${new Date(report.verifiedAt).toLocaleString()}`
                       : 'No electronic signature applied. This document is not a valid released report.'}
@@ -456,13 +362,8 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                 </div>
               </div>
 
-              {/* Legal / Regulatory Disclaimer */}
-              <div className="text-[10px] text-slate-400 leading-tight border-t border-slate-200 pt-2 text-center">
-                {LAB_METADATA.legalDisclaimer}
-              </div>
             </div>
           </div>
-        )}
       </div>
     </div>
   );
