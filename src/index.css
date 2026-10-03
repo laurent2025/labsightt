@@ -102,12 +102,15 @@
 :root {
   --surface-page:  #ffffff;
   --surface-panel: #ffffff;
-  --surface-raised: #f8fafc;
+  --surface-raised: #f6f8f7;
+  --surface-sunken: #eef2f1;
   --surface-strong: #14532d;   /* green-900 — for elevated/branded panels */
-  --text-primary:  #111827;     /* near-black */
-  --text-secondary: #4b5563;    /* gray-800 */
-  --text-tertiary: #6b7280;     /* gray-500 — captions, mono labels */
-  --border-panel:  #e5e7eb;
+  --text-primary:  #0b1220;     /* near-black, 17.9:1 on white */
+  --text-secondary: #334155;    /* slate-800-ish, 10.4:1 on white */
+  --text-tertiary: #4b5563;     /* gray-600 — captions, mono labels, 7.5:1 */
+  --text-muted:     #64748b;     /* decorative only, never body copy */
+  --border-panel:  #dbe2e0;
+  --border-strong: #c3cdca;
   --shadow-color: 0 0 0 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04);
   --shadow-elevated: 0 0 0 1px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08);
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -116,19 +119,41 @@
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.25rem;
+  /* Shared horizontal gutter so header, footer, and main body line up at
+     every breakpoint instead of each picking its own padding. */
+  --gutter: clamp(0.75rem, 0.4rem + 1.6vw, 2rem);
 }
 
+/*
+ * Dark theme.
+ *
+ * The slate ramp is re-declared here rather than only via the CSS variables
+ * below, because components paint their panels with `dark:bg-slate-900` and
+ * the page with `dark:bg-slate-950`. If those utilities resolved to Tailwind's
+ * stock values while --surface-page said #090e17, the footer and header would
+ * sit on a visibly different black than the body between them. Overriding the
+ * ramp keeps the utilities and the variables on one axis.
+ */
 html.dark {
-  --surface-page:  #090e17;
-  --surface-panel: #0f172a;
-  --surface-raised: #111b2e;
+  --surface-page:  #080d15;
+  --surface-panel: #0f1723;
+  --surface-raised: #16202f;
+  --surface-sunken: #060a11;
   --surface-strong: #166534;
-  --text-primary:  #f9fafb;
-  --text-secondary: #cbd5e1;
-  --text-tertiary: #94a3b8;
-  --border-panel:  #1e293b;
+  --text-primary:  #f8fafc;
+  --text-secondary: #d3dce6;
+  --text-tertiary: #a9b7c7;
+  --text-muted:     #8494a6;
+  --border-panel:  #243044;
+  --border-strong: #33425c;
   --shadow-color: 0 0 0 1px rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.3);
   --shadow-elevated: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.5);
+
+  /* Page and panel steps, matched to --surface-page / --surface-panel so the
+     `dark:bg-slate-950` and `dark:bg-slate-900` utilities agree with them. */
+  --color-slate-950: #080d15;
+  --color-slate-900: #0f1723;
+  --color-slate-800: #1b2637;
 }
 
 @layer base {
@@ -187,21 +212,49 @@ html.dark {
     color: var(--text-tertiary);
   }
 
-  /* Accessible focus indicator */
+  /* Native select option lists are painted by the OS, not the page, so they
+     need an explicit scheme or a dark theme renders white-on-white options. */
+  html.dark select option {
+    background-color: var(--surface-panel);
+    color: var(--text-primary);
+  }
+
+  /* Links inherit the readable body color rather than the browser default
+     blue, which clashed with the single-green palette and failed contrast on
+     the dark surfaces. */
+  a {
+    color: var(--color-green-700);
+    text-underline-offset: 2px;
+  }
+  html.dark a {
+    color: var(--color-green-300);
+  }
+  a:hover {
+    color: var(--color-green-800);
+  }
+  html.dark a:hover {
+    color: var(--color-green-200);
+  }
+
+  /* Accessible focus indicator. Uses the built ramp variable rather than a
+     hard-coded step so it stays legible on both surfaces. */
   :focus-visible {
-    outline: 2.5px solid theme(colors.cyan.600);
+    outline: 2.5px solid var(--color-green-600);
     outline-offset: 3px;
     border-radius: var(--radius-sm);
+  }
+  html.dark :focus-visible {
+    outline-color: var(--color-green-400);
   }
 
   /* Selection */
   ::selection {
-    background-color: theme(colors.cyan.200);
-    color: theme(colors.cyan.950);
+    background-color: var(--color-green-200);
+    color: var(--color-green-950);
   }
   html.dark ::selection {
-    background-color: theme(colors.cyan.800);
-    color: theme(colors.cyan.50);
+    background-color: var(--color-green-700);
+    color: var(--color-green-50);
   }
 }
 
@@ -219,11 +272,17 @@ html.dark {
  *
  * Light theme: the stock mid grays are too faint for this app's small UI
  * text on white — slate-400 sat at 2.9:1 and slate-500 at 4.8:1, both below
- * comfortable for 11px captions and mono labels. Darker steps clear WCAG AA.
+ * comfortable for 9-11px captions and mono labels. Darker steps clear WCAG AA
+ * (slate-500 at 7.5:1, slate-400 at 4.8:1) without dropping to near-black,
+ * so the description text still reads as secondary to the headings.
  *
  * Dark theme: the stock mid grays read muddy on the near-black surfaces —
  * slate-500 was ~4.2:1 on slate-900. Lighter steps restore separation for
  * descriptions, secondary labels, and table text.
+ *
+ * Only the 300-700 band is retuned per theme. The 800/900/950 surface steps
+ * are declared once alongside the theme variables further up, because those
+ * three double as panel and page backgrounds.
  */
 :root {
   --color-slate-300: #94a3b8;
@@ -233,25 +292,34 @@ html.dark {
 }
 
 html.dark {
-  --color-slate-300: #cbd5e1;
-  --color-slate-400: #a9b4c7;
-  --color-slate-500: #93a1b8;
-  --color-slate-600: #72859f;
-  --color-slate-700: #5b6d88;
-  --color-slate-800: #273449;
-  --color-slate-900: #1a2744;
+  --color-slate-300: #dbe3ec;
+  --color-slate-400: #b6c2d1;
+  --color-slate-500: #9aa8b9;
+  --color-slate-600: #7e8ea3;
+  --color-slate-700: #64748b;
 }
 
-/* Responsive base: clamp fluid type for headings and body */
+/*
+ * Fluid type scale.
+ *
+ * Every step is a clamp between a 360px-wide phone and a 1440px desktop, so
+ * text grows with the viewport instead of jumping at breakpoints. The lower
+ * bound is the size that has to stay legible on the smallest supported
+ * handset; the upper bound stops headings from ballooning on wide monitors.
+ * Deliberately no element-selector overrides here — components choose their
+ * own step, including the intentionally small footer captions.
+ */
 :root {
-  --text-xs: clamp(0.7rem, 0.65rem + 0.25vw, 0.75rem);
-  --text-sm: clamp(0.8rem, 0.75rem + 0.25vw, 0.875rem);
-  --text-base: clamp(0.9rem, 0.85rem + 0.25vw, 1rem);
-  --text-lg: clamp(1.1rem, 1rem + 0.5vw, 1.25rem);
-  --text-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
-  --text-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
-  --text-3xl: clamp(1.8rem, 1.4rem + 2vw, 2.5rem);
-  --text-4xl: clamp(2rem, 1.5rem + 2.5vw, 3rem);
+  --text-2xs: clamp(0.625rem, 0.6rem + 0.12vw, 0.6875rem);
+  --text-xs:  clamp(0.6875rem, 0.66rem + 0.14vw, 0.75rem);
+  --text-sm:  clamp(0.8125rem, 0.78rem + 0.17vw, 0.875rem);
+  --text-base: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  --text-lg:  clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  --text-xl:  clamp(1.1875rem, 1.08rem + 0.55vw, 1.5rem);
+  --text-2xl: clamp(1.375rem, 1.15rem + 1.1vw, 2rem);
+  --text-3xl: clamp(1.625rem, 1.3rem + 1.6vw, 2.5rem);
+  --text-4xl: clamp(1.875rem, 1.4rem + 2.3vw, 3rem);
+  --text-5xl: clamp(2.125rem, 1.5rem + 3vw, 3.75rem);
 }
 
 /* In-page anchor navigation (landing page Features/Workflow/Governance).
@@ -350,9 +418,13 @@ html {
    every click, but keyboard navigation is never ambiguous. */
 @layer base {
   :focus-visible {
-    outline: 2.5px solid theme(colors.cyan.600);
+    outline: 2.5px solid var(--color-green-600);
     outline-offset: 3px;
     border-radius: var(--radius-sm);
+  }
+
+  html.dark :focus-visible {
+    outline-color: var(--color-green-400);
   }
 }
 
@@ -380,30 +452,155 @@ html {
    Responsive helpers
    --------------------------------------------------------------------------- */
 
-/* Prevent horizontal scroll on small viewports */
+/* Prevent horizontal scroll on small viewports.
+
+   `clip` rather than `hidden`: `hidden` silently turns the element into a
+   scroll container, which is how sticky headers lose their stickiness when a
+   child overflows. `overflow-x: clip` contains the overflow without creating
+   a scrollport, so `position: sticky` keeps working. */
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
-/* Ensure interactive elements meet minimum touch target size on mobile */
-@media (max-width: 640px) {
-  button, [role="button"], a {
+/* Nothing may establish a viewport wider than the screen. Long unbroken
+   strings (accession codes, URLs, model version stamps) are the usual cause
+   of a horizontal scrollbar on a phone.
+
+   Deliberately no overflow rule on #root: the sticky header lives inside it,
+   and even a clipping overflow there is an extra ancestor between the header
+   and the viewport scrollport. The body rule above is enough. */
+#root {
+  max-width: 100%;
+}
+
+/*
+ * Touch targets.
+ *
+ * Only real controls are stretched. Anchors are excluded because they are
+ * frequently inline inside a sentence — a min-height on those inserts a
+ * 44px-tall box mid-line and shreds the paragraph. Anchor-sized controls
+ * that need the target size (the footer and header links) opt in with
+ * `.touch-target`.
+ */
+@media (max-width: 767px) {
+  button,
+  [role="button"],
+  summary,
+  label.touch-target {
     min-height: 44px;
+  }
+
+  button:not(.inline-flex),
+  [role="button"]:not(.inline-flex) {
     min-width: 44px;
   }
-
-  /* Improve text readability on small screens */
-  h1 { font-size: var(--text-3xl) !important; }
-  h2 { font-size: var(--text-2xl) !important; }
-  h3 { font-size: var(--text-xl) !important; }
-  p, li, td, th { font-size: var(--text-sm) !important; }
 }
 
-/* Tablet adjustments */
-@media (min-width: 641px) and (max-width: 1024px) {
-  body {
-    font-size: var(--text-base);
-  }
+.touch-target {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Horizontally scrollable strips (tab rows, filter pills) that should still be
+   swipeable on a phone but must not show a scrollbar or clip a focus ring. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Safe areas
+
+   Notched and gesture-bar devices reserve part of the viewport for system
+   chrome. A sticky header that ignores the top inset tucks its content under
+   the notch, and a footer that ignores the bottom inset hides its last line
+   behind the home indicator.
+   --------------------------------------------------------------------------- */
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---------------------------------------------------------------------------
+   Shared gutters
+
+   Header, footer, and main body all use this so their content edges line up at
+   every width instead of drifting apart at the breakpoints.
+   --------------------------------------------------------------------------- */
+
+.gutter-x {
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
+}
+
+/* ---------------------------------------------------------------------------
+   Scrollbars
+
+   The stock Windows/Chromium scrollbar is a light gray track that disappears
+   against the dark theme and cuts a visible notch out of the light one.
+   --------------------------------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+html.dark * {
+  scrollbar-color: #33425c transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-strong);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+  background-clip: content-box;
+}
+
+/* ---------------------------------------------------------------------------
+   Media defaults
+   --------------------------------------------------------------------------- */
+
+/* Inline SVG icons default to a 1em box, which collapses to zero height in a
+   flex row without an explicit size. Guarding here means a missing size
+   degrades to a readable icon instead of an invisible one. */
+svg {
+  flex-shrink: 0;
+}
+
+/* Placeholder text and empty states keep their contrast on both themes. */
+::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+/* Long identifiers scroll rather than push the layout wider than the screen. */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Large desktop: cap line length for readability */
