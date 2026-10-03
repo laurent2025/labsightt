@@ -171,10 +171,15 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return res.status(429).json({ error: 'Too many sign-in attempts. Wait before trying again.' });
         }
         const supabase = getSupabaseClient({ admin: true });
-        const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+        let authResult;
+        try {
+          authResult = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+        } catch (err) {
+          console.error('[login] signInWithPassword threw:', err.message);
+          return res.status(503).json({ error: 'Authentication service error. Try again later.' });
+        }
+        const { data, error } = authResult;
         if (error || !data.user || !data.session) {
-          // Supabase distinguishes "email not confirmed" from bad credentials;
-          // surface that so the operator knows which thing to fix.
           const unconfirmed =
             error?.code === 'email_not_confirmed' ||
             /not confirmed|unverified/i.test(String(error?.message ?? ''));
@@ -188,7 +193,13 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         // Fresh admin client: the `supabase` client now holds this user's
         // session, so any further query on it would be RLS-scoped to that user
         // instead of running with the service role.
-        const profile = await ensureSupabaseProfile(getSupabaseClient({ admin: true }), data.user);
+        let profile;
+        try {
+          profile = await ensureSupabaseProfile(getSupabaseClient({ admin: true }), data.user);
+        } catch (profileErr) {
+          console.error('[login] profile verification failed:', profileErr.message);
+          return res.status(503).json({ error: 'Account profile could not be verified. Contact support.' });
+        }
 
         if (profile.suspended) {
           return res.status(401).json({ error: 'This account has been suspended by an administrator.' });

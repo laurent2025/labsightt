@@ -58,13 +58,12 @@ export async function ensureSupabaseProfile(supabase, authUser) {
   try {
     existing = await getSupabaseProfile(supabase, authUser.id);
   } catch {
-    // The live profiles table may lag behind this schema (a pending column
-    // migration). Treat it as "no row yet" and let the auto-create below
-    // surface any real problem instead of 500-ing every request.
+    // Surface profile lookup failures explicitly instead of silently
+    // fabricating identity or retrying blindly.
+    throw new Error('Account profile could not be verified during login.');
   }
   if (existing) return existing;
 
-  // Derive the same values the database trigger would have produced.
   const email = (authUser.email ?? '').toLowerCase();
   const localPart = email.split('@')[0] || 'user';
   const username = `${localPart}_${authUser.id.slice(0, 8)}`;
@@ -73,9 +72,6 @@ export async function ensureSupabaseProfile(supabase, authUser) {
     authUser.user_metadata?.full_name ||
     localPart;
 
-  // role is intentionally omitted from the upsert payload: new rows get the
-  // column default ('member') and an existing row keeps its current role, so
-  // this auto-create path can never demote an admin account.
   const { data, error } = await supabase
     .from('profiles')
     .upsert(
@@ -92,8 +88,7 @@ export async function ensureSupabaseProfile(supabase, authUser) {
 
   if (error) {
     console.error('[ensureSupabaseProfile] failed to auto-create profile:', error.message);
-    // Return a best-effort in-memory profile so the user is not locked out
-    return { email, username, display_name: String(displayName) };
+    throw new Error('Account profile could not be created. Contact support.');
   }
   return data;
 }

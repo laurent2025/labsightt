@@ -8,7 +8,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { openSync, closeSync, lockSync, unlockSync } from 'node:fs';
 
 const MIGRATIONS = [
   {
@@ -277,6 +276,10 @@ function migrate(db) {
 
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.version)) continue;
+    // Rebuilds like `users` drop the parent of live foreign keys, which
+    // SQLite refuses while enforcement is on; the documented procedure
+    // toggles enforcement outside the transaction.
+    db.exec('PRAGMA foreign_keys = OFF');
     db.exec('BEGIN');
     try {
       db.exec(migration.up);
@@ -286,8 +289,10 @@ function migrate(db) {
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');
+      db.exec('PRAGMA foreign_keys = ON');
       throw new Error(`Migration ${migration.version} (${migration.name}) failed: ${err.message}`);
     }
+    db.exec('PRAGMA foreign_keys = ON');
   }
 }
 
