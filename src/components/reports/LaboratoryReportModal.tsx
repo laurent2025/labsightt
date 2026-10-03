@@ -144,9 +144,6 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                     <p className="text-slate-600 text-xs font-medium mt-0.5">
                       {LAB_METADATA.institution}
                     </p>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5">
-                      {LAB_METADATA.address} · {LAB_METADATA.contact}
-                    </p>
                   </div>
 
                   <div className="text-right">

@@ -57,8 +57,13 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
       }
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 403) {
-          setError('Your account profile could not be loaded. The database may not be fully set up. Please contact your administrator.');
+        // Plain check (not the type predicate): `err` is already an ApiError
+        // here, so negating the predicate would narrow the else-branch to never.
+        const notApproved = err.status === 403 && (err.payload as { code?: string })?.code === 'NOT_APPROVED';
+        if (notApproved) {
+          setError('Your account is waiting for administrator approval. Your email is verified — once an administrator approves your account you can sign in. No further action is needed from you.');
+        } else if (err.status === 403) {
+          setError(err.message || 'You do not have access to this account. Please contact your administrator.');
         } else if (err.status === 429) {
           setError('Too many attempts — please wait a minute and try again.');
         } else {

@@ -12,7 +12,7 @@ export const LAB_METADATA = {
   accreditation: "Clinical decision support system",
   director: "",
   address: "Medical Center Plaza, Diagnostic Wing 3B, Suite 400",
-  contact: "+1 (800) 555-LENZ Â· contact@lenziai.com"
+  contact: "+1 (800) 555-LENZ · contact@lenziai.com"
 };
 
 // Reference photomicrographs bundled through the module graph so Vite emits
