@@ -366,6 +366,31 @@ describe('admin user operations', () => {
   });
 });
 
+// ------------------------------------------------ admin analyses ----
+
+describe('admin analysis oversight', () => {
+  it('returns decrypted patient names in the admin microscopy run list', async () => {
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    db.prepare(`
+      INSERT INTO patients (id, patient_number, full_name, age, gender, created_at)
+      VALUES (?, ?, ?, 35, 'Female', ?)
+    `).run('pat-admin-runs', 'PT-ADMIN-RUNS', encryptPHI('Adaeze Nwachukwu'), new Date().toISOString());
+    db.prepare(`
+      INSERT INTO samples (id, patient_id, sample_type, slide_label, stain_method, objective,
+                           eyepiece, total_magnification, fields_examined, field_area_mm2,
+                           collection_datetime, created_at)
+      VALUES (?, ?, 'stool', ?, 'Trichrome', '40x', '10x', '400x', 10, 0.1963, ?, ?)
+    `).run('sam-admin-runs', 'pat-admin-runs', 'SLD-ADMIN', new Date().toISOString(), new Date().toISOString());
+    insertAnalysis('ana-admin-runs', 'sam-admin-runs', 'in_review');
+
+    const res = await admin.get('/api/admin/analyses');
+    expect(res.status).toBe(200);
+    const run = res.body.items.find(i => i.id === 'ana-admin-runs');
+    expect(run.patientName).toBe('Adaeze Nwachukwu');
+    expect(run.patientName).not.toMatch(/^enc:v1:/);
+  });
+});
+
 // ----------------------------------------------------------------- audit ----
 
 describe('audit chain', () => {
