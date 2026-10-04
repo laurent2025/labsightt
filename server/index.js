@@ -2153,7 +2153,7 @@ function serializePatientCsv(rows) {
   return lines.join('\n') + '\n';
 }
 
-async function buildPatientExportRows(patients) {
+function buildPatientExportRows(patients) {
   if (!patients || patients.length === 0) return [];
   const rows = patients.map(p => ({
     patientNumber: p.patientNumber,

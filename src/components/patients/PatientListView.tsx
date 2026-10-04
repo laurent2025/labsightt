@@ -27,6 +27,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
 }) => {
   const [sampleFilter, setSampleFilter] = useState<string>('all');
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const {
     patientSearch,
     setPatientSearch,
@@ -67,8 +68,10 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      setExportError(null);
     } catch (err) {
       console.error('Failed to export patients:', err);
+      setExportError(err instanceof Error && err.message ? err.message : 'Could not export the patient list. Please try again.');
     } finally {
       setExporting(false);
     }
@@ -107,6 +110,13 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             </button>
           </div>
         </div>
+
+        {exportError && (
+          <div className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            <X className="w-4 h-4 mt-0.5 shrink-0" />
+            <p>{exportError}</p>
+          </div>
+        )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">

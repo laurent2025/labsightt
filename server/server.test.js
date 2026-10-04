@@ -296,6 +296,43 @@ describe('equal authenticated access', () => {
     expect((await client.patch('/api/admin/users/someone/role').send({ role: 'admin' })).status).toBe(403);
     expect((await client.delete('/api/admin/users/someone')).status).toBe(403);
   });
+
+  it('exports the patient directory as a CSV download', async () => {
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    await client.post('/api/patients', {
+      patientNumber: 'PT-CSV',
+      fullName: 'Doe, Jane "J"',
+      age: 42,
+      gender: 'Female',
+      clinicalNotes: 'line one\nline two'
+    });
+
+    const res = await client.get('/api/patients/export');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(res.headers['content-disposition']).toMatch(/attachment; filename="patients_\d{4}-\d{2}-\d{2}\.csv"/);
+
+    const lines = res.text.trim().split('\n');
+    expect(lines[0]).toBe(
+      'Patient MRN,Full Name,Age,Gender,Referring Doctor,Referring Facility,Clinical Notes,Specimen Types,Earliest Collection,Specimen Count,Accessioned Date'
+    );
+    expect(res.text).toContain('PT-CSV');
+    expect(res.text).toContain('"Doe, Jane ""J"""');
+    expect(res.text).toContain('"line one\nline two"');
+  });
+
+  it('scopes the CSV export to the owning account for non-admins', async () => {
+    const owner = authed(await login('dir1', 'director-password-1234'));
+    await owner.post('/api/patients', {
+      patientNumber: 'PT-SCOPE',
+      fullName: 'Scoped Patient'
+    });
+
+    const intruder = authed(await login('tech1', 'tech-password-1234'));
+    const res = await intruder.get('/api/patients/export');
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain('PT-SCOPE');
+  });
 });
 
 // ------------------------------------------------------- admin users ----
