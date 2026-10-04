@@ -353,7 +353,7 @@ export const AuditLogView: React.FC = () => {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+                  <table className="w-full text-left text-sm border-collapse min-w-[900px]">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2.5 px-4 font-semibold">ID</th>
@@ -371,7 +371,7 @@ export const AuditLogView: React.FC = () => {
                         <td className="py-2.5 px-4 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">
                           {run.id}
                         </td>
-                        <td className="py-2.5 px-4 text-slate-800 dark:text-slate-200">
+                        <td className="py-2.5 px-4 text-slate-900 dark:text-white font-bold">
                           {run.patientName || '—'}
                           <span className="block text-[11px] text-slate-500 dark:text-slate-400">{run.patientNumber ?? ''}</span>
                         </td>
@@ -501,7 +501,7 @@ export const AuditLogView: React.FC = () => {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse min-w-[760px]">
+                  <table className="w-full text-left text-sm border-collapse min-w-[760px]">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2.5 px-4 font-semibold">Time</th>
@@ -529,7 +529,7 @@ export const AuditLogView: React.FC = () => {
                         <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300 font-mono">
                           {entry.entity ? `${entry.entity}${entry.entityId ? `:${entry.entityId}` : ''}` : '—'}
                         </td>
-                        <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300 max-w-[320px] truncate" title={entry.details ?? undefined}>
+                        <td className="py-2.5 px-4 text-slate-800 dark:text-slate-200 font-medium max-w-[320px] truncate" title={entry.details ?? undefined}>
                           {entry.details || '—'}
                         </td>
                         <td className="py-2.5 px-4 text-right font-mono text-[11px] text-slate-400 dark:text-slate-500">

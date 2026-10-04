@@ -221,6 +221,11 @@ export const patientsApi = {
   list: (params: { limit?: number; offset?: number; search?: string } = {}) =>
     request<{ patients: Patient[]; pagination: Pagination }>(`/patients${query(params)}`),
 
+  exportCsv: (search?: string) =>
+    request<string>(`/patients/export${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+      headers: { Accept: 'text/csv' }
+    }),
+
   create: (payload: {
     patientNumber: string;
     fullName: string;

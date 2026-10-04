@@ -13,6 +13,11 @@ const RETRY_BASE_DELAY_MS = 250;
 const DEFAULT_WORKFLOW_ENDPOINT =
   'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-3-yolo26m-t1-logic';
 
+/**
+ * Reads the inference configuration from environment variables, falling back
+ * to the bundled defaults. The API key is never included in any status payload
+ * returned to clients.
+ */
 function envConfig() {
   return {
     endpoint: process.env.ROBOFLOW_ENDPOINT || DEFAULT_WORKFLOW_ENDPOINT,
@@ -78,6 +83,11 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.5 } 
   return detections;
 }
 
+/**
+ * Sends the workflow request to the provider with retry logic for transient
+ * failures (408, 429, 5xx). Hung requests are aborted after the configured
+ * timeout so server threads are not pinned indefinitely.
+ */
 async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     const controller = new AbortController();
@@ -135,6 +145,11 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs) {
  * a prediction. The exact envelope varies by workflow, so this is tolerant by
  * design rather than pinned to one provider response shape.
  */
+/**
+ * Walks the provider's nested workflow output looking for anything shaped like
+ * a prediction. The exact envelope varies by workflow, so this is tolerant by
+ * design rather than pinned to one provider response shape.
+ */
 function extractPredictions(payload) {
   const found = [];
 
@@ -157,6 +172,10 @@ function extractPredictions(payload) {
   return found;
 }
 
+/**
+ * Determines whether a node looks like a prediction object by checking for
+ * a class label and a confidence/score value.
+ */
 function isPrediction(node) {
   const hasClass =
     typeof node.class === 'string' ||
@@ -169,6 +188,10 @@ function isPrediction(node) {
   return hasClass && hasConfidence;
 }
 
+/**
+ * Normalizes a provider prediction node into an internal detection object.
+ * Returns null if required geometry fields are missing or non-finite.
+ */
 function toDetection(node) {
   const className = node.class ?? node.prediction ?? node.label;
   const rawConfidence = Number(node.confidence ?? node.score);
@@ -192,6 +215,9 @@ function toDetection(node) {
   };
 }
 
+/**
+ * Coerces a value to a finite number, returning null when it is not.
+ */
 function num(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;

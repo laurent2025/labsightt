@@ -89,7 +89,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
         <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
           Diagnostic Pathology Reports
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
           Archived clinical reports, pathologist verification sign-offs, and A4 print / PDF export
         </p>
       </div>
@@ -103,7 +103,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
             placeholder="Search report #, patient name, MRN..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="w-full pl-9 pr-3 py-2 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
         </div>
 
@@ -126,7 +126,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
       </div>
 
       {gateError && (
-        <div role="alert" className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 p-3 rounded-xl text-xs">
+              <div role="alert" className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 p-3.5 rounded-xl text-sm font-medium">
           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold block">Verification refused</span>
@@ -136,7 +136,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
       )}
 
       {actionError && (
-        <div role="alert" className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 p-3 rounded-xl text-xs">
+              <div role="alert" className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 p-3.5 rounded-xl text-sm font-medium">
           {actionError}
         </div>
       )}
@@ -156,30 +156,30 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
               </h2>
               <p className="mt-1 text-xs text-slate-500">Changes are audited and locked after verification.</p>
             </div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+            <label className="block text-sm font-bold text-slate-800 dark:text-slate-100">
               Technologist notes
               <textarea
                 value={technologistNotes}
                 onChange={event => setTechnologistNotes(event.target.value)}
                 rows={4}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950"
               />
             </label>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+            <label className="block text-sm font-bold text-slate-800 dark:text-slate-100">
               Clinical impression
               <textarea
                 value={clinicalImpression}
                 onChange={event => setClinicalImpression(event.target.value)}
                 rows={4}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950"
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950"
               />
             </label>
             {actionError && <p role="alert" className="text-xs text-rose-700">{actionError}</p>}
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setEditingReport(null)} disabled={isSaving} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200">
+              <button type="button" onClick={() => setEditingReport(null)} disabled={isSaving} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200">
                 Cancel
               </button>
-              <button type="submit" disabled={isSaving} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+              <button type="submit" disabled={isSaving} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {isSaving ? 'Saving...' : 'Save changes'}
               </button>
             </div>
@@ -194,7 +194,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
 
       {/* Reports Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto shadow-xs">
-        <table className="w-full text-left text-xs border-collapse min-w-[680px]">
+              <table className="w-full text-left text-sm border-collapse min-w-[680px]">
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <th className="py-3 px-4 font-semibold">Report # & Date</th>
@@ -258,7 +258,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                     </td>
 
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900 dark:text-white">{rep.patient.fullName}</div>
+                      <div className="font-bold text-slate-900 dark:text-white">{rep.patient.fullName}</div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                         {rep.patient.patientNumber} · {rep.patient.age}y / {rep.patient.gender}
                       </div>
@@ -279,7 +279,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
 
                     <td className="py-3 px-4">
                       <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                           rep.status === 'verified'
                             ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
                             : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'

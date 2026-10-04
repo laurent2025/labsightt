@@ -190,10 +190,10 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
           // The listener already cleared the session; no banner needed.
         } else if (results.some(res => res.status === 'fulfilled')) {
           setLoadError(
-            `Some sections did not load: ${err instanceof ApiError ? err.message : 'server error'}. Refresh to retry.`
+            `Some data could not be loaded: ${err instanceof ApiError ? err.message : 'server error'}. The rest of the page is still available. Refresh to try loading the missing data again.`
           );
         } else {
-          setLoadError(err instanceof ApiError ? err.message : 'Could not load laboratory data.');
+          setLoadError(err instanceof ApiError ? err.message : 'Could not load laboratory data. Please refresh the page or sign in again.');
         }
       }
     } finally {
@@ -296,7 +296,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         setPatients(prev => prev.map(p => (p.id === id ? patient : p)));
         setStorageIssue(null);
       } catch (err) {
-        handleError(err, 'Could not update the patient record.');
+        handleError(err, 'Could not update the patient record. Please check the details and try again.');
         throw err;
       }
     },
@@ -317,7 +317,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         }
         setStorageIssue(null);
       } catch (err) {
-        handleError(err, 'Could not delete the patient.');
+        handleError(err, 'Could not delete the patient. Please try again or contact your administrator if the problem continues.');
         throw err;
       }
     },
@@ -331,7 +331,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         setPatients(prev => [patient, ...prev]);
         return patient;
       } catch (err) {
-        handleError(err, 'Could not register the patient.');
+        handleError(err, 'Could not register the patient. Please check the patient ID is unique and try again.');
         throw err;
       }
     },
@@ -356,7 +356,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         }));
         return sample;
       } catch (err) {
-        handleError(err, 'Could not accession the specimen.');
+        handleError(err, 'Could not accession the specimen. Please check the patient selection and try again.');
         throw err;
       }
     },
@@ -387,7 +387,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
           // Non-fatal: the caller will surface a clearer error below.
         }
       }
-      if (!imageUrl) throw new ReportGateError('Invalid specimen for analysis.');
+      if (!imageUrl) throw new ReportGateError('No slide image is available for this specimen. Please upload or capture an image before running analysis.');
 
       const source = await loadImageSource(imageUrl);
       const base64 =
@@ -405,7 +405,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated.id)]);
         return hydrated;
       } catch (err) {
-        handleError(err, 'Inference failed.');
+        handleError(err, 'Inference failed. The AI service may be temporarily unavailable. Please try again in a moment.');
         throw err;
       }
     },
@@ -461,7 +461,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
           );
           setStorageIssue(null);
         } catch (err) {
-          handleError(err, 'Could not record the adjudication.');
+          handleError(err, 'Could not record the adjudication. Please try again or refresh the page.');
           throw err;
         }
       });
@@ -565,7 +565,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         if (err instanceof ApiError && err.status === 409) {
           throw new ReportGateError(err.message);
         }
-        handleError(err, 'Could not generate the report.');
+        handleError(err, 'Could not generate the report. Please ensure all detections are adjudicated and try again.');
         throw err;
       }
     },
@@ -590,7 +590,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         if (err instanceof ApiError && err.status === 403) {
           throw new ReportGateError(err.message);
         }
-        handleError(err, 'Could not verify the report.');
+        handleError(err, 'Could not verify the report. Please try again or ask an administrator to check your access.');
         throw err;
       }
     },
@@ -613,7 +613,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
           : existing));
         setStorageIssue(null);
       } catch (err) {
-        handleError(err, 'Could not update the report.');
+        handleError(err, 'Could not update the report. Please try again or contact support if the problem continues.');
         throw err;
       }
     },
@@ -627,7 +627,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         setReports(prev => prev.filter(r => r.id !== reportId));
         setStorageIssue(null);
       } catch (err) {
-        handleError(err, 'Could not delete the report.');
+        handleError(err, 'Could not delete the report. Please try again or contact your administrator.');
         throw err;
       }
     },

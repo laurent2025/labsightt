@@ -20,7 +20,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
         role="dialog"
         aria-modal="true"
         aria-label="Regulatory, governance and privacy framework"
-        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden text-xs my-auto transition-colors duration-200">
+        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden text-sm my-auto transition-colors duration-200">
         {/* Header */}
         <div className="px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
@@ -74,7 +74,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5 text-slate-700 dark:text-slate-300 leading-relaxed text-xs">
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5 text-slate-700 dark:text-slate-300 leading-relaxed text-sm">
           {activeTab === 'terms' ? (
             /* TERMS OF SERVICE */
             <div className="space-y-4">

@@ -70,14 +70,14 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
       <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950 flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
               Laboratory Findings & Technologist Review
             </h2>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded font-medium bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
               {sample.totalMagnification}
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
             Slide: <strong className="text-slate-700 dark:text-slate-200">{sample.slideLabel}</strong> · Staining:{' '}
             <strong className="text-slate-700 dark:text-slate-200">{sample.stainMethod}</strong>
           </p>
@@ -104,7 +104,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
       <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
         {/* Critical Pathology Alert Bar */}
         {hasCriticalFindings && (
-          <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg text-xs space-y-1.5">
+            <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-lg text-sm font-medium space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-rose-800 font-bold">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -137,7 +137,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
         )}
 
         {/* Patient Demographics Banner */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-2">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
               PATIENT ACCESSION
@@ -191,7 +191,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
         {/* Standardized Findings Table */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
               Organism & Cellular Quantification ({sample.fieldsExamined} Examined Fields)
             </h3>
             <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
@@ -200,7 +200,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
           </div>
 
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse min-w-[420px]">
+                <table className="w-full text-left text-sm border-collapse min-w-[420px]">
               <thead>
                 <tr className="bg-slate-100/80 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                   <th className="py-2 px-3 font-semibold">Organism / Element</th>
@@ -275,7 +275,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
         {/* Individual Detections Verification Cards */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
               Identified Targets ({filteredDetections.length})
             </h3>
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500">
@@ -305,7 +305,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
                   <div
                     key={det.id}
                     onClick={() => onSelectDetection(det.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition ${
+                    className={`flex items-center justify-between p-2.5 rounded-lg border text-sm cursor-pointer transition ${
                       isSelected
                         ? 'border-cyan-500 bg-cyan-50/40 dark:bg-cyan-950/40 shadow-xs'
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
@@ -392,7 +392,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
           </div>
 
           {!isEditingNotes ? (
-            <div className="space-y-2 text-xs">
+                  <div className="space-y-2 text-sm">
               <div>
                 <span className="text-slate-400 dark:text-slate-500 font-medium">Diagnostic Impression:</span>
                 <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
@@ -409,25 +409,25 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
           ) : (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-600 dark:text-slate-400 font-medium block mb-1">
+                      <label className="text-sm font-bold text-slate-800 dark:text-slate-100 block mb-1">
                   Diagnostic Impression:
                 </label>
                 <textarea
                   rows={2}
                   value={impression}
                   onChange={e => setImpression(e.target.value)}
-                  className="w-full text-xs p-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full text-sm font-medium p-2.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-600 dark:text-slate-400 font-medium block mb-1">
+                      <label className="text-sm font-bold text-slate-800 dark:text-slate-100 block mb-1">
                   Examination Notes:
                 </label>
                 <textarea
                   rows={2}
                   value={techNotes}
                   onChange={e => setTechNotes(e.target.value)}
-                  className="w-full text-xs p-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full text-sm font-medium p-2.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
             </div>
@@ -444,7 +444,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
         <button
           type="button"
           onClick={onGenerateReport}
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
+          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
         >
           <FileText className="w-4 h-4" />
           <span>Release Diagnostic Report</span>

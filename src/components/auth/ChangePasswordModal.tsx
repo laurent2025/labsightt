@@ -35,11 +35,11 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
     setError(null);
 
     if (!requirements.every(r => r.met)) {
-      setError('The new password does not meet the policy.');
+      setError('The new password does not meet the requirements. Please check the policy below and adjust your password.');
       return;
     }
     if (!matches) {
-      setError('The two new passwords do not match.');
+      setError('The two passwords you entered do not match. Please re-type them to confirm.');
       return;
     }
 
@@ -48,7 +48,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
       await changePassword(current, next);
       setDone(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not change the password.');
+      setError(err instanceof ApiError ? err.message : 'Could not change the password. Please check your current password and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -68,7 +68,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
           <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
             <KeyRound className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
           </div>
-          <h2 id="change-password-title" className="text-sm font-bold text-slate-900 dark:text-white">
+          <h2 id="change-password-title" className="text-base font-bold text-slate-900 dark:text-white">
             Change your password
           </h2>
         </div>
@@ -79,13 +79,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
             <p className="text-sm font-semibold text-slate-900 dark:text-white mt-3">
               Password changed
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
               Your other sessions remain signed in. Contact a Lab Director if you need them revoked.
             </p>
             <button
               type="button"
               onClick={onClose}
-              className="mt-5 px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-lg text-xs font-semibold"
+              className="mt-5 px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-lg text-sm font-bold"
             >
               Done
             </button>
@@ -95,7 +95,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
             {error && (
               <div
                 role="alert"
-                className="flex items-start gap-2 p-2.5 rounded-lg text-xs bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200"
+                className="flex items-start gap-2 p-3 rounded-lg text-sm font-medium bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200"
               >
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{error}</span>
@@ -103,7 +103,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
             )}
 
             <div>
-              <label htmlFor="pw-current" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              <label htmlFor="pw-current" className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1.5">
                 Current password
               </label>
               <input
@@ -113,12 +113,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
                 required
                 value={current}
                 onChange={e => setCurrent(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="w-full px-3 py-2.5 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
               />
             </div>
 
             <div>
-              <label htmlFor="pw-new" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              <label htmlFor="pw-new" className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1.5">
                 New password
               </label>
               <div className="relative">
@@ -130,7 +130,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
                   value={next}
                   onChange={e => setNext(e.target.value)}
                   aria-describedby="pw-requirements"
-                  className="w-full pl-3 pr-10 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  className="w-full pl-3 pr-10 py-2.5 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
                 />
                 <button
                   type="button"
@@ -166,7 +166,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
             </ul>
 
             <div>
-              <label htmlFor="pw-confirm" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              <label htmlFor="pw-confirm" className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1.5">
                 Confirm new password
               </label>
               <input
@@ -176,7 +176,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
                 required
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="w-full px-3 py-2.5 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
               />
             </div>
 
@@ -184,14 +184,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
               <button
                 type="submit"
                 disabled={submitting || !current || !requirements.every(r => r.met) || !matches}
-                className="flex-1 px-4 py-2 bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-cyan-600 dark:hover:bg-cyan-500 dark:disabled:bg-slate-700 text-white rounded-lg text-xs font-semibold transition"
+                className="flex-1 px-4 py-2 bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-cyan-600 dark:hover:bg-cyan-500 dark:disabled:bg-slate-700 text-white rounded-lg text-sm font-bold transition"
               >
                 {submitting ? 'Changing...' : 'Change password'}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold transition"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-sm font-bold transition"
               >
                 Cancel
               </button>

@@ -122,7 +122,7 @@ return (
          * plus the action cluster no longer fit beside the wordmark. Scrolling
          * degrades gracefully where shrinking or clipping would not.
          */}
-        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-xs font-semibold min-w-0 flex-1 justify-center no-scrollbar overflow-x-auto py-1">
+        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-sm font-bold min-w-0 flex-1 justify-center no-scrollbar overflow-x-auto py-1">
           {visibleTabs.map(tab => (
             <button
               key={tab.tab}
@@ -205,7 +205,7 @@ return (
                       setAccountOpen(false);
                       onChangePassword();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <div className="w-7 h-7 shrink-0 rounded-lg bg-green-50 dark:bg-green-950/60 border border-green-200 dark:border-green-800 flex items-center justify-center">
                       <KeyRound className="w-3.5 h-3.5 text-green-700 dark:text-green-400" />
@@ -218,7 +218,7 @@ return (
                       setAccountOpen(false);
                       onLogout();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium text-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors cursor-pointer"
                   >
                     <div className="w-7 h-7 shrink-0 rounded-lg bg-green-100 dark:bg-green-950/60 border border-green-300 dark:border-green-800 flex items-center justify-center">
                       <LogOut className="w-3.5 h-3.5 text-green-800 dark:text-green-300" />
@@ -249,7 +249,7 @@ return (
           <button
             type="button"
             onClick={onOpenNewPatient}
-            className="hidden md:flex min-h-[44px] px-3.5 xl:px-4 py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 dark:from-green-600 dark:to-green-800 dark:hover:from-green-500 dark:hover:to-green-700 text-white rounded-xl text-xs font-semibold items-center gap-2 shadow-md shadow-slate-900/15 dark:shadow-green-950/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap cursor-pointer"
+            className="hidden md:flex min-h-[44px] px-3.5 xl:px-4 py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 dark:from-green-600 dark:to-green-800 dark:hover:from-green-500 dark:hover:to-green-700 text-white rounded-xl text-sm font-bold items-center gap-2 shadow-md shadow-slate-900/15 dark:shadow-green-950/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             <span className="hidden lg:inline">Accession Specimen</span>
@@ -309,7 +309,7 @@ return (
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 {theme === 'dark' ? (
                   <Sun className="w-3.5 h-3.5 text-green-400" />
@@ -321,7 +321,7 @@ return (
               <button
                 type="button"
                 onClick={() => { setMobileMenuOpen(false); onOpenLegal('privacy'); }}
-                className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Privacy
               </button>
@@ -353,7 +353,7 @@ return (
             <button
               type="button"
               onClick={() => { setMobileMenuOpen(false); onChangePassword(); }}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <KeyRound className="w-3.5 h-3.5" />
               Password
@@ -361,7 +361,7 @@ return (
             <button
               type="button"
               onClick={() => { setMobileMenuOpen(false); onLogout(); }}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950/40 text-xs font-medium text-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/70 transition-colors cursor-pointer"
+              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950/40 text-sm font-semibold text-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/70 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign out

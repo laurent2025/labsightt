@@ -31,7 +31,7 @@ export const AIModelsView: React.FC<{ models: AIModelConfig[] }> = ({ models }) 
       </div>
       <div>
         <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">AI Model Configuration</h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           Configured detection pipelines. Endpoints are called by the laboratory server only.
         </p>
       </div>
@@ -45,13 +45,13 @@ export const AIModelsView: React.FC<{ models: AIModelConfig[] }> = ({ models }) 
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">{model.name}</h2>
-              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">{model.name}</h2>
+              <p className="text-xs font-mono font-medium text-slate-600 dark:text-slate-300 mt-0.5">
                 {model.architecture} · {model.version}
               </p>
             </div>
             <span
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                 model.active
                   ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
@@ -62,7 +62,7 @@ export const AIModelsView: React.FC<{ models: AIModelConfig[] }> = ({ models }) 
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-300 font-semibold">
               {CATEGORY_LABELS[model.category] ?? model.category}
             </span>
@@ -79,10 +79,10 @@ export const AIModelsView: React.FC<{ models: AIModelConfig[] }> = ({ models }) 
           </div>
 
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1.5">
               Detection Targets
             </span>
-            <div className="flex flex-wrap gap-1.5 text-[11px]">
+            <div className="flex flex-wrap gap-1.5 text-xs">
               {model.classes.map(cls => (
                 <span
                   key={cls}
@@ -94,7 +94,7 @@ export const AIModelsView: React.FC<{ models: AIModelConfig[] }> = ({ models }) 
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-3">
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-3">
             Not clinically validated. No accuracy figure exists for this software; model output
             requires technologist review and two-person verification before release.
           </p>

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Patient, Sample, SampleType } from '../../types';
-import { Search, UserPlus, Microscope, Filter, X, Pencil, Trash2 } from 'lucide-react';
+import { Search, UserPlus, Microscope, Filter, X, Pencil, Trash2, Download } from 'lucide-react';
 import { useLabStore } from '../../store/labStore';
 import { useDebounced } from '../../hooks/useDebounced';
 import { TableSkeleton, EmptyState, NoResultsState, ErrorState, Pagination } from '../ui/States';
+import { patientsApi } from '../../services/api';
 
 interface PatientListViewProps {
   patients: Patient[];
@@ -25,6 +26,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
   canDeletePatients
 }) => {
   const [sampleFilter, setSampleFilter] = useState<string>('all');
+  const [exporting, setExporting] = useState(false);
   const {
     patientSearch,
     setPatientSearch,
@@ -51,28 +53,60 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
     p => sampleFilter === 'all' || (p.sampleTypes || []).includes(sampleFilter as SampleType)
   );
 
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const csv = await patientsApi.exportCsv(patientSearch || undefined);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = `patients_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export patients:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Patient & Specimen Directory
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Accession records held by the laboratory server
-          </p>
-        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Patient & Specimen Directory
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+              Accession records held by the laboratory server
+            </p>
+          </div>
 
-        <button
-          type="button"
-          onClick={onOpenNewPatientModal}
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-green-600 dark:hover:bg-green-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap self-start sm:self-auto"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Accession New Patient</span>
-        </button>
-      </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={exporting || patients.length === 0}
+              className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-green-500 dark:hover:border-green-600 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              <span>{exporting ? 'Exporting...' : 'Export CSV'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenNewPatientModal}
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-green-600 dark:hover:bg-green-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap self-start sm:self-auto"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Accession New Patient</span>
+            </button>
+          </div>
+        </div>
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -84,7 +118,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             placeholder="Patient number, or exact full name..."
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-8 py-1.5 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="w-full pl-9 pr-8 py-2 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
           {searchInput && (
             <button
@@ -147,7 +181,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse min-w-[620px]">
+              <table className="w-full text-left text-sm border-collapse min-w-[620px]">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                     <th scope="col" className="py-3 px-4 font-semibold">Patient MRN & Name</th>
@@ -181,9 +215,9 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
                         className="cursor-pointer hover:bg-cyan-50/70 dark:hover:bg-cyan-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 transition-colors"
                       >
                         <td className="py-3 px-4">
-                          <div className="font-semibold text-slate-900 dark:text-white text-sm">
-                            {pat.fullName}
-                          </div>
+                      <div className="font-bold text-slate-900 dark:text-white text-base">
+                        {pat.fullName}
+                      </div>
                           <div className="font-mono text-[11px] text-slate-400">{pat.patientNumber}</div>
                         </td>
 

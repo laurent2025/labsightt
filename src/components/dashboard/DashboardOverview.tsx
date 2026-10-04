@@ -163,7 +163,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Welcome back, {user?.name ?? 'Operator'}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+          <p className="text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
             {pendingReviewCount > 0
               ? `${pendingReviewCount} analysis${pendingReviewCount === 1 ? '' : 'es'} awaiting review. Open one below to continue adjudication.`
               : 'No analyses are awaiting review. Accession a specimen to start a new microscopy workflow.'}
@@ -174,7 +174,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <button
             type="button"
             onClick={onOpenNewPatientModal}
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition whitespace-nowrap cursor-pointer"
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-xs transition whitespace-nowrap cursor-pointer"
           >
             <Microscope className="w-4 h-4 text-cyan-400 dark:text-white" />
             <span>Accession New Specimen</span>
@@ -183,7 +183,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <button
               type="button"
               onClick={() => openMostRecentAnalysis(pendingReviewCount > 0 ? 'in_review' : undefined)}
-              className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition whitespace-nowrap cursor-pointer hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm"
+              className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-bold flex items-center gap-2 transition whitespace-nowrap cursor-pointer hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm"
             >
               <span>
                 {pendingReviewCount > 0 ? `Review ${pendingReviewCount} pending` : 'Open workstation'}
@@ -261,15 +261,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
         <div className="p-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
               Diagnostic Pipelines
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Select a calibrated specimen workflow to review targets and staining protocol
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-sm font-semibold">
             <button
               type="button"
               onClick={() => setSelectedQuickPipeline('stool')}
@@ -313,7 +313,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 ACTIVE PIPELINE
               </span>
               <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">{activePipeline.name}</h3>
-              <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-sm font-mono text-slate-600 dark:text-slate-300 mt-0.5">
                 Model:{' '}
                 <strong
                   className={
@@ -327,7 +327,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </p>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+              <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm space-y-2">
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Staining Technique:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{activePipeline.stain}</span>
@@ -364,7 +364,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigateTab('microscopy', null)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5 fill-current text-cyan-400 dark:text-white" />
                 <span>Open in Full Microscopy Workstation</span>
@@ -395,17 +395,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Analyses by specimen type, derived from the local case list */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs transition-colors duration-200">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Analyses by Specimen Type</h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Analyses by Specimen Type</h2>
             <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Last 200 runs</span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
+          <p className="text-sm text-slate-600 dark:text-slate-300 mb-5">
             Counted from the cases stored on the laboratory server
           </p>
 
           <div className="h-44 w-full flex items-end gap-6 px-2">
             {bySampleType.map(entry => (
               <div key={entry.type} className="flex-1 flex flex-col items-center gap-2">
-                <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
+                <span className="text-sm font-mono font-bold text-slate-900 dark:text-white">
                   {entry.count}
                 </span>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-t-md flex items-end" style={{ height: '120px' }}>
@@ -419,7 +419,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             ))}
           </div>
 
-          <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+          <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-sm">
             <span className="text-slate-500 dark:text-slate-400">Positive detection rate:</span>
             <span className="font-mono font-bold text-slate-800 dark:text-white">{detectionRate}%</span>
           </div>
@@ -429,18 +429,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs transition-colors duration-200">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Confirmed Organism Counts</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-5">
               Only technologist-confirmed detections, across all stored cases
             </p>
 
             {topOrganisms.length === 0 ? (
               <div className="py-10 text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   No confirmed detections yet. Confirm candidate bounding boxes to populate this panel.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3 text-sm">
                 {topOrganisms.map(([name, count]) => (
                   <div key={name}>
                     <div className="flex justify-between text-slate-700 dark:text-slate-300 font-medium mb-1">
@@ -471,8 +471,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
             <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">My Microscopy Runs</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Analyses you initiated</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">My Microscopy Runs</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Analyses you initiated</p>
             </div>
             <ul className="divide-y divide-slate-200 dark:divide-slate-800">
               {myAnalyses.map(ana => {
@@ -481,7 +481,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 return (
                   <li key={ana.id} className="px-5 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                      <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
                         {patient?.fullName || 'Unknown Patient'}
                       </div>
                       <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
@@ -503,7 +503,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectAnalysis(ana.id)}
-                        className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 cursor-pointer"
+                        className="text-sm font-bold text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 cursor-pointer"
                       >
                         Open
                       </button>
@@ -516,14 +516,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
             <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">My Reports</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Laboratory reports you generated</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">My Reports</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Laboratory reports you generated</p>
             </div>
             <ul className="divide-y divide-slate-200 dark:divide-slate-800">
               {myReports.map(report => (
                 <li key={report.id} className="px-5 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                    <div className="text-sm font-bold text-slate-900 dark:text-white font-mono">
                       {report.reportNumber}
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -545,7 +545,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenReport(report)}
-                      className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 cursor-pointer"
+                      className="text-sm font-bold text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 cursor-pointer"
                     >
                       Open
                     </button>
@@ -565,13 +565,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Recent Microscopy Accessions &amp; Reviews</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Review, adjust bounding boxes, or sign laboratory reports</p>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Recent Microscopy Accessions &amp; Reviews</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300">Review, adjust bounding boxes, or sign laboratory reports</p>
           </div>
           <button
             type="button"
             onClick={() => onNavigateTab('reports')}
-            className="text-xs text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 font-semibold flex items-center gap-1 cursor-pointer"
+            className="text-sm text-cyan-700 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 font-bold flex items-center gap-1 cursor-pointer"
           >
             <span>View All Reports</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -586,7 +586,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <button
                 type="button"
                 onClick={onOpenNewPatientModal}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white"
+                className="text-sm font-bold px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white"
               >
                 Accession New Specimen
               </button>
@@ -594,7 +594,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           />
         ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse min-w-[620px]">
+              <table className="w-full text-left text-sm border-collapse min-w-[620px]">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <th className="py-2.5 px-4 font-semibold">Patient &amp; Specimen</th>
@@ -628,7 +628,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     className="cursor-pointer hover:bg-cyan-50/70 dark:hover:bg-cyan-950/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-600 transition-colors"
                   >
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900 dark:text-white">{patient?.fullName || 'Unknown Patient'}</div>
+                      <div className="font-bold text-sm text-slate-900 dark:text-white">{patient?.fullName || 'Unknown Patient'}</div>
                       <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
                         {patient?.patientNumber} · {sample?.sampleType}
                       </div>
@@ -685,7 +685,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       <button
                         type="button"
                         onClick={() => onSelectAnalysis(ana.id)}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition cursor-pointer"
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-sm font-bold inline-flex items-center gap-1.5 transition cursor-pointer"
                       >
                         <Microscope className="w-3.5 h-3.5" />
                         <span>Open Microscope</span>
@@ -700,7 +700,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         )}
 
         {analyses.length > RECENT_LIMIT && (
-          <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="text-slate-500 dark:text-slate-400 font-mono">
               Showing the {RECENT_LIMIT} most recent of {analyses.length} runs
             </span>

@@ -266,7 +266,8 @@ create table if not exists public.patients (
 
     age integer not null default 0,
 
-    gender text not null default 'Other',
+    gender text not null default 'Other'
+        check (gender in ('Male', 'Female', 'Other')),
 
     referring_doctor text,
 
@@ -309,7 +310,8 @@ create table if not exists public.samples (
         references public.patients(id)
         on delete cascade,
 
-    sample_type text not null,
+    sample_type text not null
+        check (sample_type in ('stool', 'blood', 'urine', 'csf', 'other')),
 
     slide_label text not null,
 
@@ -385,6 +387,102 @@ on public.analyses(sample_id);
 create index if not exists
 idx_analyses_status
 on public.analyses(status);
+
+
+-- ============================================================
+-- ANALYSES UNIQUE ACTIVE PER SAMPLE
+-- ============================================================
+-- Enforces at most one non-verified analysis per sample.
+--
+-- Existing duplicates are cleaned up first: for each sample_id that
+-- has multiple non-verified analyses, only the most recent started_at
+-- row is kept. This runs inside the same migration block so a
+-- partially-applied schema cannot leave the table in an inconsistent
+-- state.
+--
+-- If you need to rerun this migration after fixing data manually,
+-- drop the index first:
+--
+--   drop index if exists public.idx_analyses_one_active_per_sample;
+-- ============================================================
+
+do $$
+declare
+  duplicate_count integer;
+begin
+
+  -- Remove stale duplicates before adding the unique index.
+  -- Keep the newest started_at row per sample; delete older ones.
+  with ranked as (
+    select
+      id,
+      row_number() over (
+        partition by sample_id
+        order by started_at desc, id desc
+      ) as rn
+    from public.analyses
+    where status != 'verified'
+  )
+  delete from public.analyses a
+  using ranked r
+  where a.id = r.id
+    and r.rn > 1;
+
+  get diagnostics duplicate_count = ROW_COUNT;
+
+  -- Create the partial unique index after cleanup.
+  if not exists (
+    select 1
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where c.relname = 'idx_analyses_one_active_per_sample'
+      and n.nspname = 'public'
+  ) then
+    create unique index idx_analyses_one_active_per_sample
+      on public.analyses(sample_id)
+      where status != 'verified';
+  end if;
+
+end;
+$$;
+
+
+-- ============================================================
+-- AUDIT LOG RETENTION
+-- ============================================================
+-- Purges audit log entries older than the configured retention
+-- period. Call from a scheduled job (e.g. pg_cron) to keep the
+-- table from growing without bound.
+--
+-- Usage:
+--
+--   select public.purge_old_audit_logs('2 years'::interval);
+--
+-- ============================================================
+
+create or replace function public.purge_old_audit_logs(
+    older_than interval
+)
+
+returns void
+
+language plpgsql
+
+security definer
+
+set search_path = public
+
+as $$
+
+begin
+
+    delete from public.audit_log
+
+    where timestamp < now() - older_than;
+
+end;
+
+$$;
 
 
 -- ============================================================

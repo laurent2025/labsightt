@@ -37,7 +37,7 @@ const FEATURES = [
   {
     icon: ScanSearch,
     title: 'Automated morphology detection',
-    body: 'A serverless YOLO26m workflow flags candidate organisms, cells, and crystals on every field stool, blood, and urine pipelines, each tuned per specimen type.',
+    body: 'A serverless YOLO26m workflow flags candidate organisms, cells, and crystals across stool, blood, and urine pipelines — each model tuned per specimen type.',
     accent: 'from-cyan-500/10 to-emerald-500/10 dark:from-cyan-400/10 dark:to-emerald-400/10'
   },
   {
@@ -61,7 +61,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: 'Two-person verification',
-    body: 'A report can only be verified by a second operator the technologist who originated it cannot sign off on it alone.',
+    body: 'Reports can only be verified by a second operator. The technologist who originated the analysis cannot sign off on it alone.',
     accent: 'from-sky-500/10 to-blue-500/10 dark:from-sky-400/10 dark:to-blue-400/10'
   },
   {
@@ -88,7 +88,7 @@ const WORKFLOW = [
   {
     step: '03',
     title: 'Adjudicate detections',
-    body: 'Every AI candidate is confirmed, rejected, or superseded by a manual finding the reviewer sees each one.',
+    body: 'Every AI candidate is confirmed, rejected, or superseded by a manual finding. The reviewer sees each one.',
     icon: Eye
   },
   {
@@ -106,9 +106,9 @@ const WORKFLOW = [
 ];
 
 const STATS = [
+  { value: 'AES-256', label: 'PHI encryption at rest' },
   { value: '2-person', label: 'Verification gate' },
-  { value: 'E2E', label: 'Encrypted PHI' },
-  { value: 'Hash chain', label: 'Audit trail' },
+  { value: 'Hash chain', label: 'Append-only audit' },
   { value: 'Server-side', label: 'Inference proxy' }
 ];
 
@@ -131,7 +131,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
               <span className="text-sm md:text-base font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
                 LenziAI
               </span>
-              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono bg-gradient-to-r from-green-100 to-green-200 dark:from-green-950 dark:to-green-900 text-green-900 dark:text-green-200 font-semibold border border-green-300 dark:border-green-800">
+              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[11px] font-mono bg-gradient-to-r from-green-100 to-green-200 dark:from-green-950 dark:to-green-900 text-green-900 dark:text-green-200 font-semibold border border-green-300 dark:border-green-800">
                 AI CLINICAL
               </span>
             </div>
@@ -217,7 +217,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
           <div className="relative max-w-[1440px] mx-auto gutter-x pt-14 pb-16 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             {/* Left column - text */}
             <div className="animate-fade-in space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-50 to-emerald-50 dark:from-cyan-950/60 dark:to-emerald-950/60 border border-cyan-200 dark:border-cyan-800 text-[11px] font-mono font-semibold text-cyan-800 dark:text-cyan-300">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-50 to-emerald-50 dark:from-cyan-950/60 dark:to-emerald-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
                 <Sparkles className="w-3.5 h-3.5" />
                 AI ASSISTED CLINICAL MICROSCOPY
               </div>
@@ -228,7 +228,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 <span className="bg-gradient-to-r from-cyan-700 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 bg-clip-text text-transparent">Every finding verified.</span>
               </h1>
 
-              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
+              <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
                 LenziAI pairs automated computer vision detection with a disciplined laboratory
                 workflow: accession the specimen, scan the slide, adjudicate every detection, and
                 release a two-person verified report with an unbroken chain of custody.
@@ -254,17 +254,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 </button>
               </div>
 
-              <div className="flex items-center gap-4 pt-2">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className={`w-7 h-7 rounded-full border-2 border-white dark:border-slate-950 bg-gradient-to-br ${['from-cyan-400 to-cyan-600', 'from-emerald-400 to-emerald-600', 'from-teal-400 to-teal-600'][i - 1]} flex items-center justify-center text-[10px] font-bold text-white`}>
-                      {String.fromCharCode(64 + i)}
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Trusted by <span className="font-semibold text-slate-700 dark:text-slate-300">laboratory teams</span> worldwide
-                </p>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-green-700 dark:text-green-400" /> Encrypted patient data</span>
+                <span className="flex items-center gap-1.5"><Server className="w-3.5 h-3.5 text-green-700 dark:text-green-400" /> Server-side inference</span>
+                <span className="flex items-center gap-1.5"><GitCommitVertical className="w-3.5 h-3.5 text-green-700 dark:text-green-400" /> Hash-chained audit</span>
               </div>
             </div>
 
@@ -281,7 +274,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                     </div>
                     Microscopy Optical Stage
                   </div>
-                  <span className="px-2 py-0.5 rounded-md bg-cyan-50 dark:bg-cyan-950/60 text-[10px] font-mono text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                  <span className="px-2 py-0.5 rounded-md bg-cyan-50 dark:bg-cyan-950/60 text-[11px] font-mono text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
                     400x · Lugol&apos;s Iodine
                   </span>
                 </div>
@@ -295,13 +288,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   />
                   {/* Detection overlays with improved styling */}
                   <div className="absolute top-[18%] left-[12%] w-[26%] h-[22%] rounded-lg border-2 border-emerald-400 bg-emerald-400/10 backdrop-blur-sm">
-                    <div className="absolute -top-6 left-0 px-2 py-1 rounded-md bg-emerald-500 text-white text-[9px] font-mono whitespace-nowrap shadow-lg shadow-emerald-500/30 flex items-center gap-1">
+                    <div className="absolute -top-6 left-0 px-2 py-1 rounded-md bg-emerald-500 text-white text-[11px] font-mono whitespace-nowrap shadow-lg shadow-emerald-500/30 flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       Giardia lamblia cyst · 0.82
                     </div>
                   </div>
                   <div className="absolute bottom-[16%] right-[14%] w-[22%] h-[18%] rounded-lg border-2 border-amber-400 bg-amber-400/10 backdrop-blur-sm">
-                    <div className="absolute -top-6 right-0 px-2 py-1 rounded-md bg-amber-500 text-white text-[9px] font-mono whitespace-nowrap shadow-lg shadow-amber-500/30 flex items-center gap-1">
+                    <div className="absolute -top-6 right-0 px-2 py-1 rounded-md bg-amber-500 text-white text-[11px] font-mono whitespace-nowrap shadow-lg shadow-amber-500/30 flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       Ascaris ovum · 0.71
                     </div>
@@ -310,13 +303,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   {/* Live indicator */}
                   <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/80 backdrop-blur-md border border-slate-700">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] font-mono text-slate-300">LIVE</span>
+                    <span className="text-[11px] font-mono text-slate-300">LIVE</span>
                   </div>
                 </div>
 
                 {/* Card footer */}
-                <div className="px-4 py-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-                  <span>EXAMPLE PREVIEW detection overlays for illustration</span>
+                <div className="px-4 py-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+                  <span>Illustrative detection overlays — not an analysed slide</span>
                   <span className="flex items-center gap-1">
                     <Server className="w-3 h-3" />
                     {DEFAULT_AI_MODELS.length} detection model{DEFAULT_AI_MODELS.length !== 1 ? 's' : ''} configured
@@ -336,7 +329,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   <div className="text-2xl font-bold bg-gradient-to-r from-cyan-700 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 bg-clip-text text-transparent group-hover:scale-110 transition-transform">
                     {stat.value}
                   </div>
-                  <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <div className="text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                     {stat.label}
                   </div>
                 </div>
@@ -349,7 +342,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         <section id="features" className="scroll-mt-20">
           <div className="max-w-[1440px] mx-auto gutter-x py-16 lg:py-24">
             <div className="max-w-2xl space-y-3">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-[11px] font-mono font-semibold text-cyan-800 dark:text-cyan-300">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
                 <FlaskConical className="w-3.5 h-3.5" />
                 CORE CAPABILITIES
               </div>
@@ -357,8 +350,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 Built around the laboratory workflow
               </h2>
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                Detection is the starting point. Everything after it adjudication, quantification,
-                verification, release is built to survive review by a real laboratory team.
+                Detection is the starting point. Everything after it — adjudication, quantification,
+                verification, release — is built to survive review by a real laboratory team.
               </p>
             </div>
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -392,7 +385,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         <section id="workflow" className="scroll-mt-20 bg-white/80 dark:bg-slate-900/40 backdrop-blur-sm border-y border-slate-200 dark:border-slate-800">
           <div className="max-w-[1440px] mx-auto gutter-x py-16 lg:py-24">
             <div className="max-w-2xl space-y-3">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[11px] font-mono font-semibold text-emerald-800 dark:text-emerald-300">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs font-mono font-semibold text-emerald-800 dark:text-emerald-300">
                 <GitCommitVertical className="w-3.5 h-3.5" />
                 WORKFLOW
               </div>
@@ -427,13 +420,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
 
                       {/* Content */}
                       <div className="flex-1 pt-1">
-                        <span className="text-[10px] font-mono font-bold text-cyan-700 dark:text-cyan-400">
+                        <span className="text-[11px] font-mono font-bold text-cyan-700 dark:text-cyan-400">
                           STEP {item.step}
                         </span>
-                        <h3 className="mt-1.5 text-sm font-bold text-slate-900 dark:text-white group-hover:text-cyan-900 dark:group-hover:text-cyan-100 transition-colors">
+                        <h3 className="mt-1.5 text-base font-bold text-slate-900 dark:text-white group-hover:text-cyan-900 dark:group-hover:text-cyan-100 transition-colors">
                           {item.title}
                         </h3>
-                        <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                        <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                           {item.body}
                         </p>
                       </div>
@@ -448,47 +441,77 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         {/* Governance */}
         <section id="governance" className="scroll-mt-20">
           <div className="max-w-[1440px] mx-auto gutter-x py-16 lg:py-24">
-            <div className="space-y-6">
-              {/* Governance links */}
-              <div className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-xl hover:shadow-cyan-500/5 dark:hover:shadow-cyan-900/10 transition-all duration-300 flex flex-col overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-blue-500/5 dark:from-cyan-400/5 dark:to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative flex flex-col h-full">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
-                      <FileCheck2 className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
-                    </div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Governance &amp; privacy</h2>
-                  </div>
-
-                  <div className="mt-5 flex flex-col gap-3 flex-1">
-                    <button
-                      type="button"
-                      onClick={() => setLegalTab('terms')}
-                      className="group/btn text-left text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-cyan-800 dark:hover:text-cyan-400 transition cursor-pointer flex items-center gap-2 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                    >
-                      <div className="w-6 h-6 rounded-md bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center group-hover/btn:scale-110 transition-transform">
-                        <ArrowRight className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
-                      </div>
-                      Terms of Service &amp; Decision Support
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLegalTab('privacy')}
-                      className="group/btn text-left text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-cyan-800 dark:hover:text-cyan-400 transition cursor-pointer flex items-center gap-2 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                    >
-                      <div className="w-6 h-6 rounded-md bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center group-hover/btn:scale-110 transition-transform">
-                        <ArrowRight className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
-                      </div>
-                      Privacy Policy &amp; HIPAA De-Identification
-                    </button>
-                  </div>
-
-                  <div className="mt-auto pt-4 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 border-l-2 border-amber-300 dark:border-amber-600/60 pl-3">
-                    Software provides automated morphology suggestions only. Pathologist or
-                    technologist sign off is required prior to clinical release.
-                  </div>
-                </div>
+            <div className="max-w-2xl space-y-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
+                <FileCheck2 className="w-3.5 h-3.5" />
+                GOVERNANCE
               </div>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Built for audit-ready laboratories
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
+                Security isn't a feature toggle. Every layer — from the database to the audit log to the verification gate — is designed to satisfy a real laboratory review.
+              </p>
+            </div>
+
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-lg transition-all">
+                <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center mb-4">
+                  <Lock className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Encryption at rest</h3>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  Patient-identifying fields are encrypted with AES-256-GCM before they touch disk. A stolen database file yields ciphertext, not a patient list. A blind index preserves exact-match search without storing plaintext.
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-lg transition-all">
+                <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center mb-4">
+                  <GitCommitVertical className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Append-only audit chain</h3>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  Every accession, inference run, detection adjudication, report verification, and role change is written to a hash-chained log. Any edit or deletion invalidates every subsequent entry — verified in one click from the admin console.
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-lg transition-all">
+                <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center mb-4">
+                  <ShieldCheck className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Access control &amp; approval</h3>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  New accounts are email-verified and held for administrator approval before first sign-in. Reports require a second operator to verify — the originating technologist cannot sign off alone. Admins can disable accounts instantly.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setLegalTab('terms')}
+                  className="group/btn text-left text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-cyan-800 dark:hover:text-cyan-400 transition cursor-pointer flex items-center gap-2 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                >
+                  <div className="w-6 h-6 rounded-md bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center group-hover/btn:scale-110 transition-transform">
+                    <ArrowRight className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
+                  </div>
+                  Terms of Service &amp; Decision Support
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLegalTab('privacy')}
+                  className="group/btn text-left text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-cyan-800 dark:hover:text-cyan-400 transition cursor-pointer flex items-center gap-2 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                >
+                  <div className="w-6 h-6 rounded-md bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center group-hover/btn:scale-110 transition-transform">
+                    <ArrowRight className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
+                  </div>
+                  Privacy Policy &amp; HIPAA De-Identification
+                </button>
+              </div>
+              <p className="text-xs text-amber-700 dark:text-amber-300 border-l-2 border-amber-400 dark:border-amber-600 pl-3 leading-relaxed">
+                LenziAI provides automated morphology suggestions only. Pathologist or technologist sign-off is required prior to clinical release.
+              </p>
             </div>
           </div>
         </section>
@@ -501,7 +524,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
 
           <div className="relative max-w-[1440px] mx-auto gutter-x py-16 lg:py-20">
             <div className="max-w-3xl mx-auto text-center space-y-5">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-100 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-[11px] font-mono font-semibold text-cyan-800 dark:text-cyan-300">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-100 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
                 <Globe2 className="w-3.5 h-3.5" />
                 GET STARTED
               </div>
@@ -543,11 +566,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
               <Microscope className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="text-xs font-bold text-slate-900 dark:text-white">LenziAI</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-green-100 dark:bg-green-950 text-green-900 dark:text-green-200 font-semibold border border-green-300 dark:border-green-800">
+            <span className="px-1.5 py-0.5 rounded text-[11px] font-mono bg-green-100 dark:bg-green-950 text-green-900 dark:text-green-200 font-semibold border border-green-300 dark:border-green-800">
               AI CLINICAL
             </span>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
             <span>&copy; {new Date().getFullYear()} {LAB_METADATA.license}. All rights reserved.</span>
             <span aria-hidden="true" className="text-slate-400 dark:text-slate-600">&middot;</span>
             <button

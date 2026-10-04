@@ -61,7 +61,7 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
     return (
       <div
         role="alert"
-        className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 p-3 rounded-xl text-xs"
+        className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 p-3.5 rounded-xl text-sm font-medium"
       >
         <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
         <div>
@@ -88,7 +88,7 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
               Accounts
             </span>
           </div>
@@ -123,7 +123,7 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <ScrollText className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
               Audit Chain
             </span>
           </div>
@@ -143,7 +143,7 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
             <ShieldAlert className="w-7 h-7 text-rose-600 dark:text-rose-400 shrink-0" />
           )}
           <div className="space-y-0.5">
-            <div className={`text-xs font-semibold ${integrity?.intact ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
+            <div className={`text-sm font-bold ${integrity?.intact ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
               {integrity?.intact ? 'Integrity verified' : `Broken at entry #${integrity?.brokenAt ?? '?'}`}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
@@ -155,7 +155,7 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs flex flex-col">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <span className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
             Latest Activity
           </span>
           <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
@@ -163,7 +163,7 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
           </span>
         </div>
         {entries.length === 0 ? (
-          <p className="text-xs text-slate-400 dark:text-slate-500 flex-1">No recorded actions yet.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 flex-1">No recorded actions yet.</p>
         ) : (
           <ul className="space-y-2 flex-1">
             {entries.slice(0, 5).map(entry => (

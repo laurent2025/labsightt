@@ -610,7 +610,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
   return (
     <div className="flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-md">
       {/* Top Telemetry & Optical Controls Ribbon */}
-      <div className="flex flex-wrap items-center justify-between px-3 sm:px-4 py-2 bg-slate-950/90 border-b border-slate-800 text-xs text-slate-300 gap-2">
+      <div className="flex flex-wrap items-center justify-between px-3 sm:px-4 py-2 bg-slate-950/90 border-b border-slate-800 text-sm text-slate-200 gap-2">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 font-mono text-cyan-400 font-semibold">
             <Crosshair className="w-3.5 h-3.5" />
@@ -622,7 +622,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           <span className="font-mono text-slate-400">MAG: {totalMagnification}</span>
           <span className="text-slate-600 dark:text-slate-400">·</span>
           {/* Multi-field Scan Stepper */}
-          <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-[11px] font-mono">
+          <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-xs font-mono">
             <span className="text-slate-400">HPF:</span>
             <button
               type="button"
@@ -657,7 +657,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('boxes')}
-            className={`px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               filterMode === 'boxes'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -668,7 +668,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('original')}
-            className={`px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               filterMode === 'original'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -679,7 +679,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('enhanced')}
-            className={`px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               filterMode === 'enhanced'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -690,7 +690,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('darkfield')}
-            className={`px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               filterMode === 'darkfield'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -701,7 +701,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('split')}
-            className={`px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
+            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
               filterMode === 'split'
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -969,11 +969,11 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             </button>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-cyan-400 font-medium">Select & Drag on Slide:</span>
+              <span className="text-sm text-cyan-300 font-bold">Select &amp; Drag on Slide:</span>
               <select
                 value={selectedClassToAdd}
                 onChange={e => setSelectedClassToAdd(e.target.value)}
-                className="bg-slate-800 text-slate-200 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="bg-slate-800 text-slate-100 border border-slate-700 text-sm font-medium rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               >
                 {availableClasses.map(c => (
                   <option key={c} value={c}>
@@ -984,7 +984,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
               <button
                 type="button"
                 onClick={() => setIsAddingBox(false)}
-                className="px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800 rounded-lg cursor-pointer"
+                className="px-2.5 py-1.5 text-sm text-slate-300 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -1000,13 +1000,13 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
 
         {/* Selected Box Quick Inspector Card */}
         {selectedDetection && (
-          <div className="absolute top-4 right-4 bg-slate-900/95 backdrop-blur-md border border-cyan-500/40 p-3.5 rounded-xl shadow-xl w-72 text-slate-200 text-xs z-10">
+          <div className="absolute top-4 right-4 bg-slate-900/95 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-xl w-72 text-slate-200 text-sm z-10">
             <div className="flex items-start justify-between border-b border-slate-800 pb-2 mb-2">
               <div>
                 <span className="font-semibold text-cyan-300 text-sm block">
                   {selectedDetection.class}
                 </span>
-                <span className="text-[11px] text-slate-400 font-mono">
+                <span className="text-xs text-slate-400 font-mono">
                   Confidence: {(selectedDetection.confidence * 100).toFixed(1)}%
                 </span>
               </div>
@@ -1021,7 +1021,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 font-mono text-[11px] text-slate-400 mb-3">
+            <div className="grid grid-cols-2 gap-2 font-mono text-xs text-slate-300 mb-3">
               <div>
                 Est. Size: {(selectedDetection.width / pxPerMicron).toFixed(1)} ×{' '}
                 {(selectedDetection.height / pxPerMicron).toFixed(1)} µm
@@ -1032,7 +1032,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             </div>
 
             {selectedDetection.note && (
-              <p className="text-slate-300 italic mb-3 text-[11px] bg-slate-950/60 p-2 rounded border border-slate-800">
+              <p className="text-slate-300 italic mb-3 text-xs bg-slate-950/60 p-2 rounded border border-slate-800">
                 "{selectedDetection.note}"
               </p>
             )}
@@ -1041,7 +1041,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onToggleConfirm?.(selectedDetection.id)}
-                className={`flex-1 py-1.5 px-2 rounded-lg font-medium text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
+                className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-sm flex items-center justify-center gap-1 transition cursor-pointer ${
                   selectedDetection.confirmed
                     ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     : 'bg-emerald-600 text-white hover:bg-emerald-500'
@@ -1053,7 +1053,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
               <button
                 type="button"
                 onClick={() => onRejectDetection?.(selectedDetection.id)}
-                className="py-1.5 px-2 rounded-lg bg-rose-950/70 border border-rose-800 text-rose-300 hover:bg-rose-900/80 font-medium text-xs flex items-center gap-1 transition cursor-pointer"
+                className="py-1.5 px-2 rounded-lg bg-rose-950/70 border border-rose-800 text-rose-300 hover:bg-rose-900/80 font-bold text-sm flex items-center gap-1 transition cursor-pointer"
                 title="Reject false positive"
               >
                 <Trash2 className="w-3.5 h-3.5" />

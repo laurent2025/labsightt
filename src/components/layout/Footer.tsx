@@ -7,7 +7,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
-  <footer className="no-print border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-[10px] text-slate-600 dark:text-slate-400 transition-colors duration-200">
+  <footer className="no-print border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-600 dark:text-slate-400 transition-colors duration-200">
     {/* Gradient accent line */}
     <div className="h-px bg-gradient-to-r from-transparent via-green-500/70 dark:via-green-400/70 to-transparent" />
 
@@ -21,13 +21,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
               <Microscope className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">LenziAI</div>
-              <div className="text-[8px] font-mono text-green-800 dark:text-green-300 font-semibold uppercase leading-tight">
+              <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">LenziAI</div>
+              <div className="text-[10px] font-mono text-green-800 dark:text-green-300 font-bold uppercase leading-tight">
                 AI Clinical
               </div>
             </div>
           </div>
-          <p className="text-[9px] leading-relaxed text-slate-600 dark:text-slate-400 max-w-xs">
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 max-w-xs">
             Computer-vision assisted microscopy review for clinical laboratories. Not a medical device. All output
             requires qualified technologist sign-off.
           </p>
@@ -35,13 +35,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
 
         {/* Product column */}
         <div className="space-y-2">
-          <h3 className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">Product</h3>
+          <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Product</h3>
           <ul className="space-y-1">
             <li>
               <button
                 type="button"
                 onClick={() => onOpenLegal('terms')}
-                className="text-left text-[9px] text-slate-600 dark:text-slate-400 hover:text-green-800 dark:hover:text-green-300 transition-colors cursor-pointer"
+                className="text-left text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-green-800 dark:hover:text-green-300 transition-colors cursor-pointer"
               >
                 Terms of Service
               </button>
@@ -50,7 +50,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
               <button
                 type="button"
                 onClick={() => onOpenLegal('privacy')}
-                className="text-left text-[9px] text-slate-600 dark:text-slate-400 hover:text-green-800 dark:hover:text-green-300 transition-colors cursor-pointer"
+                className="text-left text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-green-800 dark:hover:text-green-300 transition-colors cursor-pointer"
               >
                 Privacy Policy &amp; HIPAA
               </button>
@@ -60,17 +60,17 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
 
         {/* Compliance column */}
         <div className="space-y-2">
-          <h3 className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">Compliance</h3>
+          <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Compliance</h3>
           <ul className="space-y-1">
-            <li className="flex items-center gap-1.5 text-[9px] text-slate-600 dark:text-slate-400">
+            <li className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
               <ShieldCheck className="w-3 h-3 shrink-0 text-green-700 dark:text-green-400" />
               FDA CDS Guidance
             </li>
-            <li className="flex items-center gap-1.5 text-[9px] text-slate-600 dark:text-slate-400">
+            <li className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
               <ShieldCheck className="w-3 h-3 shrink-0 text-green-700 dark:text-green-400" />
               CLIA Regulations
             </li>
-            <li className="flex items-center gap-1.5 text-[9px] text-slate-600 dark:text-slate-400">
+            <li className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
               <ShieldCheck className="w-3 h-3 shrink-0 text-green-700 dark:text-green-400" />
               ISO 15189:2022
             </li>
@@ -79,20 +79,20 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
 
         {/* Status column */}
         <div className="space-y-2">
-          <h3 className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">System Status</h3>
+          <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">System Status</h3>
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600" />
               </span>
-              <span className="text-[9px] font-medium text-slate-700 dark:text-slate-300">Operational</span>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Operational</span>
             </div>
-            <div className="flex items-start gap-1.5 text-[9px] text-slate-600 dark:text-slate-400">
+            <div className="flex items-start gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
               <Lock className="w-3 h-3 mt-px shrink-0 text-green-700 dark:text-green-400" />
               <span>Records encrypted at rest on the laboratory server</span>
             </div>
-            <div className="flex items-start gap-1.5 text-[9px] text-slate-600 dark:text-slate-400">
+            <div className="flex items-start gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
               <Globe2 className="w-3 h-3 mt-px shrink-0 text-green-700 dark:text-green-400" />
               <span className="break-anywhere">{LAB_METADATA.license}</span>
             </div>
@@ -102,10 +102,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
 
       {/* Bottom bar */}
       <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-center sm:text-left">
-        <p className="text-[9px] text-slate-600 dark:text-slate-400">
+        <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
           &copy; {new Date().getFullYear()} {LAB_METADATA.license}. All rights reserved.
         </p>
-        <p className="text-[8px] text-slate-500 dark:text-slate-400 font-mono break-anywhere">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono break-anywhere">
           v2.0 &middot; Server-side inference proxy &middot; AES-256-GCM at rest
         </p>
       </div>

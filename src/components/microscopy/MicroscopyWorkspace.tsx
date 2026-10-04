@@ -15,7 +15,8 @@ import {
   Camera,
   Video,
   X,
-  ArrowRight
+  ArrowRight,
+  Check
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
@@ -133,7 +134,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">Microscopy Workstation</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 {browseFilter
                   ? `Showing ${visibleAnalyses.length} pending review${visibleAnalyses.length === 1 ? '' : 's'}`
                   : 'Select a run to open full details'}
@@ -147,7 +148,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                     <th className="py-2.5 px-4 font-semibold">Patient &amp; Specimen</th>
@@ -164,7 +165,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                     return (
                       <tr key={ana.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="py-3 px-4">
-                          <div className="font-semibold text-slate-900 dark:text-white">{patient?.fullName || 'Unknown Patient'}</div>
+                          <div className="font-bold text-sm text-slate-900 dark:text-white">{patient?.fullName || 'Unknown Patient'}</div>
                           <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
                             {patient?.patientNumber} · {sample?.sampleType}
                           </div>
@@ -197,7 +198,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                           )}
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
                             ana.status === 'verified'
                               ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
                               : ana.status === 'confirmed'
@@ -211,7 +212,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                           <button
                             type="button"
                             onClick={() => handleBrowseSelect(ana.id)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition cursor-pointer"
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-sm font-bold inline-flex items-center gap-1.5 transition cursor-pointer"
                           >
                             <span>Open</span>
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -446,18 +447,18 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 {analysisError ? 'Specimen saved; AI analysis did not complete' : 'Specimen ready for AI analysis'}
               </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
                 {activePatient.fullName} · {activeSample.slideLabel} · {activeSample.sampleType}
               </p>
               {analysisError ? (
-                <p role="alert" className="text-xs text-amber-900 dark:text-amber-200 mt-3 break-words">
+                <p role="alert" className="text-sm font-medium text-amber-900 dark:text-amber-200 mt-3 break-words">
                   {analysisError}
                 </p>
               ) : (
-                <p className="text-xs text-slate-600 dark:text-slate-300 mt-3">
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-3">
                   This saved specimen does not have an analysis yet.
                 </p>
 )}
@@ -465,7 +466,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 type="button"
                 onClick={() => void handleTriggerAnalysis()}
                 disabled={isAnalyzing}
-                className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg font-semibold text-xs inline-flex items-center gap-2"
+                className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg font-bold text-sm inline-flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
                 {isAnalyzing ? 'Running AI analysis...' : 'Retry AI analysis'}
@@ -508,72 +509,74 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const isStep4Done = totalDets > 0 && pendingCount === 0;
   const isStep5Done = activeAnalysis.status === 'verified';
 
-  const stepState = (done: boolean) => {
-    if (done) return 'bg-green-600 text-white shadow-sm';
-    return 'bg-transparent border-2 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400';
-  };
+  const workflowSteps = [
+    { label: 'Accession', done: isStep1Done },
+    { label: 'AI Inference', done: isStep2Done },
+    { label: `Adjudication ${confirmedCount}/${totalDets}`, done: isStep3Done },
+    { label: 'Draft Report', done: isStep4Done },
+    { label: 'Verification', done: isStep5Done }
+  ];
+  const activeStepIndex = workflowSteps.findIndex(step => !step.done);
 
   return (
     <div className="space-y-4">
       {/* Visual Clinical Workflow Step Bar */}
-      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
-        <div className="flex items-center justify-between text-xs overflow-x-auto gap-2">
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${stepState(isStep1Done)}`}>
-              {isStep1Done ? '✓' : '1'}
-            </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline">Accession</span>
-          </div>
-
-          <span className="text-slate-300 dark:text-slate-700 shrink-0">──</span>
-
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${stepState(isStep2Done)}`}>
-              {isStep2Done ? '✓' : '2'}
-            </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline">AI Inference</span>
-          </div>
-
-          <span className="text-slate-300 dark:text-slate-700 shrink-0">──</span>
-
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${stepState(isStep3Done)}`}>
-              {isStep3Done ? '✓' : '3'}
-            </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline">Adjudication ({confirmedCount}/{totalDets})</span>
-          </div>
-
-          <span className="text-slate-300 dark:text-slate-700 shrink-0">──</span>
-
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${stepState(isStep4Done)}`}>
-              {isStep4Done ? '✓' : '4'}
-            </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline">Draft Report</span>
-          </div>
-
-          <span className="text-slate-300 dark:text-slate-700 shrink-0">──</span>
-
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${stepState(isStep5Done)}`}>
-              {isStep5Done ? '✓' : '5'}
-            </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline">Independent Verification</span>
-          </div>
-        </div>
+      <div
+        className="bg-white dark:bg-slate-900 px-4 py-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
+        aria-label="Clinical workflow progress"
+      >
+        <ol className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
+          {workflowSteps.map((step, index) => {
+            const isActive = index === activeStepIndex;
+            return (
+              <li key={step.label} className="flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0">
+                {index > 0 && (
+                  <span
+                    aria-hidden
+                    className={`h-0.5 w-4 sm:w-7 rounded-full transition-colors ${
+                      workflowSteps[index - 1].done ? 'bg-green-600' : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                  />
+                )}
+                <span
+                  className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-full pl-1 pr-3 sm:pr-3.5 py-1 border text-xs sm:text-sm font-bold transition-colors ${
+                    step.done
+                      ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                      : isActive
+                        ? 'bg-white dark:bg-slate-900 border-green-500 text-green-800 dark:text-green-300 ring-2 ring-green-200 dark:ring-green-900/60'
+                        : 'bg-transparent border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+                      step.done
+                        ? 'bg-white/25'
+                        : isActive
+                          ? 'bg-green-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800'
+                    }`}
+                  >
+                    {step.done ? <Check className="w-3 h-3" /> : index + 1}
+                  </span>
+                  {step.label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
       {/* Top Session Ribbon */}
       <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs transition-colors duration-200">
         <div className="flex items-center gap-3">
           <div>
-            <label className="text-[10px] text-slate-400 dark:text-slate-500 block font-medium uppercase">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
               SPECIMEN ACCESSION
             </label>
             <select
               value={activeAnalysis.id}
               onChange={e => setSelectedAnalysisId(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500"
             >
               {analyses.map(a => {
                 const pat = patients.find(p => p.id === a.patientId);
@@ -587,7 +590,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           </div>
 
           <div className="hidden sm:block border-l border-slate-200 dark:border-slate-800 pl-3">
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 block font-medium uppercase">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
               SPECIMEN MATRIX
             </span>
             <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
@@ -596,13 +599,13 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           </div>
 
           <div className="hidden md:block border-l border-slate-200 dark:border-slate-800 pl-3">
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 block font-medium uppercase">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
               ACTIVE ROBOFLOW PIPELINE
             </span>
             <select
               value={selectedModelId}
               onChange={e => setSelectedModelId(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-xs font-mono"
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-sm font-mono"
             >
               {models.map(m => (
                 <option key={m.id} value={m.id}>
@@ -619,7 +622,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           <button
             type="button"
             onClick={handleAiConsultation}
-            className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+            className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-sm font-bold flex items-center gap-1.5 transition cursor-pointer"
             title="Summarise the detections you have adjudicated"
           >
             <Bot className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
@@ -663,7 +666,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             type="button"
             onClick={() => void handleTriggerAnalysis()}
             disabled={isAnalyzing}
-            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg font-semibold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
+            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
           >
             {isAnalyzing ? (
               <>
@@ -684,7 +687,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       {uploadedSlides.length > 0 && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs">
           <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 shrink-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 shrink-0">
               Loaded Slides ({uploadedSlides.length})
             </span>
             {uploadedSlides.map((slide, index) => {

@@ -112,7 +112,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">User Access Administration</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Approve or revoke account access, assign administrator roles, and review recorded activity
             </p>
           </div>
@@ -153,7 +153,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse min-w-[860px]">
+            <table className="w-full text-left text-sm border-collapse min-w-[860px]">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                   <th className="py-2.5 px-4 font-semibold">User</th>

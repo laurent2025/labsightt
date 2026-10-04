@@ -205,9 +205,9 @@ html.dark {
   textarea {
     color: var(--text-primary);
     font-family: var(--font-sans);
-    /* Readability floor: form text is at least 14px in either theme. Utility
+    /* Readability floor: form text is at least 15px in either theme. Utility
        classes in components can still raise (or lower, for dense tables) it. */
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
   }
 
   input::placeholder,
@@ -310,13 +310,14 @@ html.dark {
  * bound is the size that has to stay legible on the smallest supported
  * handset; the upper bound stops headings from ballooning on wide monitors.
  * Deliberately no element-selector overrides here — components choose their
- * own step, including the intentionally small footer captions.
+ * own step. The fluid steps keep even dense captions (footer, table
+ * subtitles) above a legible minimum.
  */
 :root {
   --text-2xs: clamp(0.625rem, 0.6rem + 0.12vw, 0.6875rem);
-  --text-xs:  clamp(0.6875rem, 0.66rem + 0.14vw, 0.75rem);
-  --text-sm:  clamp(0.8125rem, 0.78rem + 0.17vw, 0.875rem);
-  --text-base: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  --text-xs:  clamp(0.75rem, 0.72rem + 0.14vw, 0.8125rem);
+  --text-sm:  clamp(0.875rem, 0.84rem + 0.17vw, 0.9375rem);
+  --text-base: clamp(1rem, 0.95rem + 0.2vw, 1.125rem);
   --text-lg:  clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
   --text-xl:  clamp(1.1875rem, 1.08rem + 0.55vw, 1.5rem);
   --text-2xl: clamp(1.375rem, 1.15rem + 1.1vw, 2rem);
@@ -604,6 +605,53 @@ svg {
 .break-anywhere {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/*
+ * Micro-label floor.
+ *
+ * Eyebrows, version stamps, status chips, and table sub-captions historically
+ * used ad-hoc 9-11px sizes that sat below comfortable legibility on 100% zoom
+ * — the hospital-screen standard. These overrides lift every one of those
+ * utilities to a consistent 11-12px floor in a single place instead of
+ * chasing the class through dozens of components.
+ */
+@layer utilities {
+  .text-\[9px\] {
+    font-size: 0.6875rem;
+  }
+  .text-\[10px\] {
+    font-size: 0.75rem;
+  }
+  .text-\[11px\] {
+    font-size: 0.75rem;
+  }
+}
+
+/*
+ * Professional data-table treatment, shared by every screen's table.
+ *
+ * Zebra striping keeps long grids scannable (hospital LIS convention), and a
+ * sticky header row stays visible while scrolling dense lists. Row hover and
+ * explicit row backgrounds (e.g. the printable report's own alternating
+ * colors) are utility classes on the <tr>, so they still win over these
+ * element rules. The printable A4 report is excluded from the sticky header
+ * so a printed sheet never pins a band across the page.
+ */
+tbody tr:nth-child(even) {
+  background-color: rgba(100, 116, 139, 0.055);
+}
+html.dark tbody tr:nth-child(even) {
+  background-color: rgba(148, 163, 184, 0.06);
+}
+
+table thead tr {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+#laboratory-report-container table thead tr {
+  position: static;
 }
 
 /* Large desktop: cap line length for readability */

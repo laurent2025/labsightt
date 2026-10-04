@@ -270,7 +270,7 @@ export default function App() {
 
         {loadError && (
           <div role="alert" className="mb-4 flex items-start gap-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 p-3 rounded-xl text-xs">
-            <span className="font-bold">Could not load:</span>
+            <span className="font-bold">Could not load data:</span>
             <span className="flex-1">{loadError}</span>
           </div>
         )}
