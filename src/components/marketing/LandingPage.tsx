@@ -37,7 +37,7 @@ const FEATURES = [
   {
     icon: ScanSearch,
     title: 'Automated morphology detection',
-    body: 'A serverless YOLO26m workflow flags candidate organisms, cells, and crystals across stool, blood, and urine pipelines — each model tuned per specimen type.',
+    body: 'A serverless YOLO26m workflow flags candidate organisms, cells, and crystals across stool, blood, and urine pipelines each model tuned per specimen type.',
     accent: 'from-cyan-500/10 to-emerald-500/10 dark:from-cyan-400/10 dark:to-emerald-400/10'
   },
   {
@@ -309,7 +309,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
 
                 {/* Card footer */}
                 <div className="px-4 py-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-                  <span>Illustrative detection overlays — not an analysed slide</span>
+                  <span>Illustrative detection overlays not an analysed slide</span>
                   <span className="flex items-center gap-1">
                     <Server className="w-3 h-3" />
                     {DEFAULT_AI_MODELS.length} detection model{DEFAULT_AI_MODELS.length !== 1 ? 's' : ''} configured
@@ -350,8 +350,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 Built around the laboratory workflow
               </h2>
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                Detection is the starting point. Everything after it — adjudication, quantification,
-                verification, release — is built to survive review by a real laboratory team.
+                Detection is the starting point. Everything after it adjudication, quantification,
+                verification, release is built to survive review by a real laboratory team.
               </p>
             </div>
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -450,7 +450,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 Built for audit-ready laboratories
               </h2>
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                Security isn't a feature toggle. Every layer — from the database to the audit log to the verification gate — is designed to satisfy a real laboratory review.
+                Security isn't a feature toggle. Every layer from the database to the audit log to the verification gate is designed to satisfy a real laboratory review.
               </p>
             </div>
 
@@ -471,7 +471,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 </div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Append-only audit chain</h3>
                 <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  Every accession, inference run, detection adjudication, report verification, and role change is written to a hash-chained log. Any edit or deletion invalidates every subsequent entry — verified in one click from the admin console.
+                  Every accession, inference run, detection adjudication, report verification, and role change is written to a hash-chained log. Any edit or deletion invalidates every subsequent entry verified in one click from the admin console.
                 </p>
               </div>
 
@@ -481,7 +481,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 </div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Access control &amp; approval</h3>
                 <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  New accounts are email-verified and held for administrator approval before first sign-in. Reports require a second operator to verify — the originating technologist cannot sign off alone. Admins can disable accounts instantly.
+                  New accounts are email-verified and held for administrator approval before first sign-in. Reports require a second operator to verify the originating technologist cannot sign off alone. Admins can disable accounts instantly.
                 </p>
               </div>
             </div>

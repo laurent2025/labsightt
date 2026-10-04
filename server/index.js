@@ -481,7 +481,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.get('/api/patients/export', auth, async (req, res, next) => {
     try {
       const term = typeof req.query.search === 'string' ? req.query.search.trim() : '';
-      let patients;
+      let patients = [];
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
         if (req.user.role !== 'admin') {
@@ -497,14 +497,14 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             search: term,
             allowedIds: Array.from(allowedIds)
           });
-          patients = result.items;
+          patients = result.items ?? [];
         } else {
           const result = await listSupabasePatients(supabase, {
             limit: 2000,
             offset: 0,
             search: term
           });
-          patients = result.items;
+          patients = result.items ?? [];
         }
       } else {
         const result = repo.listPatients(db, {
@@ -513,10 +513,10 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           search: term,
           createdBy: req.user.role !== 'admin' ? req.user.id : null
         });
-        patients = result.items;
+        patients = result.items ?? [];
       }
 
-      const rows = await buildPatientExportRows(db, patients, hasSupabaseDatabaseConfig());
+      const rows = buildPatientExportRows(patients);
       const csv = serializePatientCsv(rows);
       const filename = `patients_${new Date().toISOString().slice(0, 10)}.csv`;
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -2153,7 +2153,7 @@ function serializePatientCsv(rows) {
   return lines.join('\n') + '\n';
 }
 
-async function buildPatientExportRows(db, patients, useSupabase) {
+async function buildPatientExportRows(patients) {
   if (!patients || patients.length === 0) return [];
   const rows = patients.map(p => ({
     patientNumber: p.patientNumber,

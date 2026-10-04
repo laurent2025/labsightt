@@ -54,6 +54,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (response.status === 204) return undefined as T;
 
+  const contentType = response.headers.get('content-type') ?? '';
+  const isJson = contentType.includes('application/json');
+
+  if (!isJson) {
+    const text = await response.text();
+    if (!response.ok) {
+      throw new ApiError(response.status, text || `Request failed (${response.status})`, { error: text });
+    }
+    return text as T;
+  }
+
   const text = await response.text();
   let payload: Record<string, unknown> = {};
   if (text) {
