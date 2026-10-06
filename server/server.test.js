@@ -758,4 +758,39 @@ describe('inference proxy', () => {
     await expect(runInference(db, actor, 'base64-image')).resolves.toEqual([]);
     expect(providerFetch).toHaveBeenCalledTimes(3);
   });
+
+  it('re-scans a specimen by replacing the active analysis instead of violating the one-per-sample rule', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify([
+      { class: 'parasite', confidence: 0.9, x: 5, y: 5, width: 10, height: 10 }
+    ]), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(client);
+
+    const first = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image'
+    });
+    expect(first.status).toBe(201);
+
+    // Scanning the same field again must reuse the active analysis
+    // (HTTP 200, same id, replaced detections) rather than collide
+    // with the single active analysis per sample.
+    const rerun = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image'
+    });
+    expect(rerun.status).toBe(200);
+    expect(rerun.body.analysis.id).toBe(first.body.analysis.id);
+    expect(rerun.body.analysis.totalDetections).toBe(1);
+    expect(rerun.body.analysis.detections).toHaveLength(1);
+
+    const audit = db
+      .prepare("SELECT action FROM audit_log WHERE entity = 'analysis' AND entity_id = ? ORDER BY seq DESC LIMIT 1")
+      .get(first.body.analysis.id);
+    expect(audit.action).toBe('ANALYSIS_RERUN');
+  });
 });

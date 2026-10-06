@@ -901,13 +901,53 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             }
           }
         }
-        const analysisId = `ana_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const created = await createSupabaseAnalysis(supabase, {
-          id: analysisId,
-          sampleId,
-          initiatedBy: req.user.id,
-          startedAt
-        });
+        // A specimen may be re-scanned so features the first pass
+        // missed are captured. The schema permits only one active
+        // (non-verified) analysis per sample, so a re-scan reuses
+        // that row: its previous detections are replaced by the
+        // fresh inference, and the updated findings flow into the
+        // next report generated for this analysis.
+        const { data: existingRow, error: existingError } = await supabase
+          .from('analyses')
+          .select('id')
+          .eq('sample_id', sampleId)
+          .neq('status', 'verified')
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (existingError) throw existingError;
+
+        let analysisId;
+        if (existingRow) {
+          analysisId = existingRow.id;
+          await supabase.from('detections').delete().eq('analysis_id', analysisId);
+          const { error: resetError } = await supabase
+            .from('analyses')
+            .update({
+              started_at: startedAt,
+              completed_at: null,
+              total_detections: 0,
+              status: 'processing'
+            })
+            .eq('id', analysisId);
+          if (resetError) throw resetError;
+          appendAudit(db, {
+            actorId: req.user.id,
+            actorName: req.user.display_name,
+            action: 'ANALYSIS_RERUN',
+            entity: 'analysis',
+            entityId: analysisId,
+            details: 'Field re-scanned; previous candidates replaced'
+          });
+        } else {
+          analysisId = `ana_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          await createSupabaseAnalysis(supabase, {
+            id: analysisId,
+            sampleId,
+            initiatedBy: req.user.id,
+            startedAt
+          });
+        }
 
         let detections;
         try {
@@ -938,7 +978,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           completedAt: new Date().toISOString()
         });
         const analysis = await getSupabaseAnalysis(supabase, analysisId);
-        return res.status(201).json({ analysis });
+        return res.status(existingRow ? 200 : 201).json({ analysis });
       }
 
       const sampleOwner = db.prepare('SELECT created_by FROM samples WHERE id = ?').get(sampleId);
@@ -952,11 +992,40 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         }
       }
 
-      const id = newId('ana');
-      db.prepare(`
-        INSERT INTO analyses (id, sample_id, model_id, status, total_detections, started_at, initiated_by)
-        VALUES (?, ?, 'server-configured', 'processing', 0, ?, ?)
-      `).run(id, sampleId, startedAt, req.user.id);
+      // Re-scan support (SQLite branch): same rule as above —
+      // reuse the sample's active analysis and replace its
+      // detections so a re-scan captures missed features.
+      const existing = db.prepare(`
+        SELECT id FROM analyses
+        WHERE sample_id = ? AND status != 'verified'
+        ORDER BY started_at DESC
+        LIMIT 1
+      `).get(sampleId);
+
+      let id;
+      if (existing) {
+        id = existing.id;
+        db.prepare('DELETE FROM detections WHERE analysis_id = ?').run(id);
+        db.prepare(`
+          UPDATE analyses
+          SET started_at = ?, completed_at = NULL, total_detections = 0, status = 'processing'
+          WHERE id = ?
+        `).run(startedAt, id);
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'ANALYSIS_RERUN',
+          entity: 'analysis',
+          entityId: id,
+          details: 'Field re-scanned; previous candidates replaced'
+        });
+      } else {
+        id = newId('ana');
+        db.prepare(`
+          INSERT INTO analyses (id, sample_id, model_id, status, total_detections, started_at, initiated_by)
+          VALUES (?, ?, 'server-configured', 'processing', 0, ?, ?)
+        `).run(id, sampleId, startedAt, req.user.id);
+      }
 
       let detections;
       try {
@@ -1001,7 +1070,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         throw err;
       }
 
-      res.status(201).json({ analysis: repo.getAnalysis(db, id) });
+      res.status(existing ? 200 : 201).json({ analysis: repo.getAnalysis(db, id) });
     } catch (err) {
       next(err);
     }
