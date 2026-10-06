@@ -51,7 +51,7 @@ class InferenceError extends Error {
  * The request is given an AbortSignal so a hung provider cannot pin a server
  * thread indefinitely.
  */
-export async function runInference(db, actor, imageBase64, { confidence = 0.5 } = {}) {
+export async function runInference(db, actor, imageBase64, { confidence = 0.3 } = {}) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
   if (!endpoint || !apiKey) {

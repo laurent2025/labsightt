@@ -293,7 +293,7 @@ async function runHostedInference(
   options: InferenceOptions,
   apiKey: string
 ): Promise<PixelDetection[]> {
-  const { modelId, version, confidenceThreshold = 0.5, iouThreshold = 0.4 } = options;
+  const { modelId, version, confidenceThreshold = 0.3, iouThreshold = 0.4 } = options;
 
   if (!modelId || !version) {
     throw new InferenceError('This model is missing a Roboflow model ID or version.');
@@ -359,7 +359,7 @@ export async function runRoboflowInference(
   const apiKey = (options.apiKey ?? '').trim();
   if (!apiKey) throw new MissingApiKeyError();
 
-  const threshold = options.confidenceThreshold ?? 0.5;
+  const threshold = options.confidenceThreshold ?? 0.3;
 
   const detections = isWorkflowRequest(options)
     ? await runRoboflowWorkflow(image, options, apiKey)

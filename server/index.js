@@ -952,7 +952,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         let detections;
         try {
           detections = await runInference(db, req.user, imageBase64, {
-            confidence: Number(confidence) || 0.5
+            confidence: Number(confidence) || 0.3
           });
         } catch (err) {
           await finalizeSupabaseAnalysis(supabase, analysisId, {
@@ -1030,7 +1030,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       let detections;
       try {
         detections = await runInference(db, req.user, imageBase64, {
-          confidence: Number(confidence) || 0.5
+          confidence: Number(confidence) || 0.3
         });
       } catch (err) {
         db.prepare('UPDATE analyses SET status = ?, completed_at = ? WHERE id = ?').run(

@@ -35,7 +35,7 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
     roboflowModel: "labsight-vlabsight-3-yolo26m-t1-logic",
     roboflowVersion: "1",
     isWorkflow: true,
-    confidenceThreshold: 0.50,
+    confidenceThreshold: 0.30,
     iouThreshold: 0.40,
     active: true,
     classes: [
