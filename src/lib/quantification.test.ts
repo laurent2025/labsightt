@@ -53,6 +53,14 @@ describe('getClinicalSignificance', () => {
     expect(getClinicalSignificance('Giardia lamblia cyst', 4)).toBe('critical');
   });
 
+  it('grades the additional helminth targets as frank pathogens', () => {
+    expect(getClinicalSignificance('Schistosoma haematobium', 1)).toBe('pathological');
+    expect(getClinicalSignificance('Schistosoma haematobium', 4)).toBe('critical');
+    expect(getClinicalSignificance('Enterobius vermicularis', 1)).toBe('pathological');
+    expect(getClinicalSignificance('Enterobius vermicularis', 4)).toBe('critical');
+    expect(getClinicalSignificance('Trichuris trichiura', 1)).toBe('pathological');
+  });
+
   it('is case insensitive', () => {
     expect(getClinicalSignificance('HOOKWORM EGG', 10)).toBe('critical');
   });
@@ -112,6 +120,12 @@ describe('formatStandardizedQuantity', () => {
 
   it('reports a zero count as not detected', () => {
     expect(formatStandardizedQuantity('Hookworm egg', 0, 10)).toBe('Not Detected');
+  });
+
+  it('grades the additional helminth ova by burden', () => {
+    expect(formatStandardizedQuantity('Enterobius vermicularis', 1, 10)).toBe('1 / 10 HPFs (Low burden)');
+    expect(formatStandardizedQuantity('Schistosoma haematobium', 3, 10)).toBe('3 / 10 HPFs (Moderate burden)');
+    expect(formatStandardizedQuantity('Trichuris trichiura', 7, 10)).toBe('7 / 10 HPFs (Heavy burden)');
   });
 });
 

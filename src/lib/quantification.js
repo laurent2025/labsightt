@@ -56,6 +56,7 @@ export function getClinicalSignificance(className, count) {
     lower.includes('ascaris') ||
     lower.includes('schistosoma') ||
     lower.includes('trichuris') ||
+    lower.includes('enterobius') ||
     lower.includes('plasmodium')
   ) {
     return count > 3 ? 'critical' : 'pathological';
@@ -96,7 +97,7 @@ export function formatStandardizedQuantity(className, count, fieldsExamined = 10
     return `${count} / ${fieldsExamined} HPFs (Abundant 3+)`;
   }
 
-  if (lower.includes('egg') || lower.includes('ovum') || lower.includes('hookworm') || lower.includes('ascaris')) {
+  if (lower.includes('egg') || lower.includes('ovum') || lower.includes('hookworm') || lower.includes('ascaris') || lower.includes('schistosoma') || lower.includes('enterobius') || lower.includes('trichuris')) {
     if (count === 0) return 'Not Detected';
     if (count === 1) return `1 / ${fieldsExamined} HPFs (Low burden)`;
     if (count <= 4) return `${count} / ${fieldsExamined} HPFs (Moderate burden)`;

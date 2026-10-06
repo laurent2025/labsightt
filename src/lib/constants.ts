@@ -44,6 +44,8 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
       "Ascaris lumbricoides ovum",
       "Hookworm egg",
       "Schistosoma mansoni ovum",
+      "Schistosoma haematobium",
+      "Enterobius vermicularis",
       "Trichuris trichiura"
     ]
   }
