@@ -592,7 +592,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 const pat = patients.find(p => p.id === a.patientId);
                 return (
                   <option key={a.id} value={a.id}>
-                    {pat?.fullName || 'Patient'} · {pat?.patientNumber} ({a.modelName})
+                    {pat?.fullName || 'Patient'} · {pat?.patientNumber}
                   </option>
                 );
               })}
