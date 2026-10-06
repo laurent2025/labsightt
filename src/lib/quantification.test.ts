@@ -63,8 +63,24 @@ describe('getClinicalSignificance', () => {
     expect(getClinicalSignificance('Pus cell', 11)).toBe('critical');
   });
 
-  it('treats unknown classes as normal rather than guessing pathology', () => {
-    expect(getClinicalSignificance('Debris artifact', 500)).toBe('normal');
+  it('classifies any count of 1 or above as pathological', () => {
+    expect(getClinicalSignificance('Pus cell', 1)).toBe('pathological');
+    expect(getClinicalSignificance('Pus cell', 3)).toBe('pathological');
+    expect(getClinicalSignificance('Erythrocyte (RBC)', 1)).toBe('pathological');
+    expect(getClinicalSignificance('Erythrocyte (RBC)', 5)).toBe('pathological');
+    expect(getClinicalSignificance('Calcium oxalate dihydrate', 1)).toBe('pathological');
+    expect(getClinicalSignificance('Phosphate amorphous', 1)).toBe('pathological');
+  });
+
+  it('keeps a zero count normal for cellular elements and crystals', () => {
+    expect(getClinicalSignificance('Erythrocyte (RBC)', 0)).toBe('normal');
+    expect(getClinicalSignificance('Calcium oxalate dihydrate', 0)).toBe('normal');
+    expect(getClinicalSignificance('Phosphate amorphous', 0)).toBe('normal');
+  });
+
+  it('treats unknown classes with zero count as normal, and count >= 1 as pathological', () => {
+    expect(getClinicalSignificance('Debris artifact', 0)).toBe('normal');
+    expect(getClinicalSignificance('Debris artifact', 1)).toBe('pathological');
   });
 });
 

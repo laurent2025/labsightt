@@ -63,21 +63,21 @@ export function getClinicalSignificance(className, count) {
 
   if (lower.includes('pus') || lower.includes('leukocyte') || lower.includes('wbc')) {
     if (count > 10) return 'critical';
-    if (count > 3) return 'pathological';
+    if (count >= 1) return 'pathological';
     return 'normal';
   }
 
   if (lower.includes('erythrocyte') || lower.includes('rbc')) {
-    if (count > 5) return 'pathological';
+    if (count >= 1) return 'pathological';
     return 'normal';
   }
 
-  if (lower.includes('crystal') || lower.includes('oxalate')) {
-    if (count > 10) return 'pathological';
-    return 'low_grade';
+  if (lower.includes('crystal') || lower.includes('oxalate') || lower.includes('phosphate')) {
+    if (count >= 1) return 'pathological';
+    return 'normal';
   }
 
-  return 'normal';
+  return count >= 1 ? 'pathological' : 'normal';
 }
 
 /**
