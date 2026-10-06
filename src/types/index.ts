@@ -88,7 +88,7 @@ export interface QuantifiedFinding {
   confirmedCount: number;
   averageConfidence: number;
   standardizedQuantity: string; // e.g. "3 / 10 HPF (Moderate 2+)", "Rare (1-2 / HPF)"
-  clinicalSignificance: 'normal' | 'low_grade' | 'pathological' | 'critical';
+  clinicalSignificance: 'normal' | 'pathological' | 'critical';
   remarks: string;
 }
 

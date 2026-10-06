@@ -16,7 +16,7 @@ export function calculateHPFMetrics(
 export function getClinicalSignificance(
   className: string,
   count: number
-): 'normal' | 'low_grade' | 'pathological' | 'critical';
+): 'normal' | 'pathological' | 'critical';
 
 export function formatStandardizedQuantity(
   className: string,

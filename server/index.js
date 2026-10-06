@@ -56,6 +56,16 @@ import {
   deleteSupabaseReport
 } from './supabase.js';
 
+// Stable identity for a detection, used to de-duplicate a
+// repeat scan of the same image: same class and the same
+// (rounded) bounding box. Boxes captured from other images
+// of the specimen differ, so their findings append to the
+// active analysis instead of replacing it.
+function detectionKey(className, x, y, width, height) {
+  const round = value => Math.round(Number(value) * 10000) / 10000;
+  return `${className}|${round(x)},${round(y)},${round(width)},${round(height)}`;
+}
+
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   const db = openDatabase(dbPath);
   installImmutabilityGuards(db);
@@ -920,13 +930,15 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         let analysisId;
         if (existingRow) {
           analysisId = existingRow.id;
-          await supabase.from('detections').delete().eq('analysis_id', analysisId);
+          // A re-scan accumulates: findings already captured
+          // from earlier scans of this specimen are kept and
+          // the fresh ones appended, so the report lists
+          // every finding from every scanned image.
           const { error: resetError } = await supabase
             .from('analyses')
             .update({
               started_at: startedAt,
               completed_at: null,
-              total_detections: 0,
               status: 'processing'
             })
             .eq('id', analysisId);
@@ -937,7 +949,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             action: 'ANALYSIS_RERUN',
             entity: 'analysis',
             entityId: analysisId,
-            details: 'Field re-scanned; previous candidates replaced'
+            details: 'Field re-scanned; findings appended to the active analysis'
           });
         } else {
           analysisId = `ana_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -971,9 +983,22 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           throw err;
         }
 
-        await saveSupabaseDetections(supabase, analysisId, detections);
+        const { data: priorDetections, error: priorError } = await supabase
+          .from('detections')
+          .select('class_name, x, y, width, height')
+          .eq('analysis_id', analysisId);
+        if (priorError) throw priorError;
+
+        const seen = new Set((priorDetections ?? []).map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height)));
+        const fresh = detections.filter(d => {
+          const key = detectionKey(d.class, d.x, d.y, d.width, d.height);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        await saveSupabaseDetections(supabase, analysisId, fresh);
         const finalised = await finalizeSupabaseAnalysis(supabase, analysisId, {
-          totalDetections: detections.length,
+          totalDetections: (priorDetections ?? []).length + fresh.length,
           status: 'in_review',
           completedAt: new Date().toISOString()
         });
@@ -993,8 +1018,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       }
 
       // Re-scan support (SQLite branch): same rule as above —
-      // reuse the sample's active analysis and replace its
-      // detections so a re-scan captures missed features.
+      // reuse the sample's active analysis and append the
+      // fresh findings to the ones already captured.
       const existing = db.prepare(`
         SELECT id FROM analyses
         WHERE sample_id = ? AND status != 'verified'
@@ -1005,10 +1030,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       let id;
       if (existing) {
         id = existing.id;
-        db.prepare('DELETE FROM detections WHERE analysis_id = ?').run(id);
         db.prepare(`
           UPDATE analyses
-          SET started_at = ?, completed_at = NULL, total_detections = 0, status = 'processing'
+          SET started_at = ?, completed_at = NULL, status = 'processing'
           WHERE id = ?
         `).run(startedAt, id);
         appendAudit(db, {
@@ -1017,7 +1041,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           action: 'ANALYSIS_RERUN',
           entity: 'analysis',
           entityId: id,
-          details: 'Field re-scanned; previous candidates replaced'
+          details: 'Field re-scanned; findings appended to the active analysis'
         });
       } else {
         id = newId('ana');
@@ -1053,13 +1077,22 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         INSERT INTO detections (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
       `);
+      const priorRows = db.prepare('SELECT class_name, x, y, width, height FROM detections WHERE analysis_id = ?').all(id);
+      const seen = new Set(priorRows.map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height)));
+      let inserted = 0;
       db.exec('BEGIN');
       try {
         for (const d of detections) {
+          // Scanning the same image twice must not double its
+          // findings; distinct boxes from other images append.
+          const key = detectionKey(d.class, d.x, d.y, d.width, d.height);
+          if (seen.has(key)) continue;
+          seen.add(key);
           insert.run(newId('det'), id, d.class, d.confidence, d.x, d.y, d.width, d.height);
+          inserted += 1;
         }
         db.prepare('UPDATE analyses SET total_detections = ?, status = ?, completed_at = ? WHERE id = ?').run(
-          detections.length,
+          priorRows.length + inserted,
           'in_review',
           new Date().toISOString(),
           id

@@ -145,11 +145,6 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs) {
  * a prediction. The exact envelope varies by workflow, so this is tolerant by
  * design rather than pinned to one provider response shape.
  */
-/**
- * Walks the provider's nested workflow output looking for anything shaped like
- * a prediction. The exact envelope varies by workflow, so this is tolerant by
- * design rather than pinned to one provider response shape.
- */
 function extractPredictions(payload) {
   const found = [];
 

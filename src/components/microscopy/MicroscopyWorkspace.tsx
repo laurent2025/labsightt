@@ -305,7 +305,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       setScanSummary(
         n === 0
           ? `Scan finished in ${seconds}s. No objects exceeded the confidence threshold — the field may be empty, out of focus, or below the detection threshold. Review manually before concluding.`
-          : `Scan finished in ${seconds}s. ${n} candidate object${n === 1 ? '' : 's'} detected — adjudicate each before the field is confirmed.`
+          : `Scan finished in ${seconds}s. ${n} candidate object${n === 1 ? '' : 's'} detected across all scanned images of this specimen — adjudicate each before the report is generated.`
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

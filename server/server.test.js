@@ -759,12 +759,20 @@ describe('inference proxy', () => {
     expect(providerFetch).toHaveBeenCalledTimes(3);
   });
 
-  it('re-scans a specimen by replacing the active analysis instead of violating the one-per-sample rule', async () => {
+  it('accumulates findings from every scanned image and de-duplicates repeat scans', async () => {
     vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
     vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
-    const providerFetch = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify([
-      { class: 'parasite', confidence: 0.9, x: 5, y: 5, width: 10, height: 10 }
-    ]), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    const response = predictions => new Response(JSON.stringify(predictions), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const parasite = [{ class: 'parasite', confidence: 0.9, x: 5, y: 5, width: 10, height: 10 }];
+    const providerFetch = vi.fn()
+      .mockImplementationOnce(() => Promise.resolve(response(parasite)))
+      .mockImplementationOnce(() => Promise.resolve(response(parasite)))
+      .mockImplementationOnce(() => Promise.resolve(response([
+        { class: 'ova', confidence: 0.8, x: 40, y: 40, width: 8, height: 8 }
+      ])));
     vi.stubGlobal('fetch', providerFetch);
 
     const client = authed(await login('tech1', 'tech-password-1234'));
@@ -775,18 +783,28 @@ describe('inference proxy', () => {
       imageBase64: 'base64-image'
     });
     expect(first.status).toBe(201);
+    expect(first.body.analysis.totalDetections).toBe(1);
 
-    // Scanning the same field again must reuse the active analysis
-    // (HTTP 200, same id, replaced detections) rather than collide
-    // with the single active analysis per sample.
-    const rerun = await client.post('/api/analyses', {
+    // Scanning the same image again reuses the active analysis
+    // (HTTP 200, same id) without doubling its findings.
+    const repeat = await client.post('/api/analyses', {
       sampleId: sample.id,
       imageBase64: 'base64-image'
     });
-    expect(rerun.status).toBe(200);
-    expect(rerun.body.analysis.id).toBe(first.body.analysis.id);
-    expect(rerun.body.analysis.totalDetections).toBe(1);
-    expect(rerun.body.analysis.detections).toHaveLength(1);
+    expect(repeat.status).toBe(200);
+    expect(repeat.body.analysis.id).toBe(first.body.analysis.id);
+    expect(repeat.body.analysis.totalDetections).toBe(1);
+
+    // Scanning another image of the same specimen appends its
+    // findings, so the report lists every finding from every
+    // scanned image of the sample.
+    const second = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'another-image'
+    });
+    expect(second.status).toBe(200);
+    expect(second.body.analysis.totalDetections).toBe(2);
+    expect(second.body.analysis.detections.map(d => d.class).sort()).toEqual(['ova', 'parasite']);
 
     const audit = db
       .prepare("SELECT action FROM audit_log WHERE entity = 'analysis' AND entity_id = ? ORDER BY seq DESC LIMIT 1")
