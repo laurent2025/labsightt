@@ -164,7 +164,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
               {/* Document Title Banner */}
               <div className="my-4 py-1.5 px-3 bg-slate-100 rounded text-center">
-<span className="text-sm font-bold uppercase tracking-wider text-slate-900">
+<span className="text-sm font-bold uppercase tracking-[0.18em] text-slate-900">
                   CLINICAL MICROSCOPY &amp; DIAGNOSTIC PATHOLOGY REPORT
                 </span>
               </div>
@@ -172,73 +172,73 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               {/* Patient & Specimen Metadata Two-Column Grid */}
               <div className="grid grid-cols-1 gap-4 p-3.5 bg-slate-50 rounded-lg border border-slate-200 mb-5 sm:grid-cols-2 print:grid-cols-1 print:gap-3">
                 {/* Left: Patient */}
-                <div className="space-y-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block border-b border-slate-200 pb-1">
+                <div className="space-y-2.5">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 block border-b-2 border-slate-400 pb-1">
                     PATIENT DEMOGRAPHICS
                   </span>
-                  <div className="grid grid-cols-[auto_1fr] gap-2">
-                    <span className="text-slate-900 font-bold">Patient Name:</span>
-                    <span className="font-bold text-slate-900">{report.patient.fullName}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Patient Name</span>
+                    <span className="font-serif text-base font-semibold text-slate-900">{report.patient.fullName}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2 font-mono">
-                    <span className="text-slate-900 font-bold">Patient ID:</span>
-                    <span className="font-bold text-slate-900">{report.patient.patientNumber}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Patient ID</span>
+                    <span className="font-mono text-sm font-bold text-slate-900">{report.patient.patientNumber}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2">
-                    <span className="text-slate-900 font-bold">Age / Gender:</span>
-                    <span className="font-semibold text-slate-900 font-mono">{report.patient.age} yrs / {report.patient.gender}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Age / Gender</span>
+                    <span className="font-mono text-sm font-semibold text-slate-900">{report.patient.age} yrs / {report.patient.gender}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2">
-                    <span className="text-slate-900 font-bold">Referring Dr:</span>
-                    <span className="font-semibold text-slate-900">{report.patient.referringDoctor}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Referring Dr</span>
+                    <span className="text-sm font-semibold text-slate-900">{report.patient.referringDoctor}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2">
-                    <span className="text-slate-900 font-bold">Facility:</span>
-                    <span className="font-semibold text-slate-900 truncate">{report.patient.referringFacility}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Facility</span>
+                    <span className="text-sm font-semibold text-slate-900 truncate">{report.patient.referringFacility}</span>
                   </div>
                 </div>
 
                 {/* Right: Specimen & Examination Details */}
-                <div className="space-y-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block border-b border-slate-200 pb-1">
+                <div className="space-y-2.5">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 block border-b-2 border-slate-400 pb-1">
                     SPECIMEN & MICROSCOPY METRICS
                   </span>
-                  <div className="grid grid-cols-[auto_1fr] gap-2">
-                    <span className="text-slate-900 font-bold">Specimen Type:</span>
-                    <span className="font-bold text-slate-900 capitalize">{report.sample.sampleType} Microscopy</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Specimen Type</span>
+                    <span className="text-sm font-semibold text-slate-900 capitalize">{report.sample.sampleType} Microscopy</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2 font-mono">
-                    <span className="text-slate-900 font-bold">Slide ID:</span>
-                    <span className="font-semibold text-slate-900">{report.sample.slideLabel}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Slide ID</span>
+                    <span className="font-mono text-sm font-bold text-slate-900">{report.sample.slideLabel}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2">
-                    <span className="text-slate-900 font-bold">Preparation:</span>
-                    <span className="font-semibold text-slate-900">{report.sample.stainMethod}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Preparation</span>
+                    <span className="text-sm font-semibold text-slate-900">{report.sample.stainMethod}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2 font-mono">
-                    <span className="text-slate-900 font-bold">Total Magnification:</span>
-                    <span className="font-bold text-slate-900">{report.sample.totalMagnification}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Magnification</span>
+                    <span className="font-mono text-sm font-bold text-slate-900">{report.sample.totalMagnification}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2 font-mono">
-                    <span className="text-slate-900 font-bold">Objective Lens:</span>
-                    <span className="font-bold text-slate-900">
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Objective Lens</span>
+                    <span className="font-mono text-sm font-bold text-slate-900">
                       {report.sample.objective === '100x_oil' ? '100x (oil immersion)' : report.sample.objective}
                     </span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2 font-mono">
-                    <span className="text-slate-900 font-bold">Ocular Eyepiece:</span>
-                    <span className="font-bold text-slate-900">{report.sample.eyepiece}</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ocular Eyepiece</span>
+                    <span className="font-mono text-sm font-bold text-slate-900">{report.sample.eyepiece}</span>
                   </div>
-                  <div className="grid grid-cols-[auto_1fr] gap-2 font-mono">
-                    <span className="text-slate-900 font-bold">Fields Scanned:</span>
-                    <span className="font-semibold text-slate-900">{report.sample.fieldsExamined} Standard HPFs</span>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Fields Scanned</span>
+                    <span className="font-mono text-sm font-semibold text-slate-900">{report.sample.fieldsExamined} Standard HPFs</span>
                   </div>
                 </div>
               </div>
 
               {/* Microscopic Findings Table */}
               <div className="mb-5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-2 border-b border-slate-300 pb-1">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 mb-2 border-b-2 border-slate-400 pb-1">
                   STANDARDIZED MICROSCOPIC QUANTIFICATION
                 </h3>
                 <table className="w-full border-collapse border border-slate-300 text-left text-sm">
@@ -298,7 +298,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               {/* Microscopy Photomicrograph Plate & Legend */}
               <div className="mb-5 border border-slate-200 rounded-lg p-3 bg-slate-50">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800">
                     REPRESENTATIVE DIGITAL PHOTOMICROGRAPH
                   </span>
                   <span className="text-[11px] font-mono text-slate-600">
@@ -325,8 +325,8 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
               {/* Diagnostic Impression & Clinical Interpretation */}
               <div className="border border-slate-300 rounded-lg p-3.5 mb-5 space-y-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block border-b border-slate-200 pb-1">
-                  DIAGNOSTIC PATHOLOGY IMPRESSION & CLINICAL REMARKS
+                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 block border-b-2 border-slate-400 pb-1">
+                  DIAGNOSTIC PATHOLOGY IMPRESSION &amp; CLINICAL REMARKS
                 </span>
                 <p className="font-bold text-slate-900 leading-relaxed">
                   {report.clinicalImpression}
@@ -341,8 +341,8 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4 border-t-2 border-slate-300 mb-4">
                 <div>
-                  <span className="text-xs font-bold uppercase text-slate-500 block mb-3">
-                    PERFORMED & REVIEWED BY
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 block mb-3 border-b-2 border-slate-400 pb-1">
+                    PERFORMED &amp; REVIEWED BY
                   </span>
                   <div className="font-serif italic text-base text-slate-800 border-b border-dashed border-slate-300 pb-1">
                     {report.technologistName}
@@ -356,7 +356,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                 </div>
 
                 <div>
-                  <span className="text-xs font-bold uppercase text-slate-500 block mb-3">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 block mb-3 border-b-2 border-slate-400 pb-1">
                     VERIFIED &amp; AUTHORIZED BY
                   </span>
                   <div className="font-serif italic text-base text-slate-800 border-b border-dashed border-slate-300 pb-1">
