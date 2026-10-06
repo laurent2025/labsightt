@@ -28,6 +28,16 @@ import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 // camera from popping back open after the operator has closed it.
 let autoCameraOpened = false;
 
+// The Roboflow workflow id ("labsight-vlabsight-3-yolo26m-t1-logic") and the
+// display name ("LenziAI vlabsight-3-yolo26m-t1 Logic") share one long token.
+// Merging the two longest words into that token keeps the pipeline picker a
+// small button-sized control; the full name and id live in the title tooltip.
+function compactPipelineLabel(workflowId?: string) {
+  return String(workflowId ?? '')
+    .replace(/^labsight-/, '')
+    .replace(/-logic$/, '');
+}
+
 interface MicroscopyWorkspaceProps {
   patients: Patient[];
   samples: Sample[];
@@ -605,11 +615,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             <select
               value={selectedModelId}
               onChange={e => setSelectedModelId(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-sm font-mono"
+              title={`${activeModel.name} (${activeModel.roboflowWorkflowId || activeModel.roboflowModel})`}
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-xs font-mono max-w-[150px] cursor-pointer"
             >
               {models.map(m => (
                 <option key={m.id} value={m.id}>
-                  {m.name} ({m.roboflowWorkflowId || m.roboflowModel})
+                  {compactPipelineLabel(m.roboflowWorkflowId || m.roboflowModel)}
                 </option>
               ))}
             </select>
