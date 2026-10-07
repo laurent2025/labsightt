@@ -4,6 +4,7 @@ import { Printer, Search, CheckCircle2, Clock, AlertTriangle, Pencil, Trash2 } f
 
 interface ReportsListViewProps {
   reports: LaboratoryReport[];
+  initialStatusFilter?: 'all' | 'verified' | 'pending_verification';
   onOpenReport: (report: LaboratoryReport) => void;
   onVerifyReport: (reportId: string) => Promise<void>;
   onEditReport: (
@@ -19,6 +20,7 @@ interface ReportsListViewProps {
 
 export const ReportsListView: React.FC<ReportsListViewProps> = ({
   reports,
+  initialStatusFilter = 'all',
   onOpenReport,
   onVerifyReport,
   onEditReport,
@@ -29,7 +31,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
   canDeleteReports
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending_verification'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending_verification'>(initialStatusFilter);
   const [gateError, setGateError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [editingReport, setEditingReport] = useState<LaboratoryReport | null>(null);
@@ -77,53 +79,97 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
       r.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.patient.patientNumber.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchesStatus = statusFilter === 'all'
+      || (statusFilter === 'verified' ? isVerified(r) : r.status === statusFilter);
 
     return matchesSearch && matchesStatus;
   });
+  const isVerified = (report: LaboratoryReport) =>
+    report.status === 'verified' || report.status === 'released';
+  const verifiedCount = reports.filter(isVerified).length;
+  const pendingCount = reports.filter(report => report.status === 'pending_verification').length;
+  const reportFilters = [
+    { value: 'all', label: 'All reports', count: reports.length },
+    { value: 'pending_verification', label: 'Pending sign-off', count: pendingCount },
+    { value: 'verified', label: 'Verified', count: verifiedCount }
+  ] as const;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Header */}
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Diagnostic Pathology Reports
-        </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
-          Archived clinical reports, pathologist verification sign-offs, and A4 print / PDF export
-        </p>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+        Diagnostic Pathology Reports
+      </h1>
+        <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+        Archived clinical reports, pathologist verification sign-offs, and A4 print / PDF export
+      </p>
       </div>
-
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search report #, patient name, MRN..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
-          />
+      <div className="flex gap-2">
+        <div className="flex-1 sm:flex-initial rounded-xl border border-amber-200 dark:border-amber-900/70 bg-amber-50/70 dark:bg-amber-950/20 px-3 py-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Awaiting sign-off</div>
+          <div className="mt-0.5 font-mono text-lg font-bold leading-tight text-amber-950 dark:text-amber-100">{pendingCount}</div>
         </div>
-
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg text-xs self-stretch sm:self-auto">
-          {(['all', 'verified', 'pending_verification'] as const).map(st => (
-            <button
-              key={st}
-              type="button"
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1 rounded-md capitalize font-medium transition ${
-                statusFilter === st
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {st === 'pending_verification' ? 'Pending Sign-Off' : st}
-            </button>
-          ))}
+        <div className="flex-1 sm:flex-initial rounded-xl border border-green-200 dark:border-green-900/70 bg-green-50/70 dark:bg-green-950/20 px-3 py-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-green-800 dark:text-green-300">Verified</div>
+          <div className="mt-0.5 font-mono text-lg font-bold leading-tight text-green-950 dark:text-green-100">{verifiedCount}</div>
         </div>
       </div>
+    </div>
+
+    {/* Filter & Search Bar */}
+    <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+      <div className="relative w-full">
+        <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+        <input
+          type="text"
+          aria-label="Search reports by report number, patient name, or medical record number"
+          placeholder="Search report #, patient name, MRN..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          className="clinical-input w-full pl-9 pr-3 py-2 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+        />
+      </div>
+
+      <div className="flex items-center gap-1 overflow-x-auto bg-slate-100 dark:bg-slate-800 p-1 rounded-lg text-xs" role="group" aria-label="Filter reports by verification status">
+        {reportFilters.map(({ value, label, count }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setStatusFilter(value)}
+            aria-pressed={statusFilter === value}
+            className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 rounded-md font-semibold whitespace-nowrap transition ${
+              statusFilter === value
+                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <span>{label}</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono ${
+              statusFilter === value
+                ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                : 'text-slate-500 dark:text-slate-400'
+            }`}>{count}</span>
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+        <span aria-live="polite">
+          Showing <strong className="font-mono text-slate-700 dark:text-slate-200">{filteredReports.length}</strong> of{' '}
+          <strong className="font-mono text-slate-700 dark:text-slate-200">{reports.length}</strong> reports
+        </span>
+        {(searchTerm || statusFilter !== 'all') && (
+          <button
+            type="button"
+            onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
+            className="font-semibold text-green-800 dark:text-green-300 hover:underline"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+    </div>
 
       {gateError && (
               <div role="alert" className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 p-3.5 rounded-xl text-sm font-medium">
@@ -148,7 +194,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
             aria-modal="true"
             aria-labelledby="edit-report-title"
             onSubmit={handleSaveReport}
-            className="w-full max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"
+            className="clinical-form w-full max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"
           >
             <div>
               <h2 id="edit-report-title" className="text-base font-semibold text-slate-900 dark:text-white">
@@ -192,9 +238,128 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
         user can verify and authorise reports.
       </div>
 
+      {/* Compact report cards keep review and sign-off actions reachable on phones. */}
+      <div className="md:hidden space-y-3">
+        {filteredReports.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-10 text-center">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {reports.length === 0 ? 'No finalized reports yet' : 'No reports match these filters'}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {reports.length === 0
+                ? 'Reports will appear here after a completed analysis has been verified.'
+                : 'Try another search or clear the current filters.'}
+            </p>
+            {(searchTerm || statusFilter !== 'all') && (
+              <button
+                type="button"
+                onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
+                className="mt-3 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredReports.map(rep => (
+            <article
+              key={rep.id}
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => onOpenReport(rep)}
+                  className="min-w-0 text-left"
+                  aria-label={`Open report ${rep.reportNumber}`}
+                >
+                  <span className="block truncate font-mono text-sm font-bold text-slate-900 dark:text-white">{rep.reportNumber}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                    {new Date(rep.generatedAt).toLocaleDateString()}
+                  </span>
+                </button>
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
+                    isVerified(rep)
+                      ? 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200'
+                      : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200'
+                  }`}
+                >
+                  {isVerified(rep) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                  {rep.status === 'released' ? 'Released' : isVerified(rep) ? 'Verified' : 'Pending sign-off'}
+                </span>
+              </div>
+
+              <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3">
+                <h2 className="font-semibold text-slate-900 dark:text-white">{rep.patient.fullName}</h2>
+                <p className="mt-0.5 text-xs font-mono text-slate-500 dark:text-slate-400">
+                  {rep.patient.patientNumber} · {rep.patient.age}y · {rep.patient.gender}
+                </p>
+                <p className="mt-2 text-xs font-medium capitalize text-slate-700 dark:text-slate-300">
+                  {rep.sample.sampleType} microscopy
+                  <span className="font-normal text-slate-500 dark:text-slate-400">
+                    {' '}· {rep.sample.slideLabel} · {rep.sample.totalMagnification}
+                  </span>
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300 line-clamp-3">
+                  {rep.clinicalImpression || 'No clinical impression recorded.'}
+                </p>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+                {rep.status === 'pending_verification' && (
+                  <button
+                    type="button"
+                    onClick={() => handleVerify(rep.id)}
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 px-2 py-2 text-xs font-semibold text-green-800 dark:text-green-200"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Sign &amp; authorize
+                  </button>
+                )}
+                {rep.status === 'pending_verification' &&
+                  (rep.technologistId === currentUserId || canManageReports) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionError(null);
+                      setTechnologistNotes(rep.technologistNotes || '');
+                      setClinicalImpression(rep.clinicalImpression || '');
+                      setEditingReport(rep);
+                    }}
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onOpenReport(rep)}
+                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-slate-900 dark:bg-cyan-700 px-2 py-2 text-xs font-semibold text-white"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print / PDF
+                </button>
+                {canDeleteReports && rep.status !== 'released' && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(rep)}
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 px-2 py-2 text-xs font-semibold text-rose-800 dark:text-rose-200"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete report
+                  </button>
+                )}
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
       {/* Reports Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto shadow-xs">
-              <table className="w-full text-left text-sm border-collapse min-w-[680px]">
+      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto shadow-xs">
+              <table className="clinical-table w-full text-left text-sm border-collapse min-w-[680px]">
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <th className="py-3 px-4 font-semibold">Report # & Date</th>
@@ -280,15 +445,15 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                          rep.status === 'verified'
+                          isVerified(rep)
                             ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
                             : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
                         }`}
                       >
-                      {rep.status === 'verified' ? (
+                      {isVerified(rep) ? (
                         <>
                           <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                          <span>Verified</span>
+                          <span>{rep.status === 'released' ? 'Released' : 'Verified'}</span>
                         </>
                       ) : (
                         <>
@@ -301,7 +466,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
 
                   <td className="py-3 px-4 text-right">
                     <div className="inline-flex items-center gap-2">
-                      {rep.status !== 'verified' && (
+                      {rep.status === 'pending_verification' && (
                         <button
                           type="button"
                           onClick={() => handleVerify(rep.id)}
@@ -311,7 +476,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
                           Sign & Authorize
                         </button>
                       )}
-                      {rep.status !== 'verified' && rep.status !== 'released' &&
+                      {rep.status === 'pending_verification' &&
                         (rep.technologistId === currentUserId || canManageReports) && (
                         <button
                           type="button"

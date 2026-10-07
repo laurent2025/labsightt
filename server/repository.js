@@ -411,6 +411,7 @@ function mapDetection(row) {
     rejected: Boolean(row.rejected),
     manual: Boolean(row.manual),
     note: row.note,
+    imageRef: row.image_ref ?? 'primary',
     adjudicatedBy: row.adjudicated_by,
     adjudicatedAt: row.adjudicated_at
   };

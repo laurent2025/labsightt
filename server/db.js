@@ -249,6 +249,19 @@ const MIGRATIONS = [
        ALTER TABLE users_new RENAME TO users;
      `,
    },
+   {
+     version: 8,
+     name: 'detection-image-ref',
+     up: `
+       -- A specimen may be scanned on several uploaded images, and each
+       -- detection must remember which image it came from. The microscope
+       -- viewer shows only the boxes that belong to the slide being reviewed
+       -- while the report keeps every finding from every image.
+       ALTER TABLE detections ADD COLUMN image_ref TEXT;
+       CREATE INDEX IF NOT EXISTS idx_detections_image
+       ON detections(analysis_id, image_ref);
+     `,
+   },
  ];
 
 export function openDatabase(path) {

@@ -16,7 +16,9 @@ import {
   Video,
   X,
   ArrowRight,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
@@ -47,7 +49,7 @@ interface MicroscopyWorkspaceProps {
   pendingPatientId?: string;
   pendingSampleId?: string;
   pendingInferenceError?: string;
-  onRunAnalysis: (patientId: string, sampleId: string, modelId: string, imageUrlOverride?: string) => Promise<Analysis>;
+  onRunAnalysis: (patientId: string, sampleId: string, modelId: string, imageUrlOverride?: string, imageRef?: string) => Promise<Analysis>;
   onToggleConfirmDetection: (analysisId: string, detectionId: string) => void;
   onRejectDetection: (analysisId: string, detectionId: string) => void;
   onConfirmAllDetections: (analysisId: string) => void;
@@ -99,6 +101,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [gateError, setGateError] = useState<string | null>(null);
   const camera = useMicroscopeCamera();
   const [uploadedSlides, setUploadedSlides] = useState<{ id: string; name: string; dataUrl: string }[]>([]);
+  // Which uploaded image of the specimen is being reviewed. 'primary' is the
+  // sample's stored slide; any other value is an uploaded slide id. Every
+  // detection is tagged with this ref so the viewer can show only the boxes
+  // that belong to the slide currently displayed while the report keeps them
+  // all.
+  const [activeSlideRef, setActiveSlideRef] = useState<string>('primary');
 
   // Auto-open the microscope camera when the workstation is first shown, so
   // the operator can start capturing without an extra click. Failures are
@@ -137,7 +145,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       : analyses;
     return (
       <div className="space-y-4 animate-fade-in">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
               <Microscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
@@ -157,15 +165,20 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
               {browseFilter ? 'No pending analyses right now.' : 'No analyses available.'}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
-              <table className="w-full text-left text-sm border-collapse">
+            <div
+              role="region"
+              aria-label="Microscopy analysis list"
+              tabIndex={0}
+              className="overflow-x-auto overscroll-x-contain rounded-xl border border-slate-200 dark:border-slate-800 focus-visible:outline-offset-[-2px]"
+            >
+              <table className="clinical-table w-full min-w-[760px] text-left text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                    <th className="py-2.5 px-4 font-semibold">Patient &amp; Specimen</th>
-                    <th className="py-2.5 px-4 font-semibold">Slide Preparation</th>
-                    <th className="py-2.5 px-4 font-semibold">Primary Finding</th>
-                    <th className="py-2.5 px-4 font-semibold">Status</th>
-                    <th className="py-2.5 px-4 font-semibold text-right">Action</th>
+                    <th scope="col" className="py-2.5 px-4 font-semibold">Patient &amp; Specimen</th>
+                    <th scope="col" className="py-2.5 px-4 font-semibold">Slide Preparation</th>
+                    <th scope="col" className="py-2.5 px-4 font-semibold">Primary Finding</th>
+                    <th scope="col" className="py-2.5 px-4 font-semibold">Status</th>
+                    <th scope="col" className="py-2.5 px-4 font-semibold text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -288,7 +301,8 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         activePatient.id,
         activeSample.id,
         selectedModelId || activeModel.id,
-        imageUrl
+        imageUrl,
+        activeSlideRef
       );
       setSelectedAnalysisId(newAna.id);
 
@@ -331,6 +345,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       );
       setUploadedSlides(prev => [...prev, ...slides]);
       setCustomSlideDataUrl(slides[0].dataUrl);
+      setActiveSlideRef(slides[0].id);
       setScanSummary(
         slides.length === 1
           ? `Image loaded from ${slides[0].name}. Run "Scan Field with Roboflow" to analyse it.`
@@ -341,8 +356,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     }
   };
 
-  const selectSlide = (dataUrl: string) => {
-    setCustomSlideDataUrl(dataUrl);
+  const selectSlide = (slide: { id: string; name: string; dataUrl: string }) => {
+    setCustomSlideDataUrl(slide.dataUrl);
+    setActiveSlideRef(slide.id);
     setInferenceError(null);
   };
 
@@ -393,6 +409,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     if (!dataUrl) return;
     camera.close();
     setCustomSlideDataUrl(dataUrl);
+    setActiveSlideRef('primary');
     setInferenceError(null);
     setScanSummary(`Captured live frame from microscope camera. ${new Date().toLocaleTimeString()}. Click "Scan Field with Roboflow" to analyse this capture.`);
     void handleTriggerAnalysis(dataUrl);
@@ -701,13 +718,26 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 shrink-0">
               Loaded Slides ({uploadedSlides.length})
             </span>
+            <button
+              type="button"
+              onClick={() => { setActiveSlideRef('primary'); setCustomSlideDataUrl(null); setInferenceError(null); }}
+              title="Switch back to the specimen's stored slide image"
+              className={`shrink-0 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border transition ${
+                activeSlideRef === 'primary'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400'
+              }`}
+            >
+              Specimen image
+            </button>
             {uploadedSlides.map((slide, index) => {
               const isActive = customSlideDataUrl === slide.dataUrl;
+              const hasFindings = activeAnalysis.detections.some(d => (d.imageRef ?? 'primary') === slide.id);
               return (
                 <div key={slide.id} className="shrink-0">
                   <button
                     type="button"
-                    onClick={() => selectSlide(slide.dataUrl)}
+                    onClick={() => selectSlide(slide)}
                     title={`Use ${slide.name} as the active slide`}
                     className={`block w-16 h-12 overflow-hidden rounded-lg border-2 transition ${
                       isActive
@@ -716,6 +746,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                     }`}
                   >
                     <img src={slide.dataUrl} alt={slide.name} className="w-full h-full object-cover" />
+                    {hasFindings && (
+                      <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900" title="Findings recorded for this slide" />
+                    )}
                   </button>
                   <div className="relative w-16 mt-0.5">
                     <span className="block text-[9px] text-slate-500 dark:text-slate-400 text-center truncate">
@@ -733,6 +766,34 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 </div>
               );
             })}
+            <button
+              type="button"
+              onClick={() => {
+                const idx = uploadedSlides.findIndex(s => s.dataUrl === customSlideDataUrl);
+                if (idx < 0) return;
+                const next = uploadedSlides[(idx + 1) % uploadedSlides.length];
+                selectSlide(next);
+              }}
+              aria-label="Next slide"
+              className="shrink-0 w-7 h-12 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-40"
+              disabled={uploadedSlides.length < 2}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const idx = uploadedSlides.findIndex(s => s.dataUrl === customSlideDataUrl);
+                if (idx < 0) return;
+                const prev = uploadedSlides[(idx - 1 + uploadedSlides.length) % uploadedSlides.length];
+                selectSlide(prev);
+              }}
+              aria-label="Previous slide"
+              className="shrink-0 w-7 h-12 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-40"
+              disabled={uploadedSlides.length < 2}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
@@ -864,10 +925,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       )}
 
       {/* Responsive Pane Switcher for Tablets & Mobile (< lg) */}
-      <div className="lg:hidden flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
+      <div role="group" aria-label="Microscopy workspace view" className="lg:hidden flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
         <button
           type="button"
           onClick={() => setMobileActivePane('microscope')}
+          aria-pressed={mobileActivePane === 'microscope'}
+          aria-label="Show microscope field view"
           className={`flex-1 min-h-[44px] rounded-lg font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
             mobileActivePane === 'microscope'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
@@ -880,6 +943,8 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         <button
           type="button"
           onClick={() => setMobileActivePane('review')}
+          aria-pressed={mobileActivePane === 'review'}
+          aria-label={`Show findings review, ${totalDets} detections`}
           className={`flex-1 min-h-[44px] rounded-lg font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
             mobileActivePane === 'review'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
@@ -892,12 +957,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       </div>
 
       {/* Main Two-Column Stage */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[580px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 min-h-0 lg:min-h-[580px]">
         {/* Left Column: Microscope Canvas */}
         <div className={`lg:col-span-7 flex flex-col ${mobileActivePane === 'review' ? 'hidden lg:flex' : 'flex'}`}>
           <MicroscopeViewer
             imageUrl={activeImageUrl}
-            detections={activeAnalysis.detections}
+            detections={activeAnalysis.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef)}
             selectedDetectionId={selectedDetectionId}
             onSelectDetection={id => setSelectedDetectionId(id)}
             onToggleConfirm={id => onToggleConfirmDetection(activeAnalysis.id, id)}

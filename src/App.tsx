@@ -30,14 +30,14 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-busy="true">
       <span className="sr-only">Loading laboratory overview...</span>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="space-y-2">
-          <Skeleton className="h-6 w-64" />
-          <Skeleton className="h-3 w-80" />
+          <Skeleton className="h-6 w-48 sm:w-64" />
+          <Skeleton className="h-3 w-56 sm:w-80" />
         </div>
-        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-10 w-40 self-stretch sm:self-auto" />
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-28" />
         ))}
@@ -88,10 +88,16 @@ export default function App() {
   >('dashboard');
 
   const [microscopyBrowseFilter, setMicroscopyBrowseFilter] = useState<string | null>(null);
+  const [reportsBrowseFilter, setReportsBrowseFilter] = useState<'all' | 'verified' | 'pending_verification'>('all');
 
   const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users', filter?: string | null) => {
     setActiveTab(tab);
     setMicroscopyBrowseFilter(filter ?? null);
+    setReportsBrowseFilter(
+      tab === 'reports' && (filter === 'verified' || filter === 'pending_verification')
+        ? filter
+        : 'all'
+    );
     setSelectedAnalysisId(null);
   };
 
@@ -248,7 +254,7 @@ export default function App() {
       {/* Top Application Header */}
       <Header
         activeTab={effectiveTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={tab => switchTab(tab)}
         onOpenNewPatient={() => setIsNewPatientModalOpen(true)}
         onOpenLegal={handleOpenLegal}
         operatorName={user.name}
@@ -349,6 +355,7 @@ export default function App() {
           <ErrorBoundary resetKey="reports">
             <ReportsListView
               reports={reports}
+              initialStatusFilter={reportsBrowseFilter}
               currentUserName={user.name}
               currentUserId={user.id}
               canManageReports

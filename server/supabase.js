@@ -538,6 +538,7 @@ function mapSupabaseDetection(row) {
     rejected: Boolean(row.rejected),
     manual: Boolean(row.manual),
     note: row.note,
+    imageRef: row.image_ref ?? 'primary',
     adjudicatedBy: row.adjudicated_by,
     adjudicatedAt: row.adjudicated_at
   };
@@ -720,7 +721,7 @@ export async function createSupabaseAnalysis(supabase, payload) {
   return data;
 }
 
-export async function saveSupabaseDetections(supabase, analysisId, detections = []) {
+export async function saveSupabaseDetections(supabase, analysisId, detections = [], imageRef = 'primary') {
   if (!detections.length) return [];
   const rows = detections.map(d => ({
     id: d.id ?? `det_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -734,7 +735,8 @@ export async function saveSupabaseDetections(supabase, analysisId, detections = 
     confirmed: false,
     rejected: false,
     manual: false,
-    note: d.note ?? null
+    note: d.note ?? null,
+    image_ref: imageRef
   }));
 
   const { data, error } = await supabase

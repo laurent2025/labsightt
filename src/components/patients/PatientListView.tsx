@@ -78,7 +78,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Action Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -90,12 +90,12 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
             <button
               type="button"
               onClick={handleExportCsv}
               disabled={exporting || patients.length === 0}
-              className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-green-500 dark:hover:border-green-600 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              className="justify-center px-3 sm:px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-green-500 dark:hover:border-green-600 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
               <span>{exporting ? 'Exporting...' : 'Export CSV'}</span>
@@ -103,10 +103,11 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             <button
               type="button"
               onClick={onOpenNewPatientModal}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-green-600 dark:hover:bg-green-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap self-start sm:self-auto"
+              className="justify-center px-3 sm:px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-green-600 dark:hover:bg-green-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Accession New Patient</span>
+              <span className="sm:hidden">New patient</span>
+              <span className="hidden sm:inline">Accession New Patient</span>
             </button>
           </div>
         </div>
@@ -119,7 +120,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
         )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
@@ -128,7 +129,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             placeholder="Patient number, or exact full name..."
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="clinical-input w-full pl-9 pr-8 py-2 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950 rounded-lg text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
           {searchInput && (
             <button
@@ -144,7 +145,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg text-xs overflow-x-auto">
+          <div className="flex flex-1 sm:flex-initial items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg text-xs overflow-x-auto">
             {['all', 'stool', 'blood', 'urine'].map(t => (
               <button
                 key={t}
@@ -190,8 +191,100 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
           )
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse min-w-[620px]">
+            <div className="divide-y divide-slate-200 dark:divide-slate-800 md:hidden">
+              {filteredPatients.map(pat => {
+                const patientSample = samples.find(s => s.patientId === pat.id);
+
+                return (
+                  <article key={pat.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="font-bold text-slate-900 dark:text-white break-words">{pat.fullName}</h2>
+                        <p className="mt-0.5 text-xs font-mono text-slate-500 dark:text-slate-400 break-anywhere">
+                          {pat.patientNumber}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1 text-xs font-mono text-slate-700 dark:text-slate-300">
+                        {pat.age}y · {pat.gender}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {(pat.sampleTypes || []).length > 0 ? (
+                        (pat.sampleTypes || []).map(type => (
+                          <span
+                            key={type}
+                            className="rounded-full border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 px-2.5 py-1 text-xs font-medium capitalize text-green-800 dark:text-green-200"
+                          >
+                            {type} microscopy
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs italic text-slate-500 dark:text-slate-400">No specimen</span>
+                      )}
+                    </div>
+
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-100 dark:border-slate-800 pt-3 text-xs">
+                      <div className="min-w-0">
+                        <dt className="text-slate-500 dark:text-slate-400">Referring provider</dt>
+                        <dd className="mt-0.5 truncate font-medium text-slate-800 dark:text-slate-200">
+                          {pat.referringDoctor || '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500 dark:text-slate-400">Accessioned</dt>
+                        <dd className="mt-0.5 font-mono text-slate-800 dark:text-slate-200">
+                          {new Date(pat.createdAt).toLocaleDateString()}
+                        </dd>
+                      </div>
+                      {pat.referringFacility && (
+                        <div className="col-span-2 min-w-0">
+                          <dt className="text-slate-500 dark:text-slate-400">Facility</dt>
+                          <dd className="mt-0.5 truncate text-slate-800 dark:text-slate-200">
+                            {pat.referringFacility}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onSelectPatientForAnalysis(pat.id, patientSample?.id)}
+                        disabled={!patientSample}
+                        title={patientSample ? undefined : 'No specimen accessioned for this patient'}
+                        className="min-w-0 justify-center px-3 py-2.5 bg-green-700 hover:bg-green-600 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-green-600 dark:hover:bg-green-500 dark:disabled:bg-slate-700 text-white rounded-lg font-semibold text-xs inline-flex items-center gap-1.5 transition disabled:cursor-not-allowed"
+                      >
+                        <Microscope className="w-4 h-4" />
+                        <span>{patientSample ? 'Run microscopy' : 'No specimen'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onEditPatient(pat, patientSample)}
+                        className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium inline-flex items-center justify-center gap-1.5 transition"
+                        aria-label={`Edit ${pat.fullName}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                        <span>Edit</span>
+                      </button>
+                      {canDeletePatients && (
+                        <button
+                          type="button"
+                          onClick={() => onDeletePatient(pat)}
+                          className="col-span-2 inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-800 dark:text-rose-200"
+                          aria-label={`Archive ${pat.fullName}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Archive patient
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="clinical-table w-full text-left text-sm border-collapse min-w-[620px]">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                     <th scope="col" className="py-3 px-4 font-semibold">Patient MRN & Name</th>

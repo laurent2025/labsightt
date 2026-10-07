@@ -138,7 +138,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               <div className="border-b-2 border-slate-900 pb-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-950 font-serif">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-950">
                       {LAB_METADATA.name}
                     </h1>
                     <p className="text-slate-800 text-sm font-semibold mt-0.5">
@@ -164,7 +164,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
               {/* Document Title Banner */}
               <div className="my-4 py-1.5 px-3 bg-slate-100 rounded text-center">
-<span className="text-sm font-bold uppercase tracking-[0.18em] text-slate-900">
+                <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.12em] sm:tracking-[0.18em] text-slate-900">
                   CLINICAL MICROSCOPY &amp; DIAGNOSTIC PATHOLOGY REPORT
                 </span>
               </div>
@@ -178,7 +178,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   </span>
                   <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Patient Name</span>
-                    <span className="font-serif text-base font-semibold text-slate-900">{report.patient.fullName}</span>
+                    <span className="text-base font-semibold text-slate-900">{report.patient.fullName}</span>
                   </div>
                   <div className="grid grid-cols-[auto_1fr] gap-2 items-baseline">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Patient ID</span>
@@ -241,7 +241,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 mb-2 border-b-2 border-slate-400 pb-1">
                   STANDARDIZED MICROSCOPIC QUANTIFICATION
                 </h3>
-                <table className="w-full border-collapse border border-slate-300 text-left text-sm">
+                <table className="clinical-table w-full border-collapse border border-slate-300 text-left text-sm">
                   <thead>
                     <tr className="bg-slate-100 text-slate-800 font-semibold border-b border-slate-300">
                       <th className="p-2 border border-slate-300">Analyte / Microscopic Element</th>

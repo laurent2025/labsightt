@@ -113,7 +113,7 @@
   --border-strong: #c3cdca;
   --shadow-color: 0 0 0 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04);
   --shadow-elevated: 0 0 0 1px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08);
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -205,6 +205,8 @@ html.dark {
   textarea {
     color: var(--text-primary);
     font-family: var(--font-sans);
+    font-weight: 500;
+    font-variant-numeric: lining-nums;
     /* Readability floor: form text is at least 15px in either theme. Utility
        classes in components can still raise (or lower, for dense tables) it. */
     font-size: 0.9375rem;
@@ -654,10 +656,83 @@ table thead tr {
   position: static;
 }
 
+/*
+ * Clinical records use a compact, repeatable typographic hierarchy: readable
+ * sans-serif values, tabular numerals for measurements, and restrained
+ * uppercase column labels for fast scanning.
+ */
+.clinical-table {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.clinical-table thead th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.clinical-form label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.clinical-form input,
+.clinical-form select,
+.clinical-form textarea,
+.clinical-input {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+#laboratory-report-container {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+#laboratory-report-container table {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+#laboratory-report-container thead th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+@media print {
+  #laboratory-report-container {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #111827 !important;
+  }
+
+  #laboratory-report-container table {
+    font-size: 8.5pt;
+  }
+
+  #laboratory-report-container thead th {
+    font-size: 8pt;
+  }
+
+  #laboratory-report-container tr {
+    break-inside: avoid;
+  }
+}
+
 /* Large desktop: cap line length for readability */
 @media (min-width: 1536px) {
   .prose-max {
     max-width: 75ch;
   }
 }
-

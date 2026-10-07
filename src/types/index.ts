@@ -77,6 +77,8 @@ export interface Detection {
   rejected?: boolean;
   manual?: boolean;
   note?: string;
+  /** Which uploaded image of the specimen this detection came from. */
+  imageRef?: string;
 }
 
 export interface QuantifiedFinding {

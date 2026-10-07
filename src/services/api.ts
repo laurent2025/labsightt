@@ -276,11 +276,11 @@ export const analysesApi = {
   list: (params: { limit?: number; offset?: number; sampleId?: string; status?: string } = {}) =>
     request<{ analyses: Analysis[]; pagination: Pagination }>(`/analyses${query(params)}`),
 
-  /** Runs inference on the server. The model credential stays server-side. */
-  run: (sampleId: string, imageBase64: string, confidence?: number) =>
+/** Runs inference on the server. The model credential stays server-side. */
+  run: (sampleId: string, imageBase64: string, confidence?: number, imageRef?: string) =>
     request<{ analysis: Analysis }>('/analyses', {
       method: 'POST',
-      body: JSON.stringify({ sampleId, imageBase64, confidence })
+      body: JSON.stringify({ sampleId, imageBase64, confidence, imageRef })
     })
 };
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Patient, Analysis, LaboratoryReport, Sample } from '../../types';
 import {
   Microscope,
@@ -12,6 +12,14 @@ import { SLIDE_ASSETS } from '../../lib/constants';
 import { useLabStore } from '../../store/labStore';
 import { EmptyState } from '../ui/States';
 import { AdminOversight } from '../admin/AdminOversight';
+import { analysesApi, patientsApi, reportsApi } from '../../services/api';
+
+interface DashboardCounts {
+  patients: number;
+  analyses: number;
+  pendingReview: number;
+  verifiedReports: number;
+}
 
 interface DashboardOverviewProps {
   patients: Patient[];
@@ -35,26 +43,40 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onOpenNewPatientModal
 }) => {
   const [selectedQuickPipeline, setSelectedQuickPipeline] = useState<'stool' | 'blood' | 'urine'>('stool');
+  const [dashboardCounts, setDashboardCounts] = useState<DashboardCounts | null>(null);
+  const [dashboardCountsError, setDashboardCountsError] = useState<string | null>(null);
   const { user } = useLabStore();
   const canSeeModelDetails = Boolean(user);
 
-  const verifiedReportsCount = useMemo(() => reports.filter(r => r.status === 'verified').length, [reports]);
-  const pendingReviewCount = useMemo(() => analyses.filter(a => a.status === 'in_review').length, [analyses]);
-
-  const openMostRecentAnalysis = useMemo(() => (status?: Analysis['status']) => {
-    if (status === 'in_review') {
-      const pending = analyses.filter(item => item.status === 'in_review');
-      if (pending.length > 0) {
-        onNavigateTab('microscopy', 'in_review');
-        return;
-      }
-      onNavigateTab('microscopy', null);
-      return;
+  const loadDashboardCounts = useCallback(async () => {
+    setDashboardCountsError(null);
+    try {
+      const [patientsResult, analysesResult, pendingResult, verifiedResult, releasedResult] = await Promise.all([
+        patientsApi.list({ limit: 1 }),
+        analysesApi.list({ limit: 1 }),
+        analysesApi.list({ limit: 1, status: 'in_review' }),
+        reportsApi.list({ limit: 1, status: 'verified' }),
+        reportsApi.list({ limit: 1, status: 'released' })
+      ]);
+      setDashboardCounts({
+        patients: patientsResult.pagination.total,
+        analyses: analysesResult.pagination.total,
+        pendingReview: pendingResult.pagination.total,
+        verifiedReports: verifiedResult.pagination.total + releasedResult.pagination.total
+      });
+    } catch (err) {
+      setDashboardCounts(null);
+      setDashboardCountsError(
+        err instanceof Error ? err.message : 'Could not load the latest laboratory totals.'
+      );
     }
-    const analysis = analyses.find(item => !status || item.status === status);
-    if (analysis) onSelectAnalysis(analysis.id);
-    else onNavigateTab('microscopy', null);
-  }, [analyses, onNavigateTab, onSelectAnalysis]);
+  }, []);
+
+  useEffect(() => {
+    void loadDashboardCounts();
+  }, [loadDashboardCounts, patients, analyses, reports]);
+
+  const pendingReviewCount = dashboardCounts?.pendingReview ?? null;
 
   const RECENT_LIMIT = 8;
   const MY_WORK_LIMIT = 5;
@@ -164,7 +186,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             Welcome back, {user?.name ?? 'Operator'}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-            {pendingReviewCount > 0
+            {pendingReviewCount === null
+              ? 'Loading the current review queue...'
+              : pendingReviewCount > 0
               ? `${pendingReviewCount} analysis${pendingReviewCount === 1 ? '' : 'es'} awaiting review. Open one below to continue adjudication.`
               : 'No analyses are awaiting review. Accession a specimen to start a new microscopy workflow.'}
           </p>
@@ -179,14 +203,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Microscope className="w-4 h-4 text-cyan-400 dark:text-white" />
             <span>Accession New Specimen</span>
           </button>
-          {analyses.length > 0 && (
+          {(dashboardCounts?.analyses ?? 0) > 0 && (
             <button
               type="button"
-              onClick={() => openMostRecentAnalysis(pendingReviewCount > 0 ? 'in_review' : undefined)}
+              onClick={() => onNavigateTab('microscopy', pendingReviewCount ? 'in_review' : null)}
               className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-bold flex items-center gap-2 transition whitespace-nowrap cursor-pointer hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm"
             >
               <span>
-                {pendingReviewCount > 0 ? `Review ${pendingReviewCount} pending` : 'Open workstation'}
+                {pendingReviewCount === null
+                  ? 'Open microscopy worklist'
+                  : pendingReviewCount > 0
+                  ? `Review ${pendingReviewCount} pending`
+                  : 'Open microscopy worklist'}
               </span>
               <ArrowRight className="w-3.5 h-3.5 text-cyan-700 dark:text-cyan-400" />
             </button>
@@ -195,7 +223,20 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       </div>
 
       {/* Primary Telemetry Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {dashboardCountsError && (
+        <div role="alert" className="flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+          <span>Laboratory totals are unavailable: {dashboardCountsError}</span>
+          <button
+            type="button"
+            onClick={() => void loadDashboardCounts()}
+            className="min-h-10 shrink-0 rounded-lg border border-amber-400/70 px-3 py-2 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40"
+          >
+            Retry totals
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-busy={!dashboardCounts}>
         <button type="button" onClick={() => onNavigateTab('patients')} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Accessioned Patients</span>
@@ -204,12 +245,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
           <div className="text-3xl font-mono font-bold text-slate-900 dark:text-white tabular-nums">
-            {patients.length}
+            {dashboardCounts?.patients ?? '—'}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Active lab cohorts</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Patients in active laboratory records</div>
         </button>
 
-        <button type="button" onClick={() => openMostRecentAnalysis()} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
+        <button type="button" onClick={() => onNavigateTab('microscopy')} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Microscopy Runs</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950 transition-colors">
@@ -217,12 +258,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
           <div className="text-3xl font-mono font-bold text-slate-900 dark:text-white tabular-nums">
-            {analyses.length}
+            {dashboardCounts?.analyses ?? '—'}
           </div>
-          <div className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium mt-1">Roboflow vision scans complete</div>
+          <div className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium mt-1">All recorded microscopy runs</div>
         </button>
 
-        <button type="button" onClick={() => openMostRecentAnalysis('in_review')} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 transition-all duration-200">
+        <button type="button" onClick={() => onNavigateTab('microscopy', 'in_review')} className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Pending Review</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-amber-50 dark:group-hover:bg-amber-950 transition-colors">
@@ -230,18 +271,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
           <div className="text-3xl font-mono font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-            {pendingReviewCount}
+            {pendingReviewCount ?? '—'}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Awaiting technologist sign-off</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Analyses awaiting technologist review</div>
         </button>
 
         <button
           type="button"
-          onClick={() => {
-            const report = reports.find(item => item.status === 'verified' || item.status === 'released');
-            if (report) onOpenReport(report);
-            else onNavigateTab('reports');
-          }}
+          onClick={() => onNavigateTab('reports', 'verified')}
           className="group w-full text-left bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
         >
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
@@ -251,9 +288,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
           <div className="text-3xl font-mono font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {verifiedReportsCount}
+            {dashboardCounts?.verifiedReports ?? '—'}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">ISO 15189 authorized &amp; released</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Verified and released reports</div>
         </button>
       </div>
 
@@ -594,7 +631,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           />
         ) : (
         <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse min-w-[620px]">
+              <table className="clinical-table w-full text-left text-sm border-collapse min-w-[620px]">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <th className="py-2.5 px-4 font-semibold">Patient &amp; Specimen</th>

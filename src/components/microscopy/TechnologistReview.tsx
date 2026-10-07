@@ -65,7 +65,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
   );
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
+    <div className="clinical-form flex flex-col h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
       {/* Header */}
       <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950 flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -200,7 +200,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
           </div>
 
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
-                <table className="w-full text-left text-sm border-collapse min-w-[420px]">
+                <table className="clinical-table w-full text-left text-sm border-collapse min-w-[420px]">
               <thead>
                 <tr className="bg-slate-100/80 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                   <th className="py-2 px-3 font-semibold">Organism / Element</th>

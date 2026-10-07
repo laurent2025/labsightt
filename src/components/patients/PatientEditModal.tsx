@@ -66,7 +66,7 @@ export const PatientEditModal: React.FC<PatientEditModalProps> = ({ patient, onC
         aria-modal="true"
         aria-labelledby="edit-patient-title"
         onSubmit={handleSubmit}
-        className="my-auto w-full max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"
+        className="clinical-form my-auto w-full max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div>

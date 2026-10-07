@@ -61,9 +61,9 @@ import {
 // (rounded) bounding box. Boxes captured from other images
 // of the specimen differ, so their findings append to the
 // active analysis instead of replacing it.
-function detectionKey(className, x, y, width, height) {
+function detectionKey(className, x, y, width, height, imageRef = 'primary') {
   const round = value => Math.round(Number(value) * 10000) / 10000;
-  return `${className}|${round(x)},${round(y)},${round(width)},${round(height)}`;
+  return `${imageRef}|${className}|${round(x)},${round(y)},${round(width)},${round(height)}`;
 }
 
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
@@ -886,7 +886,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.post('/api/analyses', auth, async (req, res, next) => {
     const startedAt = new Date().toISOString();
     try {
-      const { sampleId, imageBase64, confidence } = req.body ?? {};
+      const { sampleId, imageBase64, confidence, imageRef } = req.body ?? {};
+      const scanRef = typeof imageRef === 'string' && imageRef.trim() ? imageRef.trim() : 'primary';
 
       if (typeof imageBase64 === 'string') {
         const base64Length = imageBase64.length;
@@ -985,18 +986,18 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
         const { data: priorDetections, error: priorError } = await supabase
           .from('detections')
-          .select('class_name, x, y, width, height')
+          .select('class_name, x, y, width, height, image_ref')
           .eq('analysis_id', analysisId);
         if (priorError) throw priorError;
 
-        const seen = new Set((priorDetections ?? []).map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height)));
+        const seen = new Set((priorDetections ?? []).map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
         const fresh = detections.filter(d => {
-          const key = detectionKey(d.class, d.x, d.y, d.width, d.height);
+          const key = detectionKey(d.class, d.x, d.y, d.width, d.height, scanRef);
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
         });
-        await saveSupabaseDetections(supabase, analysisId, fresh);
+        await saveSupabaseDetections(supabase, analysisId, fresh, scanRef);
         const finalised = await finalizeSupabaseAnalysis(supabase, analysisId, {
           totalDetections: (priorDetections ?? []).length + fresh.length,
           status: 'in_review',
@@ -1074,21 +1075,21 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       }
 
       const insert = db.prepare(`
-        INSERT INTO detections (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+        INSERT INTO detections (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected, image_ref)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
       `);
-      const priorRows = db.prepare('SELECT class_name, x, y, width, height FROM detections WHERE analysis_id = ?').all(id);
-      const seen = new Set(priorRows.map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height)));
+      const priorRows = db.prepare('SELECT class_name, x, y, width, height, image_ref FROM detections WHERE analysis_id = ?').all(id);
+      const seen = new Set(priorRows.map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
       let inserted = 0;
       db.exec('BEGIN');
       try {
         for (const d of detections) {
           // Scanning the same image twice must not double its
           // findings; distinct boxes from other images append.
-          const key = detectionKey(d.class, d.x, d.y, d.width, d.height);
+          const key = detectionKey(d.class, d.x, d.y, d.width, d.height, scanRef);
           if (seen.has(key)) continue;
           seen.add(key);
-          insert.run(newId('det'), id, d.class, d.confidence, d.x, d.y, d.width, d.height);
+          insert.run(newId('det'), id, d.class, d.confidence, d.x, d.y, d.width, d.height, scanRef);
           inserted += 1;
         }
         db.prepare('UPDATE analyses SET total_detections = ?, status = ?, completed_at = ? WHERE id = ?').run(

@@ -353,7 +353,7 @@ export const AuditLogView: React.FC = () => {
               />
             ) : (
               <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm border-collapse min-w-[900px]">
+                  <table className="clinical-table w-full text-left text-sm border-collapse min-w-[900px]">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2.5 px-4 font-semibold">ID</th>
@@ -501,7 +501,7 @@ export const AuditLogView: React.FC = () => {
               />
             ) : (
               <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm border-collapse min-w-[760px]">
+                  <table className="clinical-table w-full text-left text-sm border-collapse min-w-[760px]">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2.5 px-4 font-semibold">Time</th>

@@ -123,7 +123,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
             value={search}
             onChange={event => setSearch(event.target.value)}
             placeholder="Search name, username, or email…"
-            className="w-full sm:w-72 pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-600"
+            className="clinical-input w-full sm:w-72 pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-600"
           />
           <SearchX className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -153,7 +153,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[860px]">
+            <table className="clinical-table w-full text-left text-sm border-collapse min-w-[860px]">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                   <th className="py-2.5 px-4 font-semibold">User</th>

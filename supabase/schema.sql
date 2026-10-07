@@ -519,13 +519,23 @@ create table if not exists public.detections (
 
     adjudicated_by uuid references auth.users(id),
 
-    adjudicated_at timestamptz
+    adjudicated_at timestamptz,
+
+    image_ref text
 );
 
+-- Upgrade existing installations where detections was created before
+-- per-slide image references were added.
+alter table public.detections
+    add column if not exists image_ref text;
 
 create index if not exists
 idx_detections_analysis
 on public.detections(analysis_id);
+
+create index if not exists
+idx_detections_image
+on public.detections(analysis_id, image_ref);
 
 
 -- ============================================================

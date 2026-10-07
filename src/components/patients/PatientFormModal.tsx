@@ -184,7 +184,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="clinical-form p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {/* Section 1: Patient Demographics */}
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-3">

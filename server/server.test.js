@@ -811,4 +811,52 @@ describe('inference proxy', () => {
       .get(first.body.analysis.id);
     expect(audit.action).toBe('ANALYSIS_RERUN');
   });
+
+  it('isolates detections by image_ref so each slide keeps its own findings', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const response = predictions => new Response(JSON.stringify(predictions), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const parasite = [{ class: 'parasite', confidence: 0.9, x: 5, y: 5, width: 10, height: 10 }];
+    const ova = [{ class: 'ova', confidence: 0.8, x: 40, y: 40, width: 8, height: 8 }];
+    const providerFetch = vi.fn()
+      .mockImplementationOnce(() => Promise.resolve(response(parasite)))
+      .mockImplementationOnce(() => Promise.resolve(response(ova)))
+      .mockImplementationOnce(() => Promise.resolve(response(ova)));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(client);
+
+    // The specimen's stored slide is scanned with the default ref.
+    const primary = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image'
+    });
+    expect(primary.status).toBe(201);
+    expect(primary.body.analysis.detections.map(d => d.imageRef).sort()).toEqual(['primary']);
+
+    // An uploaded slide is scanned with its own ref, so its boxes never
+    // collide with the primary image's boxes even though they share the
+    // same class and coordinates.
+    const uploaded = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image',
+      imageRef: 'slide-abc'
+    });
+    expect(uploaded.status).toBe(200);
+    expect(uploaded.body.analysis.detections.map(d => d.imageRef).sort()).toEqual(['primary', 'slide-abc']);
+
+    // Re-scanning the uploaded slide again must not duplicate it, even
+    // though the same box already exists under a different image_ref.
+    const repeat = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image',
+      imageRef: 'slide-abc'
+    });
+    expect(repeat.status).toBe(200);
+    expect(repeat.body.analysis.totalDetections).toBe(2);
+  });
 });

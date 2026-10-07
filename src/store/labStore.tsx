@@ -372,7 +372,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       patientId: string,
       sampleId: string,
       modelId: string,
-      imageUrlOverride?: string
+      imageUrlOverride?: string,
+      imageRef?: string
     ): Promise<Analysis> => {
       const sample = samples.find(s => s.id === sampleId);
       const model = models.find(m => m.id === modelId) || models[0];
@@ -399,7 +400,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         const { analysis } = await analysesApi.run(
           sampleId,
           base64,
-          model?.confidenceThreshold ?? 0.3
+          model?.confidenceThreshold ?? 0.3,
+          imageRef
         );
         const hydrated = hydrateAnalysis(analysis, patientId, model?.name ?? 'Server model');
         setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated.id)]);

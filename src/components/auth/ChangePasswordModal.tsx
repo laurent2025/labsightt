@@ -91,7 +91,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3.5" noValidate>
+          <form onSubmit={handleSubmit} className="clinical-form px-5 py-4 space-y-3.5" noValidate>
             {error && (
               <div
                 role="alert"
