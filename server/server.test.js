@@ -11,6 +11,7 @@ import { verifyPassword, hashPassword, validatePasswordStrength } from './crypto
 import { appendAudit, verifyChain, GENESIS_HASH } from './audit.js';
 import { encryptPHI, decryptPHI } from './encryption.js';
 import { inferenceStatus, runInference } from './inference.js';
+import { deleteSupabasePatient, updateSupabasePatient } from './supabase.js';
 
 // Encryption is mandatory, so a key must exist before any module is imported.
 beforeAll(() => {
@@ -250,6 +251,24 @@ describe('equal authenticated access', () => {
     expect((await director.get('/api/patients')).body.patients.some(p => p.id === patientId)).toBe(true);
   });
 
+  it('archives an owned patient and removes it from the active directory', async () => {
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const created = await client.post('/api/patients', {
+      patientNumber: 'PT-ARCHIVE',
+      fullName: 'Archive Patient',
+      age: 45,
+      gender: 'Female'
+    });
+    const patientId = created.body.patient.id;
+
+    const archived = await client.delete(`/api/patients/${patientId}`);
+    expect(archived.status).toBe(204);
+    const directory = await client.get('/api/patients');
+    expect(directory.status).toBe(200);
+    expect(directory.body.patients.some(patient => patient.id === patientId)).toBe(false);
+    expect((await client.delete(`/api/patients/${patientId}`)).status).toBe(404);
+  });
+
   it('lets owners update their own patient details', async () => {
     const client = authed(await login('tech1', 'tech-password-1234'));
     const created = await client.post('/api/patients', {
@@ -260,6 +279,7 @@ describe('equal authenticated access', () => {
     });
 
     const res = await client.patch(`/api/patients/${created.body.patient.id}`, {
+      patientNumber: 'PT-EDIT-UPDATED',
       fullName: 'After Edit',
       age: 31,
       gender: 'Other',
@@ -269,12 +289,52 @@ describe('equal authenticated access', () => {
     });
 
     expect(res.status).toBe(200);
+    expect(res.body.patient.patientNumber).toBe('PT-EDIT-UPDATED');
     expect(res.body.patient.fullName).toBe('After Edit');
     expect(res.body.patient.age).toBe(31);
     expect(res.body.patient.gender).toBe('Other');
     expect(res.body.patient.referringDoctor).toBe('Dr. Updated');
     expect(res.body.patient.referringFacility).toBe('Updated Clinic');
     expect(res.body.patient.clinicalNotes).toBe('Updated notes');
+  });
+
+  it('rejects duplicate or invalid patient updates without changing the record', async () => {
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const first = await client.post('/api/patients', {
+      patientNumber: 'PT-UPDATE-1',
+      fullName: 'First Patient',
+      age: 24,
+      gender: 'Other'
+    });
+    await client.post('/api/patients', {
+      patientNumber: 'PT-UPDATE-2',
+      fullName: 'Second Patient',
+      age: 31,
+      gender: 'Female'
+    });
+
+    const duplicate = await client.patch(`/api/patients/${first.body.patient.id}`, {
+      patientNumber: 'PT-UPDATE-2'
+    });
+    expect(duplicate.status).toBe(409);
+
+    const invalid = await client.patch(`/api/patients/${first.body.patient.id}`, { age: 131 });
+    expect(invalid.status).toBe(400);
+    const refreshed = await client.get('/api/patients');
+    expect(refreshed.body.patients.find(patient => patient.id === first.body.patient.id))
+      .toMatchObject({ patientNumber: 'PT-UPDATE-1', age: 24 });
+  });
+
+  it('does not allow an archived patient to be edited', async () => {
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const created = await client.post('/api/patients', {
+      patientNumber: 'PT-ARCHIVED-EDIT',
+      fullName: 'Archived Patient',
+      age: 45,
+      gender: 'Female'
+    });
+    expect((await client.delete(`/api/patients/${created.body.patient.id}`)).status).toBe(204);
+    expect((await client.patch(`/api/patients/${created.body.patient.id}`, { fullName: 'Active?' })).status).toBe(404);
   });
 
   it('restricts audit log reads to administrators', async () => {
@@ -336,6 +396,91 @@ describe('equal authenticated access', () => {
 });
 
 // ------------------------------------------------------- admin users ----
+
+describe('Supabase patient archive helper', () => {
+  it('archives only an active Supabase patient and reports whether a row was changed', async () => {
+    const updates = [];
+    const filters = [];
+    const query = {
+      update: value => { updates.push(value); return query; },
+      eq: (column, value) => { filters.push([column, value]); return query; },
+      select: column => { expect(column).toBe('id'); return query; },
+      maybeSingle: async () => ({ data: { id: 'patient-1' }, error: null })
+    };
+    const supabase = {
+      from: table => {
+        expect(table).toBe('patients');
+        return query;
+      }
+    };
+
+    await expect(deleteSupabasePatient(supabase, 'patient-1')).resolves.toBe(true);
+    expect(updates).toEqual([{ active: false }]);
+    expect(filters).toEqual([['id', 'patient-1'], ['active', true]]);
+  });
+
+  describe('Supabase patient update helper', () => {
+    it('writes MRN and editable demographics to the Supabase patient row', async () => {
+      const updates = [];
+      const filters = [];
+      const patientRow = {
+        id: 'patient-1',
+        patient_number: 'PT-UPDATED',
+        full_name: 'Updated Patient',
+        age: 33,
+        gender: 'Female',
+        referring_doctor: '',
+        referring_facility: '',
+        clinical_notes: '',
+        created_at: new Date().toISOString(),
+        active: true
+      };
+      const supabase = {
+        from: table => {
+          if (table === 'samples') {
+            const sampleQuery = {
+              select: () => sampleQuery,
+              in: async () => ({ data: [], error: null })
+            };
+            return sampleQuery;
+          }
+          const query = {
+            update: value => { updates.push(value); return query; },
+            eq: (column, value) => { filters.push([column, value]); return query; },
+            select: () => query,
+            single: async () => ({ data: patientRow, error: null }),
+            maybeSingle: async () => ({ data: patientRow, error: null })
+          };
+          return query;
+        }
+      };
+
+      await expect(updateSupabasePatient(supabase, 'patient-1', {
+        patientNumber: 'PT-UPDATED',
+        age: 33,
+        gender: 'Female'
+      })).resolves.toMatchObject({ patientNumber: 'PT-UPDATED' });
+      expect(updates).toEqual([{ patient_number: 'PT-UPDATED', age: 33, gender: 'Female' }]);
+      expect(filters).toEqual([
+        ['id', 'patient-1'],
+        ['active', true],
+        ['id', 'patient-1'],
+        ['active', true]
+      ]);
+    });
+  });
+
+  it('returns false when the patient was already archived or missing', async () => {
+    const query = {
+      update: () => query,
+      eq: () => query,
+      select: () => query,
+      maybeSingle: async () => ({ data: null, error: null })
+    };
+    const supabase = { from: () => query };
+    await expect(deleteSupabasePatient(supabase, 'missing')).resolves.toBe(false);
+  });
+});
 
 describe('admin user operations', () => {
   it('lists accounts with roles and recorded activity for an admin', async () => {

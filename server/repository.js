@@ -126,6 +126,7 @@ export function getPatient(db, id) {
 
 export function updatePatient(db, id, updates) {
   const allowed = {
+    patientNumber: 'patient_number',
     fullName: 'full_name',
     age: 'age',
     gender: 'gender',
@@ -150,7 +151,8 @@ export function updatePatient(db, id, updates) {
   if (sets.length === 0) return getPatient(db, id);
 
   values.push(id);
-  db.prepare(`UPDATE patients SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  const result = db.prepare(`UPDATE patients SET ${sets.join(', ')} WHERE id = ? AND active = 1`).run(...values);
+  if (result.changes === 0) return null;
   return getPatient(db, id);
 }
 

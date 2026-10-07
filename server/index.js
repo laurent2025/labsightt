@@ -645,36 +645,88 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   app.patch('/api/patients/:id', auth, async (req, res, next) => {
     try {
-      const existing = db.prepare('SELECT id, created_by FROM patients WHERE id = ?').get(req.params.id);
-      if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
-      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
-        return res.status(403).json({ error: 'Only the operator who registered this patient can update their record.' });
-      }
-
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
-        if (req.user.role !== 'admin') {
-          const owned = await assertSupabaseOwnership(supabase, 'patients', 'id', req.params.id, 'created_by', req.user.id);
-          if (!owned) return res.status(403).json({ error: 'Only the operator who registered this patient can update their record.' });
+        const { data: existing, error } = await supabase
+          .from('patients')
+          .select('id, created_by, active')
+          .eq('id', req.params.id)
+          .eq('active', true)
+          .maybeSingle();
+        if (error) throw error;
+        if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
+        if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+          return res.status(403).json({ error: 'Only the operator who registered this patient can update their record.' });
         }
-        const patient = await updateSupabasePatient(supabase, req.params.id, req.body ?? {});
+        const updates = req.body ?? {};
+        if (updates.patientNumber !== undefined) {
+          if (typeof updates.patientNumber !== 'string' || !updates.patientNumber.trim()) {
+            return res.status(400).json({ error: 'Patient ID / MRN cannot be empty.' });
+          }
+          const { data: duplicate, error: duplicateError } = await supabase
+            .from('patients')
+            .select('id')
+            .eq('patient_number', updates.patientNumber.trim())
+            .neq('id', req.params.id)
+            .maybeSingle();
+          if (duplicateError) throw duplicateError;
+          if (duplicate) return res.status(409).json({ error: `Patient ID "${updates.patientNumber.trim()}" is already registered.` });
+          updates.patientNumber = updates.patientNumber.trim();
+        }
+        if (updates.fullName !== undefined && (typeof updates.fullName !== 'string' || !updates.fullName.trim())) {
+          return res.status(400).json({ error: 'Patient full name cannot be empty.' });
+        }
+        if (updates.age !== undefined && (!Number.isInteger(Number(updates.age)) || Number(updates.age) < 0 || Number(updates.age) > 130)) {
+          return res.status(400).json({ error: 'Patient age must be a whole number between 0 and 130.' });
+        }
+        if (updates.gender !== undefined && !['Male', 'Female', 'Other'].includes(updates.gender)) {
+          return res.status(400).json({ error: 'Please select a valid patient gender.' });
+        }
+        const patient = await updateSupabasePatient(supabase, req.params.id, updates);
+        if (!patient) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
         appendAudit(db, {
           actorId: req.user.id,
           actorName: req.user.display_name,
           action: 'PATIENT_UPDATED',
           entity: 'patient',
           entityId: req.params.id,
-          details: `Fields changed: ${Object.keys(req.body ?? {}).join(', ') || 'none'}`
+          details: `Fields changed: ${Object.keys(updates).join(', ') || 'none'}`
         });
         return res.json({ patient });
       }
 
+      const existing = db.prepare('SELECT id, created_by FROM patients WHERE id = ? AND active = 1').get(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
+      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+        return res.status(403).json({ error: 'Only the operator who registered this patient can update their record.' });
+      }
+
       const updates = { ...req.body };
+      if (updates.patientNumber !== undefined) {
+        if (typeof updates.patientNumber !== 'string' || !updates.patientNumber.trim()) {
+          return res.status(400).json({ error: 'Patient ID / MRN cannot be empty.' });
+        }
+        const patientNumber = updates.patientNumber.trim();
+        const duplicate = db.prepare('SELECT 1 FROM patients WHERE patient_number = ? AND id != ?').get(patientNumber, req.params.id);
+        if (duplicate) return res.status(409).json({ error: `Patient ID "${patientNumber}" is already registered.` });
+        updates.patientNumber = patientNumber;
+      }
+      if (updates.fullName !== undefined && (typeof updates.fullName !== 'string' || !updates.fullName.trim())) {
+        return res.status(400).json({ error: 'Patient full name cannot be empty.' });
+      }
+      if (updates.age !== undefined && (!Number.isInteger(Number(updates.age)) || Number(updates.age) < 0 || Number(updates.age) > 130)) {
+        return res.status(400).json({ error: 'Patient age must be a whole number between 0 and 130.' });
+      }
+      if (updates.gender !== undefined && !['Male', 'Female', 'Other'].includes(updates.gender)) {
+        return res.status(400).json({ error: 'Please select a valid patient gender.' });
+      }
+      if (updates.fullName !== undefined) updates.fullName = updates.fullName.trim();
       for (const field of ['fullName', 'referringDoctor', 'referringFacility', 'clinicalNotes']) {
         if (updates[field] !== undefined) updates[field] = encryptPHI(updates[field]);
       }
 
       const patient = repo.updatePatient(db, req.params.id, updates);
+      if (!patient) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
       appendAudit(db, {
         actorId: req.user.id,
         actorName: req.user.display_name,
@@ -691,15 +743,22 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   app.delete('/api/patients/:id', auth, async (req, res, next) => {
     try {
-      const existing = db.prepare('SELECT id, created_by FROM patients WHERE id = ?').get(req.params.id);
-      if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
-      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
-        return res.status(403).json({ error: 'Only the operator who registered this patient can archive their record.' });
-      }
-
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
-        await deleteSupabasePatient(supabase, req.params.id);
+        const { data: existing, error } = await supabase
+          .from('patients')
+          .select('id, created_by, active')
+          .eq('id', req.params.id)
+          .eq('active', true)
+          .maybeSingle();
+        if (error) throw error;
+        if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
+        if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+          return res.status(403).json({ error: 'Only the operator who registered this patient can archive their record.' });
+        }
+
+        const archived = await deleteSupabasePatient(supabase, req.params.id);
+        if (!archived) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
         appendAudit(db, {
           actorId: req.user.id,
           actorName: req.user.display_name,
@@ -711,7 +770,14 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(204).send();
       }
 
-      db.prepare('UPDATE patients SET active = 0 WHERE id = ?').run(req.params.id);
+      const existing = db.prepare('SELECT id, created_by, full_name FROM patients WHERE id = ? AND active = 1').get(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
+      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+        return res.status(403).json({ error: 'Only the operator who registered this patient can archive their record.' });
+      }
+
+      const result = db.prepare('UPDATE patients SET active = 0 WHERE id = ? AND active = 1').run(req.params.id);
+      if (result.changes === 0) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
 
       appendAudit(db, {
         actorId: req.user.id,

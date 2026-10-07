@@ -273,6 +273,9 @@ export async function createSupabasePatient(supabase, payload) {
 
 export async function updateSupabasePatient(supabase, id, updates) {
   const payload = {};
+  if (updates.patientNumber !== undefined) {
+    payload.patient_number = String(updates.patientNumber).trim();
+  }
   if (updates.fullName !== undefined) {
     payload.full_name = encryptPHI(updates.fullName);
     payload.full_name_index = blindIndex(updates.fullName);
@@ -291,20 +294,25 @@ export async function updateSupabasePatient(supabase, id, updates) {
     .from('patients')
     .update(payload)
     .eq('id', id)
+    .eq('active', true)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) return null;
   return getSupabasePatient(supabase, data.id);
 }
 
 export async function deleteSupabasePatient(supabase, id) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('patients')
     .update({ active: false })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('active', true)
+    .select('id')
+    .maybeSingle();
   if (error) throw error;
-  return true;
+  return Boolean(data);
 }
 
 export async function listSupabaseReports(supabase, { limit = 50, offset = 0, status } = {}) {
