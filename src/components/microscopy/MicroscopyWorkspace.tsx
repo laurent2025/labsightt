@@ -49,6 +49,7 @@ interface MicroscopyWorkspaceProps {
   pendingPatientId?: string;
   pendingSampleId?: string;
   pendingInferenceError?: string;
+  pendingInferenceActive?: boolean;
   onRunAnalysis: (patientId: string, sampleId: string, modelId: string, imageUrlOverride?: string, imageRef?: string) => Promise<Analysis>;
   onToggleConfirmDetection: (analysisId: string, detectionId: string) => void;
   onRejectDetection: (analysisId: string, detectionId: string) => void;
@@ -71,6 +72,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   pendingPatientId,
   pendingSampleId,
   pendingInferenceError,
+  pendingInferenceActive = false,
   onRunAnalysis,
   onToggleConfirmDetection,
   onRejectDetection,
@@ -101,6 +103,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [gateError, setGateError] = useState<string | null>(null);
   const camera = useMicroscopeCamera();
   const [uploadedSlides, setUploadedSlides] = useState<{ id: string; name: string; dataUrl: string }[]>([]);
+  const [slidesLoading, setSlidesLoading] = useState(false);
   const [isSavingSlides, setIsSavingSlides] = useState(false);
   // Which uploaded image of the specimen is being reviewed. 'primary' is the
   // sample's stored slide; any other value is an uploaded slide id. Every
@@ -280,6 +283,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       setUploadedSlides([]);
       setCustomSlideDataUrl(null);
       setActiveSlideRef('primary');
+      setSlidesLoading(false);
       return;
     }
 
@@ -287,20 +291,29 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     setUploadedSlides([]);
     setCustomSlideDataUrl(null);
     setActiveSlideRef('primary');
+    setSlidesLoading(true);
     void samplesApi.slides(sampleId)
       .then(({ slides }) => {
         if (current) {
-          setUploadedSlides(slides.map(slide => ({
+          const persistedSlides = slides.map(slide => ({
             id: slide.id,
             name: slide.name,
             dataUrl: slide.imageData
-          })));
+          }));
+          setUploadedSlides(previous => {
+            const byId = new Map(persistedSlides.map(slide => [slide.id, slide]));
+            previous.forEach(slide => byId.set(slide.id, slide));
+            return [...byId.values()];
+          });
         }
       })
       .catch(err => {
         if (current) {
           setInferenceError(err instanceof Error ? `Could not load saved specimen images: ${err.message}` : 'Could not load saved specimen images.');
         }
+      })
+      .finally(() => {
+        if (current) setSlidesLoading(false);
       });
     return () => { current = false; };
   }, [activeSample?.id]);
@@ -312,6 +325,29 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
 
   const activeModel =
     models.find(m => m.id === activeAnalysis?.modelId) || models[0];
+
+  const primaryImageUrl = resolvedImageUrl || activeSample?.imageUrl || null;
+  const slideChoices = [
+    ...(primaryImageUrl ? [{ id: 'primary', name: 'Specimen image', dataUrl: primaryImageUrl }] : []),
+    ...uploadedSlides
+  ];
+  const activeImageUrl = customSlideDataUrl || primaryImageUrl || '';
+  const changeSlide = (direction: -1 | 1) => {
+    if (slideChoices.length < 2 || slidesLoading) return;
+    const currentIndex = slideChoices.findIndex(slide => slide.id === activeSlideRef);
+    const startIndex = currentIndex < 0 ? (direction > 0 ? -1 : 0) : currentIndex;
+    const nextIndex = (startIndex + direction + slideChoices.length) % slideChoices.length;
+    const nextSlide = slideChoices[nextIndex];
+    if (nextSlide.id === 'primary') {
+      setCustomSlideDataUrl(null);
+      setActiveSlideRef('primary');
+      setInferenceError(null);
+      return;
+    }
+    const uploadedSlide = uploadedSlides.find(slide => slide.id === nextSlide.id);
+    if (uploadedSlide) selectSlide(uploadedSlide);
+  };
+  const activeSlidePosition = slideChoices.findIndex(slide => slide.id === activeSlideRef);
 
   // Re-run inference with current or selected model. An explicit image
   // override (e.g. a fresh microscope capture) takes precedence over the
@@ -551,7 +587,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                {analysisError ? 'Specimen saved; AI analysis did not complete' : 'Specimen ready for AI analysis'}
+                {pendingInferenceActive
+                  ? 'Specimen loaded — AI analysis is running'
+                  : analysisError
+                    ? 'Specimen saved; AI analysis did not complete'
+                    : 'Specimen ready for AI analysis'}
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
                 {activePatient.fullName} · {activeSample.slideLabel} · {activeSample.sampleType}
@@ -560,19 +600,116 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 <p role="alert" className="text-sm font-medium text-amber-900 dark:text-amber-200 mt-3 break-words">
                   {analysisError}
                 </p>
+              ) : pendingInferenceActive ? (
+                <p role="status" className="text-sm text-slate-600 dark:text-slate-300 mt-3">
+                  The first image is being scanned. Your saved specimen images are listed below; you can switch images now.
+                </p>
               ) : (
                 <p className="text-sm text-slate-600 dark:text-slate-300 mt-3">
                   This saved specimen does not have an analysis yet.
                 </p>
 )}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <span className="text-xs text-slate-600 dark:text-slate-300">
+                  {slidesLoading
+                    ? 'Loading saved images…'
+                    : `${slideChoices.length} image${slideChoices.length === 1 ? '' : 's'} available`}
+                </span>
+                <label
+                  aria-disabled={slidesLoading || isSavingSlides}
+                  className={`px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold ${
+                    slidesLoading || isSavingSlides ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {isSavingSlides ? 'Saving images…' : 'Load additional images'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleCustomUpload}
+                    disabled={slidesLoading || isSavingSlides}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {slideChoices.length > 0 && (
+                <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                      {slidesLoading ? 'Loading images…' : 'Select an image to scan'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => changeSlide(-1)}
+                        disabled={slidesLoading || slideChoices.length < 2}
+                        aria-label="Previous specimen image"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-40"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-20 text-center text-xs font-mono text-slate-600 dark:text-slate-300" aria-live="polite">
+                        {activeSlidePosition >= 0 ? `${activeSlidePosition + 1} / ${slideChoices.length}` : `0 / ${slideChoices.length}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => changeSlide(1)}
+                        disabled={slidesLoading || slideChoices.length < 2}
+                        aria-label="Next specimen image"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 disabled:opacity-40"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {slideChoices.map((slide, index) => (
+                      <button
+                        key={slide.id}
+                        type="button"
+                        onClick={() => {
+                          if (slide.id === 'primary') {
+                            setCustomSlideDataUrl(null);
+                            setActiveSlideRef('primary');
+                          } else {
+                            selectSlide(slide);
+                          }
+                        }}
+                        aria-pressed={slide.id === activeSlideRef}
+                        title={`Select ${slide.name}`}
+                        className={`shrink-0 rounded-lg border-2 p-1 text-left ${
+                          slide.id === activeSlideRef
+                            ? 'border-cyan-600 ring-2 ring-cyan-200 dark:ring-cyan-900'
+                            : 'border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        <img src={slide.dataUrl} alt="" className="h-14 w-20 rounded object-cover" />
+                        <span className="mt-1 block max-w-20 truncate text-[10px] text-slate-600 dark:text-slate-300">
+                          {index + 1}. {slide.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {activeImageUrl && (
+                    <div className="mt-3 flex flex-col items-center gap-3 rounded-lg bg-slate-950 p-2">
+                      <img src={activeImageUrl} alt="Selected specimen image" className="max-h-64 max-w-full object-contain" />
+                      <span className="text-[11px] font-mono text-slate-300">
+                        {slideChoices.find(slide => slide.id === activeSlideRef)?.name || 'Selected specimen image'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => void handleTriggerAnalysis()}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || pendingInferenceActive || isSavingSlides || slidesLoading}
                 className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg font-bold text-sm inline-flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
-                {isAnalyzing ? 'Running AI analysis...' : 'Retry AI analysis'}
+                {pendingInferenceActive || isAnalyzing
+                  ? 'Running AI analysis...'
+                  : `Scan ${slideChoices.find(slide => slide.id === activeSlideRef)?.name || 'selected image'}`}
               </button>
             </div>
           </div>
@@ -598,27 +735,6 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     );
   }
 
-  const activeImageUrl = customSlideDataUrl || resolvedImageUrl || '';
-  const slideChoices = [
-    ...(resolvedImageUrl ? [{ id: 'primary', name: 'Specimen image', dataUrl: resolvedImageUrl }] : []),
-    ...uploadedSlides
-  ];
-  const changeSlide = (direction: -1 | 1) => {
-    if (slideChoices.length < 2) return;
-    const currentIndex = slideChoices.findIndex(slide => slide.id === activeSlideRef);
-    const startIndex = currentIndex < 0 ? (direction > 0 ? -1 : 0) : currentIndex;
-    const nextIndex = (startIndex + direction + slideChoices.length) % slideChoices.length;
-    const nextSlide = slideChoices[nextIndex];
-    if (nextSlide.id === 'primary') {
-      setCustomSlideDataUrl(null);
-      setActiveSlideRef('primary');
-      setInferenceError(null);
-      return;
-    }
-    const uploadedSlide = uploadedSlides.find(slide => slide.id === nextSlide.id);
-    if (uploadedSlide) selectSlide(uploadedSlide);
-  };
-  const activeSlidePosition = slideChoices.findIndex(slide => slide.id === activeSlideRef);
   const totalFields = Math.max(1, activeSample.fieldsExamined || 10);
   const confirmedCount = activeAnalysis.detections.filter(d => d.confirmed && !d.rejected).length;
   const totalDets = activeAnalysis.detections.filter(d => !d.rejected).length;
@@ -766,12 +882,15 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
 
           {/* Upload new slide photos (one or more at a time) */}
           <label
-            className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium cursor-pointer transition flex items-center gap-1.5"
+            aria-disabled={slidesLoading || isSavingSlides}
+            className={`px-3 py-1.5 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition flex items-center gap-1.5 ${
+              slidesLoading || isSavingSlides ? 'opacity-50 cursor-wait' : 'cursor-pointer'
+            }`}
             title="Load one or more slide photos"
           >
             <Upload className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span className="hidden sm:inline">Load Slide</span>
-            <input type="file" accept="image/*" multiple onChange={handleCustomUpload} disabled={isSavingSlides} className="hidden" />
+            <input type="file" accept="image/*" multiple onChange={handleCustomUpload} disabled={isSavingSlides || slidesLoading} className="hidden" />
           </label>
 
           {/* Capture from microscope camera */}
@@ -812,7 +931,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs">
           <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 shrink-0">
-              {isSavingSlides ? 'Saving images…' : `Saved Slides (${uploadedSlides.length})`}
+              {slidesLoading ? 'Loading saved slides…' : isSavingSlides ? 'Saving images…' : `Saved Slides (${uploadedSlides.length})`}
             </span>
             <button
               type="button"
@@ -1070,8 +1189,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             onFieldChange={f => setCurrentField(f)}
             onPreviousSlide={() => changeSlide(-1)}
             onNextSlide={() => changeSlide(1)}
-            slideNavigationLabel={activeSlidePosition >= 0 ? `image ${activeSlidePosition + 1} of ${slideChoices.length}` : 'specimen images'}
-            canSwitchSlides={slideChoices.length > 1}
+            slideNavigationLabel={slidesLoading
+              ? 'loading images'
+              : slideChoices.length > 0
+                ? `image ${activeSlidePosition >= 0 ? activeSlidePosition + 1 : 1} of ${slideChoices.length}`
+                : 'no saved images'}
+            canSwitchSlides={!slidesLoading && slideChoices.length > 1}
             isScanning={isAnalyzing}
           />
         </div>

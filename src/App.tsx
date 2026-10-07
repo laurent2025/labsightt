@@ -22,7 +22,7 @@ import { AIModelsView } from './components/admin/AIModelsView';
 import { UsersAdminView } from './components/admin/UsersAdminView';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { Skeleton } from './components/ui/States';
-import { authApi } from './services/api';
+import { authApi, samplesApi } from './services/api';
 import { Microscope } from 'lucide-react';
 
 /** Matches the dashboard's layout so content does not jump when it arrives. */
@@ -116,6 +116,7 @@ export default function App() {
     patientId: string;
     sampleId: string;
     error: string;
+    scanning: boolean;
   } | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
@@ -167,13 +168,14 @@ export default function App() {
 
   const handleCreatePatientAndSample = async (
     patientData: NewPatient,
-    sampleData: Omit<Sample, 'id'>
+    sampleData: Omit<Sample, 'id'> & { additionalSlides: { name: string; imageData: string }[] }
   ) => {
+    const { additionalSlides, ...sampleRecord } = sampleData;
     let newPat: Patient;
     let newSmp: Sample;
     try {
       newPat = await addPatient(patientData);
-      newSmp = await addSample({ ...sampleData, patientId: newPat.id });
+      newSmp = await addSample({ ...sampleRecord, patientId: newPat.id });
     } catch (err) {
       console.error('Accession failed:', err);
       throw err;
@@ -182,6 +184,36 @@ export default function App() {
     setIsNewPatientModalOpen(false);
 
     const matchedModel = models.find(m => m.category === newSmp.sampleType) || models[0];
+
+    const slideErrors: string[] = [];
+    for (const slide of additionalSlides) {
+      try {
+        await samplesApi.addSlide(newSmp.id, slide);
+      } catch (err) {
+        slideErrors.push(`${slide.name}: ${err instanceof Error ? err.message : 'upload failed'}`);
+      }
+    }
+
+    if (slideErrors.length > 0) {
+      setSelectedAnalysisId(null);
+      setPendingMicroscopy({
+        patientId: newPat.id,
+        sampleId: newSmp.id,
+        error: `The specimen was saved, but some additional images were not saved: ${slideErrors.join('; ')}. Upload those images again before scanning.`,
+        scanning: false
+      });
+      setActiveTab('microscopy');
+      return;
+    }
+
+    setSelectedAnalysisId(null);
+    setPendingMicroscopy({
+      patientId: newPat.id,
+      sampleId: newSmp.id,
+      error: '',
+      scanning: true
+    });
+    setActiveTab('microscopy');
 
     try {
       const newAna = await createAndRunAnalysis(
@@ -192,15 +224,14 @@ export default function App() {
       );
       setSelectedAnalysisId(newAna.id);
       setPendingMicroscopy(null);
-      setActiveTab('microscopy');
     } catch (e) {
       console.error('Auto analysis launch error:', e);
       setPendingMicroscopy({
         patientId: newPat.id,
         sampleId: newSmp.id,
-        error: e instanceof Error ? e.message : String(e)
+        error: e instanceof Error ? e.message : String(e),
+        scanning: false
       });
-      setActiveTab('microscopy');
     }
   };
 
@@ -336,7 +367,12 @@ export default function App() {
             pendingPatientId={pendingMicroscopy?.patientId}
             pendingSampleId={pendingMicroscopy?.sampleId}
             pendingInferenceError={pendingMicroscopy?.error}
-            onRunAnalysis={createAndRunAnalysis}
+            pendingInferenceActive={pendingMicroscopy?.scanning ?? false}
+            onRunAnalysis={async (patientId, sampleId, modelId, imageUrl, imageRef) => {
+              const analysis = await createAndRunAnalysis(patientId, sampleId, modelId, imageUrl, imageRef);
+              if (pendingMicroscopy?.sampleId === sampleId) setPendingMicroscopy(null);
+              return analysis;
+            }}
             onToggleConfirmDetection={toggleDetectionConfirmation}
             onRejectDetection={rejectDetection}
             onConfirmAllDetections={confirmAllDetections}

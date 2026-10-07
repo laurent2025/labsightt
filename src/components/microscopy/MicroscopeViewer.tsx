@@ -943,27 +943,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             >
               <ArrowLeft className="w-3.5 h-3.5" />
             </button>
-            <button
-              type="button"
-              onClick={onPreviousSlide}
-              disabled={!canSwitchSlides}
-              aria-label={`Previous image${slideNavigationLabel ? ` from ${slideNavigationLabel}` : ''}`}
-              title={`Previous image${slideNavigationLabel ? ` (${slideNavigationLabel})` : ''}`}
-              className="p-1 hover:bg-slate-800 rounded text-cyan-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[9px] font-mono text-cyan-400 font-bold px-0.5">STAGE</span>
-            <button
-              type="button"
-              onClick={onNextSlide}
-              disabled={!canSwitchSlides}
-              aria-label={`Next image${slideNavigationLabel ? ` from ${slideNavigationLabel}` : ''}`}
-              title={`Next image${slideNavigationLabel ? ` (${slideNavigationLabel})` : ''}`}
-              className="p-1 hover:bg-slate-800 rounded text-cyan-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <span className="text-[9px] font-mono text-cyan-400 font-bold px-1">STAGE</span>
             <button
               type="button"
               onClick={() => translateMechanicalStage(0.4, 0)}
@@ -980,6 +960,37 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             title="Translate Stage Down"
           >
             <ArrowDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Specimen image navigation, separate from mechanical stage movement */}
+        <div
+          role="group"
+          aria-label="Specimen image navigation"
+          className="absolute bottom-40 left-3 z-10 flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900/90 p-1.5 text-slate-200 shadow-lg backdrop-blur-sm"
+        >
+          <button
+            type="button"
+            onClick={onPreviousSlide}
+            disabled={!canSwitchSlides}
+            aria-label="Previous specimen image"
+            title="Previous specimen image"
+            className="flex min-h-8 min-w-8 items-center justify-center rounded-md text-cyan-300 hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span aria-live="polite" className="min-w-20 px-1 text-center text-[10px] font-mono font-semibold text-slate-200">
+            {slideNavigationLabel}
+          </span>
+          <button
+            type="button"
+            onClick={onNextSlide}
+            disabled={!canSwitchSlides}
+            aria-label="Next specimen image"
+            title="Next specimen image"
+            className="flex min-h-8 min-w-8 items-center justify-center rounded-md text-cyan-300 hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 

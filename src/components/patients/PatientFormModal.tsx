@@ -8,7 +8,10 @@ import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
 interface PatientFormModalProps {
   onClose: () => void;
-  onSubmit: (patient: NewPatient, sample: Omit<Sample, 'id'>) => void;
+  onSubmit: (
+    patient: NewPatient,
+    sample: Omit<Sample, 'id'> & { additionalSlides: { name: string; imageData: string }[] }
+  ) => void | Promise<void>;
 }
 
 export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onSubmit }) => {
@@ -132,7 +135,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
       clinicalNotes
     };
 
-    const sampleData: Omit<Sample, 'id'> = {
+    const sampleData: Omit<Sample, 'id'> & { additionalSlides: { name: string; imageData: string }[] } = {
       patientId: '',
       sampleType,
       collectionDatetime: toLocalIso(collectionDate, collectionTime),
@@ -144,7 +147,10 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
       imageUrl: activeImage,
       stainMethod,
       slideLabel,
-      notes: clinicalNotes
+      notes: clinicalNotes,
+      additionalSlides: uploadedImages
+        .filter(image => image.dataUrl !== activeImage)
+        .map(image => ({ name: image.name, imageData: image.dataUrl }))
     };
 
     setSubmitting(true);

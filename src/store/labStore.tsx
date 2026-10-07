@@ -95,7 +95,8 @@ export interface LabStoreValue {
     patientId: string,
     sampleId: string,
     modelId: string,
-    imageUrlOverride?: string
+    imageUrlOverride?: string,
+    imageRef?: string
   ) => Promise<Analysis>;
   toggleDetectionConfirmation: (analysisId: string, detectionId: string) => Promise<void>;
   rejectDetection: (analysisId: string, detectionId: string) => Promise<void>;
@@ -730,5 +731,4 @@ function hydrateAnalysis(
     clinicalImpression: row.clinicalImpression ?? ''
   };
 }
-
 
