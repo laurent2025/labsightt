@@ -3,7 +3,7 @@ import { LaboratoryReport } from '../../types';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Printer, Download, X, ShieldCheck } from 'lucide-react';
 import { LAB_METADATA } from '../../lib/constants';
-import { samplesApi } from '../../services/api';
+import { samplesApi, type SpecimenSlide } from '../../services/api';
 
 interface LaboratoryReportModalProps {
   report: LaboratoryReport;
@@ -18,23 +18,43 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
   onVerify,
   verifyError
 }) => {
-  const [sampleImageUrl, setSampleImageUrl] = useState<string | null>(null);
+  const [sampleImages, setSampleImages] = useState<{ id: string; name: string; imageData: string }[]>([]);
+  const [imageLoadError, setImageLoadError] = useState<string | null>(null);
   const panelRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
   useEffect(() => {
-    const imageUrl = report.sample?.imageUrl;
-    if (imageUrl) {
-      setSampleImageUrl(imageUrl);
-      return;
-    }
     const sampleId = report.sample?.id;
     if (!sampleId) {
-      setSampleImageUrl(null);
+      setSampleImages([]);
       return;
     }
-    void samplesApi.detail(sampleId)
-      .then(({ sample }) => setSampleImageUrl(sample.imageUrl))
-      .catch(() => setSampleImageUrl(null));
+    let current = true;
+    setImageLoadError(null);
+    void Promise.all([
+      report.sample.imageUrl
+        ? Promise.resolve(report.sample.imageUrl)
+        : samplesApi.detail(sampleId).then(({ sample }) => sample.imageUrl),
+      samplesApi.slides(sampleId).then(({ slides }) => slides)
+    ])
+      .then(([primaryImage, slides]) => {
+        if (!current) return;
+        const images = [];
+        if (primaryImage) {
+          images.push({ id: 'primary', name: 'Specimen image', imageData: primaryImage });
+        }
+        images.push(...slides.map((slide: SpecimenSlide) => ({
+          id: slide.id,
+          name: slide.name,
+          imageData: slide.imageData
+        })));
+        setSampleImages(images);
+      })
+      .catch(err => {
+        if (current) {
+          setImageLoadError(err instanceof Error ? err.message : 'Saved specimen images could not be loaded.');
+        }
+      });
+    return () => { current = false; };
   }, [report.sample]);
 
   const handlePrint = () => {
@@ -299,28 +319,39 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               <div className="mb-5 border border-slate-200 rounded-lg p-3 bg-slate-50">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800">
-                    REPRESENTATIVE DIGITAL PHOTOMICROGRAPH
+                    SPECIMEN PHOTOMICROGRAPHS
                   </span>
                   <span className="text-[11px] font-mono text-slate-600">
                     Calibrated scale: {report.sample.objective === '100x_oil' ? '20' : report.sample.objective === '40x' ? '25' : '50'} µm / bar
                   </span>
                 </div>
-<div className="relative w-full h-56 bg-slate-950 rounded overflow-hidden flex items-center justify-center print:h-auto print:bg-white print:flex-col print:border print:border-slate-300">
-      {sampleImageUrl ? (
-        <img
-          src={sampleImageUrl}
-          alt="Microscopy plate"
-          className="max-h-full max-w-full object-contain print:max-h-[120mm]"
-        />
-      ) : (
-        <span className="text-slate-500 text-xs font-mono px-4 text-center">
-          No photomicrograph captured for this specimen
-        </span>
-      )}
-                  <div className="absolute bottom-2 left-2 bg-slate-900/80 px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 print:static print:bg-white print:text-slate-900 print:border print:border-slate-300 print:rounded print:mt-2 print:py-1">
-                    {report.sample.stainMethod} · {report.sample.totalMagnification}
+                {imageLoadError ? (
+                  <p role="alert" className="text-xs text-rose-700 print:hidden">
+                    Saved specimen images could not be loaded: {imageLoadError}
+                  </p>
+                ) : sampleImages.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 print:grid-cols-2">
+                    {sampleImages.map((image, index) => (
+                      <figure key={image.id} className="break-inside-avoid border border-slate-300 rounded bg-white p-2">
+                        <div className="h-48 bg-slate-950 rounded overflow-hidden flex items-center justify-center print:h-auto print:min-h-[50mm] print:bg-white">
+                          <img
+                            src={image.imageData}
+                            alt={`${image.name} microscopy image`}
+                            className="max-h-full max-w-full object-contain print:max-h-[75mm]"
+                          />
+                        </div>
+                        <figcaption className="mt-1.5 flex flex-wrap justify-between gap-1 text-[10px] font-mono text-slate-700">
+                          <span>{index + 1}. {image.name}</span>
+                          <span>{report.sample.stainMethod} · {report.sample.totalMagnification}</span>
+                        </figcaption>
+                      </figure>
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <span className="block py-6 text-center text-slate-500 text-xs font-mono">
+                    No photomicrographs have been saved for this specimen.
+                  </span>
+                )}
               </div>
 
               {/* Diagnostic Impression & Clinical Interpretation */}

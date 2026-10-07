@@ -627,6 +627,51 @@ export async function createSupabaseSample(supabase, payload) {
   return mapSupabaseSample(data);
 }
 
+function mapSupabaseSlide(row) {
+  return {
+    id: row.id,
+    sampleId: row.sample_id,
+    name: row.name,
+    imageData: decryptPHI(row.image_data),
+    createdAt: row.created_at
+  };
+}
+
+export async function listSupabaseSampleSlides(supabase, sampleId) {
+  const { data, error } = await supabase
+    .from('sample_slides')
+    .select('id, sample_id, name, image_data, created_at')
+    .eq('sample_id', sampleId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapSupabaseSlide);
+}
+
+export async function createSupabaseSampleSlide(supabase, { id, sampleId, name, imageData, createdAt, createdBy }) {
+  const { data, error } = await supabase
+    .from('sample_slides')
+    .insert({
+      id,
+      sample_id: sampleId,
+      name,
+      image_data: encryptPHI(imageData),
+      created_at: createdAt,
+      created_by: createdBy
+    })
+    .select('id, sample_id, name, image_data, created_at')
+    .single();
+  if (error) throw error;
+  return mapSupabaseSlide(data);
+}
+
+export async function deleteSupabaseSampleSlide(supabase, slideId) {
+  const { error } = await supabase
+    .from('sample_slides')
+    .delete()
+    .eq('id', slideId);
+  if (error) throw error;
+}
+
 export async function listSupabaseAnalyses(supabase, { limit = 50, offset = 0, sampleId, status } = {}) {
   let query = supabase.from('analyses').select('*', { count: 'exact' });
   if (sampleId) query = query.eq('sample_id', sampleId);

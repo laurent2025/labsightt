@@ -7,7 +7,7 @@
  * guessing whether it has reached the end.
  */
 import { quantifyDetections } from '../src/lib/quantification.js';
-import { decryptPHI, blindIndex } from './encryption.js';
+import { decryptPHI, encryptPHI, blindIndex } from './encryption.js';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -193,6 +193,40 @@ export function samplesByIds(db, ids) {
 export function getSample(db, id) {
   const row = db.prepare('SELECT * FROM samples WHERE id = ?').get(id);
   return row ? mapSample(row) : null;
+}
+
+export function listSampleSlides(db, sampleId) {
+  return db.prepare(`
+    SELECT id, sample_id, name, image_data, created_at
+    FROM sample_slides
+    WHERE sample_id = ?
+    ORDER BY created_at, id
+  `).all(sampleId).map(mapSampleSlide);
+}
+
+function mapSampleSlide(row) {
+  return {
+    id: row.id,
+    sampleId: row.sample_id,
+    name: row.name,
+    imageData: decryptPHI(row.image_data),
+    createdAt: row.created_at
+  };
+}
+
+export function createSampleSlide(db, { id, sampleId, name, imageData, createdAt, createdBy }) {
+  db.prepare(`
+    INSERT INTO sample_slides (id, sample_id, name, image_data, created_at, created_by)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, sampleId, name, encryptPHI(imageData), createdAt, createdBy);
+  return mapSampleSlide(db.prepare(`
+    SELECT id, sample_id, name, image_data, created_at
+    FROM sample_slides WHERE id = ?
+  `).get(id));
+}
+
+export function deleteSampleSlide(db, slideId) {
+  return db.prepare('DELETE FROM sample_slides WHERE id = ?').run(slideId).changes > 0;
 }
 
 // ------------------------------------------------------------ analyses ----

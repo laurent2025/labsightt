@@ -40,6 +40,9 @@ import {
   listSupabaseSamples,
   getSupabaseSample,
   createSupabaseSample,
+  listSupabaseSampleSlides,
+  createSupabaseSampleSlide,
+  deleteSupabaseSampleSlide,
   listSupabaseAnalyses,
   getSupabaseAnalysis,
   createSupabaseAnalysis,
@@ -137,6 +140,28 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     if (error) throw error;
     if (!data) return false;
     return data[ownerColumn] === userId;
+  }
+
+  async function canAccessSample(req, sampleId, supabase) {
+    if (req.user.role === 'admin') return true;
+    if (supabase) {
+      const { data: sample, error } = await supabase
+        .from('samples')
+        .select('created_by, patient_id')
+        .eq('id', sampleId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!sample) return false;
+      if (sample.created_by === req.user.id) return true;
+      return assertSupabaseOwnership(supabase, 'patients', 'id', sample.patient_id, 'created_by', req.user.id);
+    }
+    const sample = db.prepare(`
+      SELECT s.created_by, p.created_by AS patient_created_by
+      FROM samples s
+      JOIN patients p ON p.id = s.patient_id
+      WHERE s.id = ?
+    `).get(sampleId);
+    return Boolean(sample && (sample.created_by === req.user.id || sample.patient_created_by === req.user.id));
   }
 
   healthRoutes(app, db);
@@ -850,6 +875,135 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         next(err);
       }
     });
+
+  app.get('/api/samples/:id/slides', auth, async (req, res, next) => {
+    try {
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+      if (!(await canAccessSample(req, req.params.id, supabase))) {
+        return res.status(403).json({ error: 'You can only view slide images for specimens you are authorized to access.' });
+      }
+      const sample = supabase
+        ? await getSupabaseSample(supabase, req.params.id)
+        : repo.getSample(db, req.params.id);
+      if (!sample) return res.status(404).json({ error: 'This specimen could not be found.' });
+      const slides = supabase
+        ? await listSupabaseSampleSlides(supabase, req.params.id)
+        : repo.listSampleSlides(db, req.params.id);
+      return res.json({ slides });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/api/samples/:id/slides', auth, async (req, res, next) => {
+    try {
+      const { name, imageData } = req.body ?? {};
+      if (typeof name !== 'string' || !name.trim() || name.trim().length > 180) {
+        return res.status(400).json({ error: 'Please provide a slide image filename no longer than 180 characters.' });
+      }
+      if (
+        typeof imageData !== 'string' ||
+        imageData.length > 14 * 1024 * 1024 ||
+        !/^data:image\/(?:jpeg|png|webp|gif);base64,/i.test(imageData)
+      ) {
+        return res.status(400).json({ error: 'Please upload a supported image no larger than 10 MB.' });
+      }
+
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+      if (!(await canAccessSample(req, req.params.id, supabase))) {
+        return res.status(403).json({ error: 'You can only add slide images to specimens you are authorized to access.' });
+      }
+      const sample = supabase
+        ? await getSupabaseSample(supabase, req.params.id)
+        : repo.getSample(db, req.params.id);
+      if (!sample) return res.status(404).json({ error: 'This specimen could not be found.' });
+
+      const slide = {
+        id: newId('slide'),
+        sampleId: req.params.id,
+        name: name.trim(),
+        imageData,
+        createdAt: new Date().toISOString(),
+        createdBy: req.user.id
+      };
+      const saved = supabase
+        ? await createSupabaseSampleSlide(supabase, slide)
+        : repo.createSampleSlide(db, slide);
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'SPECIMEN_SLIDE_ADDED',
+        entity: 'sample',
+        entityId: req.params.id,
+        details: 'Additional specimen slide image saved'
+      });
+      return res.status(201).json({ slide: saved });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete('/api/samples/:sampleId/slides/:slideId', auth, async (req, res, next) => {
+    try {
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+      if (!(await canAccessSample(req, req.params.sampleId, supabase))) {
+        return res.status(403).json({ error: 'You can only remove slide images from specimens you are authorized to access.' });
+      }
+
+      if (supabase) {
+        const { data: slide, error } = await supabase
+          .from('sample_slides')
+          .select('id, sample_id')
+          .eq('id', req.params.slideId)
+          .eq('sample_id', req.params.sampleId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!slide) return res.status(404).json({ error: 'Slide image not found.' });
+        const { data: analyses, error: analysesError } = await supabase
+          .from('analyses')
+          .select('id')
+          .eq('sample_id', req.params.sampleId);
+        if (analysesError) throw analysesError;
+        const analysisIds = (analyses ?? []).map(analysis => analysis.id);
+        if (analysisIds.length) {
+          const { count, error: detectionError } = await supabase
+            .from('detections')
+            .select('id', { count: 'exact', head: true })
+            .in('analysis_id', analysisIds)
+            .eq('image_ref', req.params.slideId);
+          if (detectionError) throw detectionError;
+          if (count) return res.status(409).json({ error: 'This slide has saved scan findings and cannot be removed from the specimen.' });
+        }
+        await deleteSupabaseSampleSlide(supabase, req.params.slideId);
+      } else {
+        const slide = db.prepare('SELECT id FROM sample_slides WHERE id = ? AND sample_id = ?')
+          .get(req.params.slideId, req.params.sampleId);
+        if (!slide) return res.status(404).json({ error: 'Slide image not found.' });
+        const hasDetections = db.prepare(`
+          SELECT 1 FROM detections d
+          JOIN analyses a ON a.id = d.analysis_id
+          WHERE a.sample_id = ? AND d.image_ref = ?
+          LIMIT 1
+        `).get(req.params.sampleId, req.params.slideId);
+        if (hasDetections) {
+          return res.status(409).json({ error: 'This slide has saved scan findings and cannot be removed from the specimen.' });
+        }
+        repo.deleteSampleSlide(db, req.params.slideId);
+      }
+
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'SPECIMEN_SLIDE_REMOVED',
+        entity: 'sample',
+        entityId: req.params.sampleId,
+        details: 'Unscanned specimen slide image removed'
+      });
+      return res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
 
    // ----------------------------------------------------------- analyses ----
 
@@ -2289,4 +2443,3 @@ function mapAudit(row) {
     prevHash: row.prev_hash
   };
 }
-

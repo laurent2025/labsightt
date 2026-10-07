@@ -15,7 +15,9 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { playShutterSnapshot, playTurretClick } from '../../lib/audioOpticalFeedback';
 
@@ -34,6 +36,10 @@ interface MicroscopeViewerProps {
   currentField?: number;
   totalFields?: number;
   onFieldChange?: (newField: number) => void;
+  onPreviousSlide?: () => void;
+  onNextSlide?: () => void;
+  slideNavigationLabel?: string;
+  canSwitchSlides?: boolean;
   isScanning?: boolean;
 }
 
@@ -73,6 +79,10 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
   currentField = 1,
   totalFields = 10,
   onFieldChange,
+  onPreviousSlide,
+  onNextSlide,
+  slideNavigationLabel = 'Slide image',
+  canSwitchSlides = false,
   isScanning = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -933,7 +943,27 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             >
               <ArrowLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[9px] font-mono text-cyan-400 font-bold px-1">STAGE</span>
+            <button
+              type="button"
+              onClick={onPreviousSlide}
+              disabled={!canSwitchSlides}
+              aria-label={`Previous image${slideNavigationLabel ? ` from ${slideNavigationLabel}` : ''}`}
+              title={`Previous image${slideNavigationLabel ? ` (${slideNavigationLabel})` : ''}`}
+              className="p-1 hover:bg-slate-800 rounded text-cyan-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[9px] font-mono text-cyan-400 font-bold px-0.5">STAGE</span>
+            <button
+              type="button"
+              onClick={onNextSlide}
+              disabled={!canSwitchSlides}
+              aria-label={`Next image${slideNavigationLabel ? ` from ${slideNavigationLabel}` : ''}`}
+              title={`Next image${slideNavigationLabel ? ` (${slideNavigationLabel})` : ''}`}
+              className="p-1 hover:bg-slate-800 rounded text-cyan-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
             <button
               type="button"
               onClick={() => translateMechanicalStage(0.4, 0)}

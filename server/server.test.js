@@ -403,6 +403,51 @@ describe('admin user operations', () => {
   });
 });
 
+describe('specimen slide images', () => {
+  it('persists images per specimen, enforces ownership, and protects slides with scan findings', async () => {
+    const owner = authed(await login('tech1', 'tech-password-1234'));
+    const otherUser = authed(await login('dir1', 'director-password-1234'));
+    const sample = await makeSample(owner);
+    const imageData = 'data:image/png;base64,aGVsbG8=';
+
+    const added = await owner.post(`/api/samples/${sample.id}/slides`, {
+      name: 'field-one.png',
+      imageData
+    });
+    expect(added.status).toBe(201);
+    expect(added.body.slide).toMatchObject({
+      sampleId: sample.id,
+      name: 'field-one.png',
+      imageData
+    });
+    expect(db.prepare('SELECT image_data FROM sample_slides WHERE id = ?').get(added.body.slide.id).image_data)
+      .not.toBe(imageData);
+
+    const listed = await owner.get(`/api/samples/${sample.id}/slides`);
+    expect(listed.status).toBe(200);
+    expect(listed.body.slides).toHaveLength(1);
+    expect(listed.body.slides[0].imageData).toBe(imageData);
+    expect((await otherUser.get(`/api/samples/${sample.id}/slides`)).status).toBe(403);
+
+    insertAnalysis('ana-slide', sample.id);
+    insertDetection('det-slide', 'ana-slide');
+    db.prepare('UPDATE detections SET image_ref = ? WHERE id = ?').run(added.body.slide.id, 'det-slide');
+    const removal = await owner.delete(`/api/samples/${sample.id}/slides/${added.body.slide.id}`);
+    expect(removal.status).toBe(409);
+    expect((await owner.get(`/api/samples/${sample.id}/slides`)).body.slides).toHaveLength(1);
+  });
+
+  it('rejects unsupported slide image payloads', async () => {
+    const owner = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(owner);
+    const response = await owner.post(`/api/samples/${sample.id}/slides`, {
+      name: 'notes.txt',
+      imageData: 'not-an-image'
+    });
+    expect(response.status).toBe(400);
+  });
+});
+
 // ------------------------------------------------ admin analyses ----
 
 describe('admin analysis oversight', () => {

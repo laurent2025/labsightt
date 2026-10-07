@@ -343,6 +343,20 @@ create index if not exists
 idx_samples_patient
 on public.samples(patient_id);
 
+-- Additional images from the same specimen. The encrypted payload is
+-- application-managed and each slide id is also the detection image_ref.
+create table if not exists public.sample_slides (
+    id text primary key,
+    sample_id text not null references public.samples(id) on delete cascade,
+    name text not null,
+    image_data text not null,
+    created_at timestamptz not null default now(),
+    created_by uuid references auth.users(id)
+);
+
+create index if not exists idx_sample_slides_sample
+    on public.sample_slides(sample_id, created_at);
+
 
 -- ============================================================
 -- ANALYSES
@@ -845,6 +859,8 @@ alter table public.patients enable row level security;
 
 alter table public.samples enable row level security;
 
+alter table public.sample_slides enable row level security;
+
 alter table public.analyses enable row level security;
 
 alter table public.detections enable row level security;
@@ -957,6 +973,22 @@ using (
     public.is_lab_user_approved()
 )
 
+with check (
+    public.is_lab_user_approved()
+);
+
+drop policy if exists
+"Approved users can access sample slides"
+on public.sample_slides;
+
+create policy
+"Approved users can access sample slides"
+on public.sample_slides
+for all
+to authenticated
+using (
+    public.is_lab_user_approved()
+)
 with check (
     public.is_lab_user_approved()
 );

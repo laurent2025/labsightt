@@ -267,8 +267,30 @@ export const samplesApi = {
   detail: (id: string) => request<{ sample: Sample }>(`/samples/${encodeURIComponent(id)}`),
 
   create: (payload: Partial<Sample> & { patientId: string; fieldsExamined: number }) =>
-    request<{ sample: Sample }>('/samples', { method: 'POST', body: JSON.stringify(payload) })
+    request<{ sample: Sample }>('/samples', { method: 'POST', body: JSON.stringify(payload) }),
+
+  slides: (sampleId: string) =>
+    request<{ slides: SpecimenSlide[] }>(`/samples/${encodeURIComponent(sampleId)}/slides`),
+
+  addSlide: (sampleId: string, payload: { name: string; imageData: string }) =>
+    request<{ slide: SpecimenSlide }>(`/samples/${encodeURIComponent(sampleId)}/slides`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+
+  removeSlide: (sampleId: string, slideId: string) =>
+    request<void>(`/samples/${encodeURIComponent(sampleId)}/slides/${encodeURIComponent(slideId)}`, {
+      method: 'DELETE'
+    })
 };
+
+export interface SpecimenSlide {
+  id: string;
+  sampleId: string;
+  name: string;
+  imageData: string;
+  createdAt: string;
+}
 
 // ------------------------------------------------------------- analyses ----
 
@@ -355,4 +377,3 @@ export const auditApi = {
     request<{ entries: AuditEntry[]; integrity: ChainIntegrity }>(`/audit?limit=${limit}`),
   verify: () => request<ChainIntegrity>('/audit/verify')
 };
-

@@ -68,6 +68,17 @@ const MIGRATIONS = [
       );
       CREATE INDEX idx_samples_patient ON samples(patient_id);
 
+      CREATE TABLE IF NOT EXISTS sample_slides (
+        id          TEXT PRIMARY KEY,
+        sample_id   TEXT NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        image_data  TEXT NOT NULL,
+        created_at  TEXT NOT NULL,
+        created_by  TEXT REFERENCES users(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_sample_slides_sample
+        ON sample_slides(sample_id, created_at);
+
       CREATE TABLE analyses (
         id              TEXT PRIMARY KEY,
         sample_id       TEXT NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
@@ -260,6 +271,22 @@ const MIGRATIONS = [
        ALTER TABLE detections ADD COLUMN image_ref TEXT;
        CREATE INDEX IF NOT EXISTS idx_detections_image
        ON detections(analysis_id, image_ref);
+     `,
+   },
+   {
+     version: 9,
+     name: 'sample-slide-images',
+     up: `
+       CREATE TABLE IF NOT EXISTS sample_slides (
+         id          TEXT PRIMARY KEY,
+         sample_id   TEXT NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+         name        TEXT NOT NULL,
+         image_data  TEXT NOT NULL,
+         created_at  TEXT NOT NULL,
+         created_by  TEXT REFERENCES users(id)
+       );
+       CREATE INDEX IF NOT EXISTS idx_sample_slides_sample
+         ON sample_slides(sample_id, created_at);
      `,
    },
  ];

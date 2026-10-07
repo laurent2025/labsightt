@@ -101,6 +101,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [gateError, setGateError] = useState<string | null>(null);
   const camera = useMicroscopeCamera();
   const [uploadedSlides, setUploadedSlides] = useState<{ id: string; name: string; dataUrl: string }[]>([]);
+  const [isSavingSlides, setIsSavingSlides] = useState(false);
   // Which uploaded image of the specimen is being reviewed. 'primary' is the
   // sample's stored slide; any other value is an uploaded slide id. Every
   // detection is tagged with this ref so the viewer can show only the boxes
@@ -253,10 +254,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     );
   }
 
-  // A locally uploaded slide belongs to one analysis. Drop it when the
-  // operator switches, so patient B is never shown patient A's image.
+  // Keep the current image while switching analyses for the same specimen;
+  // images are specimen-scoped and restored from the server when needed.
   useEffect(() => {
-    setCustomSlideDataUrl(null);
     setInferenceError(null);
     setScanSummary(null);
   }, [selectedAnalysisId]);
@@ -274,6 +274,37 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     samples.find(s => s.id === pendingSampleId) ||
     (pendingSampleId ? undefined : firstUnanalyzedSample);
 
+  useEffect(() => {
+    const sampleId = activeSample?.id;
+    if (!sampleId) {
+      setUploadedSlides([]);
+      setCustomSlideDataUrl(null);
+      setActiveSlideRef('primary');
+      return;
+    }
+
+    let current = true;
+    setUploadedSlides([]);
+    setCustomSlideDataUrl(null);
+    setActiveSlideRef('primary');
+    void samplesApi.slides(sampleId)
+      .then(({ slides }) => {
+        if (current) {
+          setUploadedSlides(slides.map(slide => ({
+            id: slide.id,
+            name: slide.name,
+            dataUrl: slide.imageData
+          })));
+        }
+      })
+      .catch(err => {
+        if (current) {
+          setInferenceError(err instanceof Error ? `Could not load saved specimen images: ${err.message}` : 'Could not load saved specimen images.');
+        }
+      });
+    return () => { current = false; };
+  }, [activeSample?.id]);
+
   const activePatient =
     patients.find(p => p.id === activeAnalysis?.patientId) ||
     patients.find(p => p.id === pendingPatientId) ||
@@ -285,7 +316,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // Re-run inference with current or selected model. An explicit image
   // override (e.g. a fresh microscope capture) takes precedence over the
   // last uploaded slide so a capture is analysed the instant it is taken.
-  const handleTriggerAnalysis = async (imageUrlOverride?: string) => {
+  const handleTriggerAnalysis = async (imageUrlOverride?: string, imageRefOverride?: string) => {
     if (!activePatient || !activeSample) return;
     const imageUrl = imageUrlOverride || customSlideDataUrl || resolvedImageUrl;
     if (!imageUrl) {
@@ -302,7 +333,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         activeSample.id,
         selectedModelId || activeModel.id,
         imageUrl,
-        activeSlideRef
+        imageRefOverride ?? activeSlideRef
       );
       setSelectedAnalysisId(newAna.id);
 
@@ -334,25 +365,43 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     const files = Array.from(e.target.files ?? []);
     e.target.value = '';
     if (files.length === 0) return;
+    if (!activeSample) {
+      setInferenceError('Select a specimen before adding slide images.');
+      return;
+    }
     setInferenceError(null);
+    setIsSavingSlides(true);
+    const savedSlides: { id: string; name: string; dataUrl: string }[] = [];
+    const uploadErrors: string[] = [];
     try {
-      const slides = await Promise.all(
-        files.map(async file => ({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: file.name,
-          dataUrl: await fileToDataUrl(file)
-        }))
-      );
-      setUploadedSlides(prev => [...prev, ...slides]);
-      setCustomSlideDataUrl(slides[0].dataUrl);
-      setActiveSlideRef(slides[0].id);
-      setScanSummary(
-        slides.length === 1
-          ? `Image loaded from ${slides[0].name}. Run "Scan Field with Roboflow" to analyse it.`
-          : `${slides.length} images loaded. Click a thumbnail to select the active slide, then run "Scan Field with Roboflow".`
-      );
+      for (const file of files) {
+        try {
+          const dataUrl = await fileToDataUrl(file);
+          const { slide } = await samplesApi.addSlide(activeSample.id, { name: file.name, imageData: dataUrl });
+          const saved = { id: slide.id, name: slide.name, dataUrl: slide.imageData };
+          savedSlides.push(saved);
+          setUploadedSlides(prev => [...prev, saved]);
+        } catch (err) {
+          uploadErrors.push(`${file.name}: ${err instanceof Error ? err.message : 'upload failed'}`);
+        }
+      }
+
+      if (savedSlides.length > 0) {
+        setCustomSlideDataUrl(savedSlides[0].dataUrl);
+        setActiveSlideRef(savedSlides[0].id);
+        setScanSummary(
+          savedSlides.length === 1
+            ? `Image saved to this specimen as ${savedSlides[0].name}. Run "Scan Field with Roboflow" to analyse it.`
+            : `${savedSlides.length} images saved to this specimen. Select a thumbnail to choose the active slide, then scan it.`
+        );
+      }
+      if (uploadErrors.length > 0) {
+        setInferenceError(`Some images could not be saved: ${uploadErrors.join('; ')}`);
+      }
     } catch (err) {
-      setInferenceError(err instanceof Error ? `Failed to read image: ${err.message}` : 'Failed to read image.');
+      setInferenceError(err instanceof Error ? `Failed to save slide images: ${err.message}` : 'Failed to save slide images.');
+    } finally {
+      setIsSavingSlides(false);
     }
   };
 
@@ -362,27 +411,43 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     setInferenceError(null);
   };
 
-  const removeSlide = (id: string) => {
-    setUploadedSlides(prev => prev.filter(s => s.id !== id));
+  const removeSlide = async (id: string) => {
+    if (!activeSample) return;
+    setInferenceError(null);
+    try {
+      await samplesApi.removeSlide(activeSample.id, id);
+      setUploadedSlides(prev => prev.filter(s => s.id !== id));
+      if (activeSlideRef === id) {
+        setCustomSlideDataUrl(null);
+        setActiveSlideRef('primary');
+      }
+    } catch (err) {
+      setInferenceError(err instanceof Error ? err.message : 'Could not remove this slide image.');
+    }
   };
 
   useEffect(() => {
-    if (activeSample?.id) {
-      if (activeSample.imageUrl) {
-        // We have a slide image already (e.g., from custom upload or detail fetch).
-        setResolvedImageUrl(activeSample.imageUrl);
-      } else if (!resolvedImageUrl) {
-        // No slide image stored yet (list endpoint omitted it).
-        // Fetch the sample detail to retrieve the image URL.
-        void samplesApi.detail(activeSample.id)
-          .then(({ sample }) => setResolvedImageUrl(sample.imageUrl))
-          .catch(() => setResolvedImageUrl(null));
-      }
-    } else {
-      // No active sample — reset resolved image.
+    const sampleId = activeSample?.id;
+    if (!sampleId) {
       setResolvedImageUrl(null);
+      return;
     }
-  }, [activeSample, resolvedImageUrl]);
+
+    let current = true;
+    setResolvedImageUrl(activeSample.imageUrl ?? null);
+    if (!activeSample.imageUrl) {
+      void samplesApi.detail(sampleId)
+        .then(({ sample }) => {
+          if (current) setResolvedImageUrl(sample.imageUrl ?? null);
+        })
+        .catch(err => {
+          if (current) {
+            setInferenceError(err instanceof Error ? `Could not load the specimen image: ${err.message}` : 'Could not load the specimen image.');
+          }
+        });
+    }
+    return () => { current = false; };
+  }, [activeSample?.id, activeSample?.imageUrl]);
 
   const handleGenerateReportClick = async () => {
     if (!activeAnalysis) return;
@@ -403,16 +468,27 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     camera.switchDevice(next.deviceId);
   };
 
-  const captureFrame = () => {
+  const captureFrame = async () => {
     if (!activePatient || !activeSample) return;
     const dataUrl = camera.capture();
     if (!dataUrl) return;
     camera.close();
-    setCustomSlideDataUrl(dataUrl);
-    setActiveSlideRef('primary');
     setInferenceError(null);
-    setScanSummary(`Captured live frame from microscope camera. ${new Date().toLocaleTimeString()}. Click "Scan Field with Roboflow" to analyse this capture.`);
-    void handleTriggerAnalysis(dataUrl);
+    setIsSavingSlides(true);
+    try {
+      const name = `Microscope capture ${new Date().toLocaleString()}`;
+      const { slide } = await samplesApi.addSlide(activeSample.id, { name, imageData: dataUrl });
+      const saved = { id: slide.id, name: slide.name, dataUrl: slide.imageData };
+      setUploadedSlides(prev => [...prev, saved]);
+      setCustomSlideDataUrl(saved.dataUrl);
+      setActiveSlideRef(saved.id);
+      setScanSummary(`Microscope capture saved to this specimen. Starting scan…`);
+      await handleTriggerAnalysis(saved.dataUrl, saved.id);
+    } catch (err) {
+      setInferenceError(err instanceof Error ? `Could not save microscope capture: ${err.message}` : 'Could not save microscope capture.');
+    } finally {
+      setIsSavingSlides(false);
+    }
   };
 
   useEffect(() => {
@@ -523,6 +599,26 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   }
 
   const activeImageUrl = customSlideDataUrl || resolvedImageUrl || '';
+  const slideChoices = [
+    ...(resolvedImageUrl ? [{ id: 'primary', name: 'Specimen image', dataUrl: resolvedImageUrl }] : []),
+    ...uploadedSlides
+  ];
+  const changeSlide = (direction: -1 | 1) => {
+    if (slideChoices.length < 2) return;
+    const currentIndex = slideChoices.findIndex(slide => slide.id === activeSlideRef);
+    const startIndex = currentIndex < 0 ? (direction > 0 ? -1 : 0) : currentIndex;
+    const nextIndex = (startIndex + direction + slideChoices.length) % slideChoices.length;
+    const nextSlide = slideChoices[nextIndex];
+    if (nextSlide.id === 'primary') {
+      setCustomSlideDataUrl(null);
+      setActiveSlideRef('primary');
+      setInferenceError(null);
+      return;
+    }
+    const uploadedSlide = uploadedSlides.find(slide => slide.id === nextSlide.id);
+    if (uploadedSlide) selectSlide(uploadedSlide);
+  };
+  const activeSlidePosition = slideChoices.findIndex(slide => slide.id === activeSlideRef);
   const totalFields = Math.max(1, activeSample.fieldsExamined || 10);
   const confirmedCount = activeAnalysis.detections.filter(d => d.confirmed && !d.rejected).length;
   const totalDets = activeAnalysis.detections.filter(d => !d.rejected).length;
@@ -675,14 +771,14 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           >
             <Upload className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span className="hidden sm:inline">Load Slide</span>
-            <input type="file" accept="image/*" multiple onChange={handleCustomUpload} className="hidden" />
+            <input type="file" accept="image/*" multiple onChange={handleCustomUpload} disabled={isSavingSlides} className="hidden" />
           </label>
 
           {/* Capture from microscope camera */}
           <button
             type="button"
             onClick={() => void camera.openCamera()}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || isSavingSlides}
             className="px-3 py-1.5 border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
             title="Capture live frame from connected microscope camera"
           >
@@ -693,7 +789,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           <button
             type="button"
             onClick={() => void handleTriggerAnalysis()}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || isSavingSlides}
             className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
           >
             {isAnalyzing ? (
@@ -716,7 +812,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs">
           <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 shrink-0">
-              Loaded Slides ({uploadedSlides.length})
+              {isSavingSlides ? 'Saving images…' : `Saved Slides (${uploadedSlides.length})`}
             </span>
             <button
               type="button"
@@ -731,15 +827,18 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
               Specimen image
             </button>
             {uploadedSlides.map((slide, index) => {
-              const isActive = customSlideDataUrl === slide.dataUrl;
-              const hasFindings = activeAnalysis.detections.some(d => (d.imageRef ?? 'primary') === slide.id);
+              const isActive = activeSlideRef === slide.id;
+              const hasFindings = analyses.some(analysis =>
+                analysis.sampleId === activeSample?.id &&
+                analysis.detections.some(d => d.imageRef === slide.id)
+              );
               return (
                 <div key={slide.id} className="shrink-0">
                   <button
                     type="button"
                     onClick={() => selectSlide(slide)}
                     title={`Use ${slide.name} as the active slide`}
-                    className={`block w-16 h-12 overflow-hidden rounded-lg border-2 transition ${
+                    className={`relative block w-16 h-12 overflow-hidden rounded-lg border-2 transition ${
                       isActive
                         ? 'border-emerald-500 ring-2 ring-emerald-500/30'
                         : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
@@ -756,9 +855,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => removeSlide(slide.id)}
+                      onClick={() => void removeSlide(slide.id)}
+                      disabled={hasFindings || isSavingSlides || isAnalyzing}
                       aria-label={`Remove ${slide.name}`}
-                      className="absolute top-0 right-0 w-3.5 h-3.5 bg-slate-700 hover:bg-red-600 text-white rounded-full flex items-center justify-center cursor-pointer"
+                      title={hasFindings ? 'This slide has saved scan findings and cannot be removed.' : 'Remove this saved slide'}
+                      className="absolute top-0 right-0 w-3.5 h-3.5 bg-slate-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center cursor-pointer"
                     >
                       <X className="w-2 h-2" />
                     </button>
@@ -768,29 +869,21 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             })}
             <button
               type="button"
-              onClick={() => {
-                const idx = uploadedSlides.findIndex(s => s.dataUrl === customSlideDataUrl);
-                if (idx < 0) return;
-                const next = uploadedSlides[(idx + 1) % uploadedSlides.length];
-                selectSlide(next);
-              }}
+              onClick={() => changeSlide(1)}
               aria-label="Next slide"
+              title="Next specimen image"
               className="shrink-0 w-7 h-12 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-40"
-              disabled={uploadedSlides.length < 2}
+              disabled={slideChoices.length < 2}
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={() => {
-                const idx = uploadedSlides.findIndex(s => s.dataUrl === customSlideDataUrl);
-                if (idx < 0) return;
-                const prev = uploadedSlides[(idx - 1 + uploadedSlides.length) % uploadedSlides.length];
-                selectSlide(prev);
-              }}
+              onClick={() => changeSlide(-1)}
               aria-label="Previous slide"
+              title="Previous specimen image"
               className="shrink-0 w-7 h-12 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-40"
-              disabled={uploadedSlides.length < 2}
+              disabled={slideChoices.length < 2}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -975,6 +1068,10 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             currentField={currentField}
             totalFields={totalFields}
             onFieldChange={f => setCurrentField(f)}
+            onPreviousSlide={() => changeSlide(-1)}
+            onNextSlide={() => changeSlide(1)}
+            slideNavigationLabel={activeSlidePosition >= 0 ? `image ${activeSlidePosition + 1} of ${slideChoices.length}` : 'specimen images'}
+            canSwitchSlides={slideChoices.length > 1}
             isScanning={isAnalyzing}
           />
         </div>
