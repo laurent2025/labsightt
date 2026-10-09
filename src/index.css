@@ -797,6 +797,8 @@ table thead tr {
   #laboratory-report-container .a4-findings-table td {
     padding: 1.2mm 1mm !important;
     overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
     vertical-align: top;
   }
 
@@ -804,6 +806,22 @@ table thead tr {
     font-size: 7pt;
     line-height: 1.15;
     letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  #laboratory-report-container .a4-findings-table tbody td {
+    font-size: 7.5pt;
+    line-height: 1.25;
+  }
+
+  /* Ensure the table stays on one page if possible */
+  #laboratory-report-container .report-findings-table {
+    page-break-inside: auto;
+  }
+
+  #laboratory-report-container .report-findings-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
   }
 
   #laboratory-report-container tr {

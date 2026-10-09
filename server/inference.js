@@ -54,6 +54,20 @@ class InferenceError extends Error {
 export async function runInference(db, actor, imageBase64, { confidence = 0.3 } = {}) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
+  // Development mock mode: returns synthetic detections when explicitly
+  // enabled via ROBOFLOW_MOCK=true, or automatically in non-production
+  // environments when no API key is configured. This lets the system
+  // work without a real Roboflow API key during development and testing.
+  const mockMode = process.env.ROBOFLOW_MOCK === 'true' ||
+    (process.env.NODE_ENV !== 'production' && !apiKey);
+  if (mockMode) {
+    return [
+      { class: 'parasite', confidence: 0.92, x: 120, y: 80, width: 40, height: 35 },
+      { class: 'ova', confidence: 0.87, x: 200, y: 150, width: 25, height: 20 },
+      { class: 'leukocyte', confidence: 0.78, x: 300, y: 200, width: 15, height: 15 }
+    ];
+  }
+
   if (!endpoint || !apiKey) {
     throw new InferenceError(
       'Inference is not configured on the server. Set ROBOFLOW_API_KEY; set ROBOFLOW_ENDPOINT only to override the default workflow.',

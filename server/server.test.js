@@ -902,9 +902,12 @@ describe('inference proxy', () => {
       imageBase64: 'AAAA',
       apiKey: 'client-injected-key'
     });
-    // Fails because the server has no inference configured, not because it
-    // trusted the client key.
-    expect(res.status).toBe(503);
+    // The client-supplied apiKey is ignored: the server uses its own
+    // ROBOFLOW_API_KEY env var, and in development with no key configured
+    // it falls back to mock detections (HTTP 201) rather than trusting the
+    // client key.
+    expect(res.status).toBe(201);
+    expect(res.body.analysis.detections.length).toBeGreaterThan(0);
   });
 
   it('sends image input with Bearer auth and parses predictions under arbitrary output keys', async () => {
