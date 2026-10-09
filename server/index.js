@@ -2409,7 +2409,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   app.use((err, req, res, _next) => {
     if (err instanceof InferenceError) {
-      return res.status(err.status).json({ error: err.message });
+      return res.status(err.status).json({ error: err.status === 402 ? '' : err.message });
     }
     if (err?.type === 'entity.too.large') {
       return res.status(413).json({ error: 'Request body is too large.' });

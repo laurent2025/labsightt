@@ -22,7 +22,7 @@ import { AIModelsView } from './components/admin/AIModelsView';
 import { UsersAdminView } from './components/admin/UsersAdminView';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { Skeleton } from './components/ui/States';
-import { authApi, samplesApi } from './services/api';
+import { ApiError, authApi, samplesApi } from './services/api';
 import { Microscope } from 'lucide-react';
 
 /** Matches the dashboard's layout so content does not jump when it arrives. */
@@ -229,7 +229,9 @@ export default function App() {
       setPendingMicroscopy({
         patientId: newPat.id,
         sampleId: newSmp.id,
-        error: e instanceof Error ? e.message : String(e),
+        error: e instanceof ApiError && e.status === 402
+          ? ''
+          : e instanceof Error ? e.message : String(e),
         scanning: false
       });
     }

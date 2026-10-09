@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
-import { samplesApi } from '../../services/api';
+import { ApiError, samplesApi } from '../../services/api';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
 // The Roboflow workflow id ("labsight-vlabsight-3-yolo26m-t1-logic") and the
@@ -375,6 +375,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           : `Scan finished in ${seconds}s. ${n} candidate object${n === 1 ? '' : 's'} detected across all scanned images of this specimen — adjudicate each before the report is generated.`
       );
     } catch (err) {
+      if (err instanceof ApiError && err.status === 402) return;
       const message = err instanceof Error ? err.message : String(err);
       setInferenceError(message);
       setScanSummary(null);
@@ -1085,8 +1086,8 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             <span className="font-bold block text-white">
               {/not configured/i.test(inferenceError)
                 ? 'Inference is not configured'
-                : /provider account needs attention/i.test(inferenceError)
-                  ? 'AI analysis is unavailable'
+                : /scan could not be completed/i.test(inferenceError)
+                  ? 'Scan not completed'
                   : /could not save microscope capture/i.test(inferenceError)
                     ? 'Microscope capture could not be saved'
                     : /camera|microscope/i.test(inferenceError)

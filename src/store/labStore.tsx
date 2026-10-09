@@ -143,6 +143,10 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
 
   const handleError = useCallback((err: unknown, fallback: string) => {
     if (err instanceof SessionExpiredError) return;
+    if (err instanceof ApiError && err.status === 402) {
+      setStorageIssue(null);
+      return;
+    }
     const message =
       err instanceof ApiError ? err.message : err instanceof Error ? err.message : fallback;
     setStorageIssue(message);
