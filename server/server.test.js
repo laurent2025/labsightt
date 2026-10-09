@@ -923,7 +923,7 @@ describe('inference proxy', () => {
     vi.stubGlobal('fetch', providerFetch);
 
     const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
-    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.5 });
+    const detections = await runInference(db, actor, 'data:image/png;base64,base64-image', { confidence: 0.5 });
 
     expect(providerFetch).toHaveBeenCalledOnce();
     const [requestUrl, init] = providerFetch.mock.calls[0];

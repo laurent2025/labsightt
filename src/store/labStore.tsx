@@ -396,15 +396,11 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       if (!imageUrl) throw new ReportGateError('No slide image is available for this specimen. Please upload or capture an image before running analysis.');
 
       const source = await loadImageSource(imageUrl);
-      const base64 =
-        typeof source.base64 === 'string' && source.base64.startsWith('data:')
-          ? source.base64
-          : `data:image/png;base64,${source.base64}`;
 
       try {
         const { analysis } = await analysesApi.run(
           sampleId,
-          base64,
+          source.base64,
           model?.confidenceThreshold ?? 0.3,
           imageRef
         );

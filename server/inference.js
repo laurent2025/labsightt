@@ -78,7 +78,8 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.3 } 
     throw new InferenceError('No image was supplied for inference.', 400);
   }
 
-  const payload = await requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs);
+  const providerImage = imageBase64.replace(/^data:[^,]*;base64,/i, '');
+  const payload = await requestWorkflow(endpoint, apiKey, providerImage, timeoutMs);
 
   const predictions = extractPredictions(payload);
   const detections = predictions
