@@ -72,14 +72,14 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex justify-center p-2 sm:p-6 print:p-0 print:bg-white print:fixed-none">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex justify-center p-1.5 sm:p-6 print:p-0 print:bg-white print:fixed-none">
       <div
         ref={panelRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Laboratory report ${report.reportNumber}`}
-        className="relative w-full max-w-4xl my-auto print:max-w-none print:m-0">
+        className="relative w-full max-w-4xl my-1.5 sm:my-auto print:max-w-none print:m-0">
         {/* Verification gate rejection */}
         {verifyError && (
           <div role="alert" className="no-print mb-3 flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl text-xs">
@@ -88,8 +88,8 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
           </div>
         )}
         {/* Floating Screen Actions Bar (hidden when printing) */}
-        <div className="no-print sticky top-2 z-20 flex flex-wrap items-center justify-between bg-slate-900/95 text-white px-4 py-2.5 rounded-xl shadow-xl mb-3 border border-slate-700 gap-2">
-          <div className="flex items-center gap-2 sm:gap-3">
+        <div className="no-print sticky top-1 sm:top-2 z-20 flex flex-col sm:flex-row sm:items-center sm:justify-between bg-slate-900/95 text-white px-2.5 sm:px-4 py-2.5 rounded-xl shadow-xl mb-2 sm:mb-3 border border-slate-700 gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <span className="font-mono text-cyan-400 font-semibold text-xs">
               {report.reportNumber}
             </span>
@@ -109,7 +109,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center justify-end gap-1.5 sm:w-auto sm:gap-2">
             {report.status !== 'verified' && onVerify && (
               <button
                 type="button"
@@ -151,14 +151,14 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
         {/* Standard A4 Printable Laboratory Document */}
         <div
             id="laboratory-report-container"
-            className="bg-white text-slate-900 rounded-2xl shadow-2xl p-6 sm:p-12 border border-slate-200 print:border-none print:shadow-none print:p-0 print:rounded-none max-w-[210mm] mx-auto min-h-[297mm] text-base print:text-sm flex flex-col justify-between"
+            className="bg-white text-slate-900 rounded-2xl shadow-2xl p-4 sm:p-8 lg:p-12 border border-slate-200 print:border-none print:shadow-none print:p-0 print:rounded-none max-w-[210mm] mx-auto min-h-0 sm:min-h-[297mm] text-base print:text-sm flex flex-col justify-between"
           >
             <div>
               {/* Header / Letterhead */}
               <div className="border-b-2 border-slate-900 pb-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-950">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 break-words">
                       {LAB_METADATA.name}
                     </h1>
                     <p className="text-slate-800 text-sm font-semibold mt-0.5">
@@ -166,7 +166,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                     </p>
                   </div>
 
-                  <div className="text-right">
+                  <div className="min-w-0 text-left sm:text-right">
                     <div className="font-mono text-sm font-bold text-slate-900">
                       REPORT #: {report.reportNumber}
                     </div>
@@ -184,7 +184,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
               {/* Document Title Banner */}
               <div className="my-4 py-1.5 px-3 bg-slate-100 rounded text-center">
-                <span className="text-xs sm:text-sm font-bold uppercase tracking-[0.12em] sm:tracking-[0.18em] text-slate-900">
+                <span className="text-[10px] sm:text-sm font-bold uppercase tracking-normal sm:tracking-[0.12em] text-slate-900">
                   CLINICAL MICROSCOPY &amp; DIAGNOSTIC PATHOLOGY REPORT
                 </span>
               </div>
@@ -261,7 +261,16 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-800 mb-2 border-b-2 border-slate-400 pb-1">
                   STANDARDIZED MICROSCOPIC QUANTIFICATION
                 </h3>
-                <table className="clinical-table w-full border-collapse border border-slate-300 text-left text-sm">
+                <table className="clinical-table report-findings-table a4-findings-table w-full border-collapse border border-slate-300 text-left text-sm">
+                  <caption className="sr-only">Verified counts, AI candidates, standardized quantities, reference ranges, and diagnostic status</caption>
+                  <colgroup>
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '24%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '18%' }} />
+                  </colgroup>
                   <thead>
                     <tr className="bg-slate-100 text-slate-800 font-semibold border-b border-slate-300">
                       <th className="p-2 border border-slate-300">Analyte / Microscopic Element</th>
@@ -275,29 +284,29 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   <tbody>
                     {report.findings.length === 0 ? (
                       <tr>
-                          <td colSpan={6} className="p-4 text-center text-slate-600 border border-slate-300">
+                          <td colSpan={6} data-empty="true" className="p-4 text-center text-slate-600 border border-slate-300">
                           No ova, parasites, or abnormal cellular elements observed in examined fields.
                         </td>
                       </tr>
                     ) : (
                       report.findings.map((f, i) => (
                         <tr key={i} className={i % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                          <td className="p-2 border border-slate-300 font-semibold text-slate-900">
+                          <td data-label="Analyte / Microscopic Element" className="p-2 border border-slate-300 font-semibold text-slate-900">
                             {f.displayName}
                           </td>
-                        <td className="p-2 border border-slate-300 text-center font-mono font-bold">
+                        <td data-label="Verified Count" className="p-2 border border-slate-300 text-center font-mono font-bold">
                           {f.confirmedCount}
                         </td>
-                        <td className="p-2 border border-slate-300 text-center font-mono text-slate-600">
+                        <td data-label="AI Candidates" className="p-2 border border-slate-300 text-center font-mono text-slate-600">
                           {f.count}
                         </td>
-                          <td className="p-2 border border-slate-300 font-mono font-bold text-slate-900">
+                          <td data-label="Standardized Diagnostic Quantity" className="p-2 border border-slate-300 font-mono font-bold text-slate-900">
                             {f.standardizedQuantity}
                           </td>
-                      <td className="p-2 border border-slate-300 text-slate-600">
+                      <td data-label="Reference / Normal" className="p-2 border border-slate-300 text-slate-600">
                         {f.clinicalSignificance === 'normal' ? 'Expected in normal specimen' : 'None in normal specimen'}
                       </td>
-                          <td className="p-2 border border-slate-300 text-right font-mono font-bold">
+                          <td data-label="Diagnostic Status" className="p-2 border border-slate-300 text-right font-mono font-bold">
                             <span
                               className={
                                 f.clinicalSignificance === 'critical' || f.clinicalSignificance === 'pathological'

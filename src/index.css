@@ -709,6 +709,67 @@ table thead tr {
   letter-spacing: 0.035em;
 }
 
+@media (max-width: 639px) {
+  #laboratory-report-container .report-findings-table {
+    display: block;
+    width: 100%;
+    border: 0;
+  }
+
+  #laboratory-report-container .report-findings-table thead {
+    display: none;
+  }
+
+  #laboratory-report-container .report-findings-table tbody,
+  #laboratory-report-container .report-findings-table tbody tr {
+    display: block;
+    width: 100%;
+  }
+
+  #laboratory-report-container .report-findings-table tbody tr {
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    background: #ffffff;
+  }
+
+  #laboratory-report-container .report-findings-table tbody td {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 0.75rem;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  #laboratory-report-container .report-findings-table tbody td::before {
+    content: attr(data-label);
+    color: #475569;
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  #laboratory-report-container .report-findings-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  #laboratory-report-container .report-findings-table tbody td[data-empty="true"] {
+    display: block;
+    padding: 0.9rem;
+    border: 0;
+    text-align: center;
+  }
+
+  #laboratory-report-container .report-findings-table tbody td[data-empty="true"]::before {
+    content: none;
+  }
+}
+
 @media print {
   #laboratory-report-container {
     font-family: Arial, Helvetica, sans-serif;
@@ -723,6 +784,26 @@ table thead tr {
 
   #laboratory-report-container thead th {
     font-size: 8pt;
+  }
+
+  #laboratory-report-container .a4-findings-table {
+    width: 100%;
+    table-layout: fixed;
+    font-size: 7.5pt;
+    line-height: 1.2;
+  }
+
+  #laboratory-report-container .a4-findings-table th,
+  #laboratory-report-container .a4-findings-table td {
+    padding: 1.2mm 1mm !important;
+    overflow-wrap: anywhere;
+    vertical-align: top;
+  }
+
+  #laboratory-report-container .a4-findings-table thead th {
+    font-size: 7pt;
+    line-height: 1.15;
+    letter-spacing: 0;
   }
 
   #laboratory-report-container tr {
