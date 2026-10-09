@@ -25,11 +25,6 @@ import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOptical
 import { samplesApi } from '../../services/api';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
-// The camera auto-opens only once per page load. The parent remounts this
-// component whenever the selected analysis changes; the flag prevents the
-// camera from popping back open after the operator has closed it.
-let autoCameraOpened = false;
-
 // The Roboflow workflow id ("labsight-vlabsight-3-yolo26m-t1-logic") and the
 // display name ("LenziAI vlabsight-3-yolo26m-t1 Logic") share one long token.
 // Merging the two longest words into that token keeps the pipeline picker a
@@ -102,6 +97,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [inferenceError, setInferenceError] = useState<string | null>(null);
   const [gateError, setGateError] = useState<string | null>(null);
   const camera = useMicroscopeCamera();
+  const [cameraPreviewReady, setCameraPreviewReady] = useState(false);
   const [uploadedSlides, setUploadedSlides] = useState<{ id: string; name: string; dataUrl: string }[]>([]);
   const [slidesLoading, setSlidesLoading] = useState(false);
   const [isSavingSlides, setIsSavingSlides] = useState(false);
@@ -112,16 +108,6 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // all.
   const [activeSlideRef, setActiveSlideRef] = useState<string>('primary');
 
-  // Auto-open the microscope camera when the workstation is first shown, so
-  // the operator can start capturing without an extra click. Failures are
-  // surfaced in the scan banner instead of a full-screen modal.
-  useEffect(() => {
-    if (autoCameraOpened) return;
-    autoCameraOpened = true;
-    void camera.openCamera(undefined, { silentOnError: true }).then(err => {
-      if (err) setInferenceError(`Microscope camera did not open automatically — ${err}`);
-    });
-  }, []);
   const [scanSeconds, setScanSeconds] = useState<number>(0);
   const [scanSummary, setScanSummary] = useState<string | null>(null);
   useEffect(() => {
@@ -385,7 +371,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       const n = newAna.detections.length;
       setScanSummary(
         n === 0
-          ? `Scan finished in ${seconds}s. No objects exceeded the confidence threshold — the field may be empty, out of focus, or below the detection threshold. Review manually before concluding.`
+          ? `Scan finished in ${seconds}s. No parasites were detected in this scan. This does not rule out infection; review the slide manually before drawing a conclusion.`
           : `Scan finished in ${seconds}s. ${n} candidate object${n === 1 ? '' : 's'} detected across all scanned images of this specimen — adjudicate each before the report is generated.`
       );
     } catch (err) {
@@ -501,6 +487,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     if (camera.devices.length < 2) return;
     const current = camera.devices.findIndex(d => d.deviceId === camera.deviceId);
     const next = camera.devices[(current + 1) % camera.devices.length];
+    setCameraPreviewReady(false);
     camera.switchDevice(next.deviceId);
   };
 
@@ -537,6 +524,10 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [camera.open, camera.close]);
+
+  useEffect(() => {
+    if (!camera.open) setCameraPreviewReady(false);
+  }, [camera.open]);
 
   /**
    * Summarises what the technologist has actually adjudicated.
@@ -1092,7 +1083,15 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold block text-white">
-              {/not configured/i.test(inferenceError) ? 'Inference is not configured' : 'AI analysis failed'}
+              {/not configured/i.test(inferenceError)
+                ? 'Inference is not configured'
+                : /provider account needs attention/i.test(inferenceError)
+                  ? 'AI analysis is unavailable'
+                  : /could not save microscope capture/i.test(inferenceError)
+                    ? 'Microscope capture could not be saved'
+                    : /camera|microscope/i.test(inferenceError)
+                      ? 'Microscope camera issue'
+                  : 'AI analysis failed'}
             </span>
             <p className="leading-relaxed mt-0.5 text-slate-300 break-words">{inferenceError}</p>
             {/not configured/i.test(inferenceError) && (
@@ -1270,12 +1269,19 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
               </div>
             </div>
 
+            <p className="px-3 py-2 border-b border-slate-700 text-xs text-slate-400">
+              Allow camera access in the browser and device settings. USB microscope cameras exposed as video devices can be selected here.
+            </p>
+
             {camera.devices.length > 0 && (
               <div className="px-3 py-2 border-b border-slate-700 bg-slate-800/40 flex items-center gap-2 text-xs">
                 <span className="text-slate-400 shrink-0">Camera source:</span>
                 <select
                   value={camera.deviceId}
-                  onChange={event => camera.switchDevice(event.target.value)}
+                  onChange={event => {
+                    setCameraPreviewReady(false);
+                    camera.switchDevice(event.target.value);
+                  }}
                   className="flex-1 bg-slate-900 border border-slate-700 text-slate-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-600 cursor-pointer"
                 >
                   {camera.devices.map(d => (
@@ -1317,9 +1323,14 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 autoPlay
                 playsInline
                 aria-label="Microscope camera live preview"
-                onLoadedMetadata={() => {
+                onLoadedData={() => {
                   const video = camera.videoRef.current;
                   if (video) {
+                    setCameraPreviewReady(
+                      video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+                        video.videoWidth > 0 &&
+                        video.videoHeight > 0
+                    );
                     const res = document.getElementById('cameraResolution');
                     if (res) res.textContent = `${video.videoWidth} x ${video.videoHeight}`;
                   }
@@ -1334,11 +1345,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={captureFrame}
-                  disabled={isAnalyzing}
-                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg transition disabled:opacity-50 cursor-pointer"
+                  disabled={isAnalyzing || !cameraPreviewReady}
+                  className="min-w-40 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50 cursor-pointer"
                 >
                   <Camera className="w-5 h-5" />
-                  <span>Capture Frame</span>
+                  <span>{cameraPreviewReady ? 'Capture Frame' : 'Preparing preview…'}</span>
                 </button>
               </div>
             </div>

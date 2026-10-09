@@ -949,6 +949,19 @@ describe('inference proxy', () => {
     expect(providerFetch).toHaveBeenCalledTimes(3);
   });
 
+  it('explains provider HTTP 402 without implying a negative parasite result', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response('', { status: 402 }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    await expect(runInference(db, actor, 'base64-image')).rejects.toThrow(
+      'AI analysis could not run because the provider account needs attention. No parasite assessment was completed. Please contact your lab administrator.'
+    );
+    expect(providerFetch).toHaveBeenCalledOnce();
+  });
+
   it('accumulates findings from every scanned image and de-duplicates repeat scans', async () => {
     vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
     vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');

@@ -109,8 +109,11 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs) {
 
       if (!response.ok) {
         const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+        const message = response.status === 402
+          ? 'AI analysis could not run because the provider account needs attention. No parasite assessment was completed. Please contact your lab administrator.'
+          : `Inference provider returned HTTP ${response.status}.`;
         throw new InferenceError(
-          `Inference provider returned HTTP ${response.status}.`,
+          message,
           502,
           retryable
         );

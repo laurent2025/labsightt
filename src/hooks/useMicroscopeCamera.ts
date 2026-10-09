@@ -13,7 +13,7 @@ function friendlyCameraError(err: unknown): string {
   const detail = err instanceof Error ? err.message : String(err);
   switch (name) {
     case 'NotAllowedError':
-      return 'Camera permission was denied. Allow camera access for this site in your browser settings, then try again.';
+      return 'Camera access is blocked. Allow it for this site in your browser settings and in your device privacy settings, then click Retry.';
     case 'NotFoundError':
     case 'OverconstrainedError':
       return 'No camera was found. Connect the microscope camera (USB/DCC) to this device and try again.';
