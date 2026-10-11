@@ -877,7 +877,7 @@ describe('inference proxy', () => {
   it('defaults to the configured hosted workflow endpoint', () => {
     vi.stubEnv('ROBOFLOW_ENDPOINT', '');
     expect(inferenceStatus().endpoint).toBe(
-      'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-3-yolo26m-t1-logic'
+'https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic'
     );
   });
 
@@ -980,6 +980,34 @@ describe('inference proxy', () => {
 
     expect(res.status).toBe(402);
     expect(res.body.error).toBe('');
+    expect(db.prepare('SELECT COUNT(*) AS count FROM analyses WHERE sample_id = ?').get(sample.id).count).toBe(0);
+  });
+
+  it('restores an existing analysis when a rescan is rejected by the provider', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 402 })));
+
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(client);
+    insertAnalysis('analysis-preserved', sample.id, 'in_review', 1);
+    insertDetection('detection-preserved', 'analysis-preserved');
+    const before = db.prepare('SELECT started_at, completed_at FROM analyses WHERE id = ?').get('analysis-preserved');
+
+    const res = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image'
+    });
+
+    const after = db.prepare('SELECT status, total_detections, started_at, completed_at FROM analyses WHERE id = ?').get('analysis-preserved');
+    expect(res.status).toBe(402);
+    expect(after).toMatchObject({
+      status: 'in_review',
+      total_detections: 1,
+      started_at: before.started_at,
+      completed_at: before.completed_at
+    });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM detections WHERE analysis_id = ?').get('analysis-preserved').count).toBe(1);
   });
 
   it('accumulates findings from every scanned image and de-duplicates repeat scans', async () => {

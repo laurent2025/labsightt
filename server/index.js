@@ -1140,7 +1140,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         // next report generated for this analysis.
         const { data: existingRow, error: existingError } = await supabase
           .from('analyses')
-          .select('id')
+          .select('id, status, started_at, completed_at')
           .eq('sample_id', sampleId)
           .neq('status', 'verified')
           .order('started_at', { ascending: false })
@@ -1188,18 +1188,30 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             confidence: Number(confidence) || 0.3
           });
         } catch (err) {
-          await finalizeSupabaseAnalysis(supabase, analysisId, {
-            totalDetections: 0,
-            status: 'in_review',
-            completedAt: new Date().toISOString()
-          });
+          if (existingRow) {
+            const { error: restoreError } = await supabase
+              .from('analyses')
+              .update({
+                status: existingRow.status,
+                started_at: existingRow.started_at,
+                completed_at: existingRow.completed_at
+              })
+              .eq('id', analysisId);
+            if (restoreError) console.error('[inference] failed to restore prior analysis:', restoreError.message);
+          } else {
+            const { error: deleteError } = await supabase
+              .from('analyses')
+              .delete()
+              .eq('id', analysisId);
+            if (deleteError) console.error('[inference] failed to remove incomplete analysis:', deleteError.message);
+          }
           appendAudit(db, {
             actorId: req.user.id,
             actorName: req.user.display_name,
             action: 'INFERENCE_FAILED',
             entity: 'analysis',
             entityId: analysisId,
-            details: String(err?.message ?? err)
+            details: `Inference failed${err?.status ? ` (HTTP ${err.status})` : ''}`
           });
           throw err;
         }
@@ -1242,7 +1254,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       // reuse the sample's active analysis and append the
       // fresh findings to the ones already captured.
       const existing = db.prepare(`
-        SELECT id FROM analyses
+        SELECT id, status, started_at, completed_at FROM analyses
         WHERE sample_id = ? AND status != 'verified'
         ORDER BY started_at DESC
         LIMIT 1
@@ -1278,18 +1290,23 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           confidence: Number(confidence) || 0.3
         });
       } catch (err) {
-        db.prepare('UPDATE analyses SET status = ?, completed_at = ? WHERE id = ?').run(
-          'in_review',
-          new Date().toISOString(),
-          id
-        );
+        if (existing) {
+          db.prepare('UPDATE analyses SET status = ?, started_at = ?, completed_at = ? WHERE id = ?').run(
+            existing.status,
+            existing.started_at,
+            existing.completed_at,
+            id
+          );
+        } else {
+          db.prepare('DELETE FROM analyses WHERE id = ?').run(id);
+        }
         appendAudit(db, {
           actorId: req.user.id,
           actorName: req.user.display_name,
           action: 'INFERENCE_FAILED',
           entity: 'analysis',
           entityId: id,
-          details: err.message
+          details: `Inference failed${err?.status ? ` (HTTP ${err.status})` : ''}`
         });
         throw err;
       }
