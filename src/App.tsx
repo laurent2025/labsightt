@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLabStore } from './store/labStore';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
@@ -107,6 +107,46 @@ export default function App() {
     (activeTab === 'audit' || activeTab === 'models' || activeTab === 'users') && !user?.isAdmin
       ? 'dashboard'
       : activeTab;
+
+  // Keep the URL hash in sync with the active tab so the current page is
+  // reflected in the address bar (shareable, back/forward, refresh-safe).
+  useEffect(() => {
+    const tabToHash: Record<string, string> = {
+      dashboard: '#dashboard',
+      patients: '#patients',
+      microscopy: '#microscopy',
+      reports: '#reports',
+      audit: '#audit',
+      models: '#models',
+      users: '#users'
+    };
+    const hash = tabToHash[effectiveTab];
+    if (typeof window !== 'undefined' && window.location.hash !== hash) {
+      window.location.hash = hash;
+    }
+  }, [effectiveTab]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hashToTab: Record<string, 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users'> = {
+      '#dashboard': 'dashboard',
+      '#patients': 'patients',
+      '#microscopy': 'microscopy',
+      '#reports': 'reports',
+      '#audit': 'audit',
+      '#models': 'models',
+      '#users': 'users'
+    };
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      const tab = hashToTab[hash];
+      if (tab) {
+        setActiveTab(tab);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
