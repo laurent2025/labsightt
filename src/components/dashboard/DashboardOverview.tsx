@@ -141,7 +141,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       configured: true,
       stain: "Lugol's Iodine Wet Mount",
       mag: "400x (High Dry 40x)",
-      targets: ["Giardia lamblia cysts", "Entamoeba histolytica", "Hookworm ova", "Ascaris lumbricoides", "Schistosoma haematobium", "Enterobius vermicularis", "Trichuris trichiura"],
+      targets: ["Ascaris lumbricoides", "Enterobius vermicularis", "Fasciolopsis buski", "Hookworm egg", "Trichuris trichiura"],
       img: SLIDE_ASSETS.stool,
       imgAlt: "Reference image of a stool wet mount slide"
     },

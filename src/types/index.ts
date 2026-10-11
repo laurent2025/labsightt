@@ -157,6 +157,8 @@ export interface AIModelConfig {
   iouThreshold: number;
   active: boolean;
   classes: string[];
+  /** Parasites reported as confirmed findings when detected. */
+  reportedParasites?: string[];
 }
 
 export interface AuditLog {

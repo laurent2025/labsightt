@@ -29,23 +29,31 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
     category: "stool",
     architecture: "YOLO26m Serverless Workflow",
     version: "t1",
-    endpoint: "https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-3-yolo26m-t1-logic",
-    roboflowWorkspace: "laurent-kashinje",
-    roboflowWorkflowId: "labsight-vlabsight-3-yolo26m-t1-logic",
-    roboflowModel: "labsight-vlabsight-3-yolo26m-t1-logic",
+    endpoint: "https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic",
+    roboflowWorkspace: "laurent-kashinje-wjafp",
+    roboflowWorkflowId: "labsight-vlabsight-wji6g-1-yolo26m-t1-logic",
+    roboflowModel: "labsight-vlabsight-wji6g-1-yolo26m-t1-logic",
     roboflowVersion: "1",
     isWorkflow: true,
     confidenceThreshold: 0.30,
     iouThreshold: 0.40,
     active: true,
+    // Detection targets. Not clinically validated; no accuracy figure
+    // exists for this software. Model output requires technologist review
+    // and two-person verification before release.
     classes: [
-      "Giardia lamblia cyst",
-      "Entamoeba histolytica",
-      "Ascaris lumbricoides ovum",
-      "Hookworm egg",
-      "Schistosoma mansoni ovum",
-      "Schistosoma haematobium",
+      "Ascaris lumbricoides",
       "Enterobius vermicularis",
+      "Fasciolopsis buski",
+      "Hookworm egg",
+      "Trichuris trichiura"
+    ],
+    // Parasites reported as confirmed findings when detected.
+    reportedParasites: [
+      "Ascaris lumbricoides",
+      "Enterobius vermicularis",
+      "Fasciolopsis buski",
+      "Hookworm egg",
       "Trichuris trichiura"
     ]
   }
