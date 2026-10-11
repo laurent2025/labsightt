@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-type HeaderTab = 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users';
+type HeaderTab = 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users';
 
 interface HeaderProps {
   activeTab: HeaderTab;
@@ -75,7 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
     { tab: 'patients', label: 'Patients' },
     { tab: 'microscopy', label: 'Microscopy' },
     { tab: 'reports', label: 'Reports' },
-    { tab: 'models', label: 'AI Models', adminOnly: true },
     { tab: 'audit', label: 'Audit Log', adminOnly: true },
     { tab: 'users', label: 'Users', adminOnly: true }
   ];

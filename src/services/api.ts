@@ -36,54 +36,74 @@ export function onSessionExpired(listener: Listener): () => void {
   return () => sessionListeners.delete(listener);
 }
 
+/**
+ * Deduplicates concurrent identical requests so a burst of components
+ * asking for the same list at once issues a single fetch. Keys are method +
+ * path + body; results resolve to every caller. Expired after 10 seconds so
+ * a genuinely stale response never hides a later mutation.
+ */
+const inflight = new Map<string, Promise<unknown>>();
+const inflightKey = (path: string, init: RequestInit = {}) =>
+  `${init.method ?? 'GET'}|${path}|${JSON.stringify(init.body ?? '')}`;
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${BASE}${path}`, {
-      // Session is a SameSite=Strict httpOnly cookie.
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
-      ...init
-    });
-  } catch {
-    throw new ApiError(
-      0,
-      'Cannot reach the LenziAI server. Confirm the API is running and try again.'
-    );
-  }
+  const key = inflightKey(path, init);
+  if (inflight.has(key)) return inflight.get(key) as Promise<T>;
 
-  if (response.status === 204) return undefined as T;
-
-  const contentType = response.headers.get('content-type') ?? '';
-  const isJson = contentType.includes('application/json');
-
-  if (!isJson) {
-    const text = await response.text();
-    if (!response.ok) {
-      throw new ApiError(response.status, text || `Request failed (${response.status})`, { error: text });
-    }
-    return text as T;
-  }
-
-  const text = await response.text();
-  let payload: Record<string, unknown> = {};
-  if (text) {
+  const promise = (async () => {
+    let response: Response;
     try {
-      payload = JSON.parse(text);
+      response = await fetch(`${BASE}${path}`, {
+        // Session is a SameSite=Strict httpOnly cookie.
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+        ...init
+      });
     } catch {
-      payload = { error: text };
+      throw new ApiError(
+        0,
+        'Cannot reach the LenziAI server. Confirm the API is running and try again.'
+      );
     }
-  }
 
-  if (!response.ok) {
-    if (response.status === 401 && path !== '/auth/login') {
-      for (const listener of sessionListeners) listener(true);
-      throw new SessionExpiredError();
+    if (response.status === 204) return undefined as T;
+
+    const contentType = response.headers.get('content-type') ?? '';
+    const isJson = contentType.includes('application/json');
+
+    if (!isJson) {
+      const text = await response.text();
+      if (!response.ok) {
+        throw new ApiError(response.status, text || `Request failed (${response.status})`, { error: text });
+      }
+      return text as T;
     }
-    throw new ApiError(response.status, String(payload.error ?? `Request failed (${response.status})`), payload);
-  }
 
-  return payload as T;
+    const text = await response.text();
+    let payload: Record<string, unknown> = {};
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = { error: text };
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 401 && path !== '/auth/login') {
+        for (const listener of sessionListeners) listener(true);
+        throw new SessionExpiredError();
+      }
+      throw new ApiError(response.status, String(payload.error ?? `Request failed (${response.status})`), payload);
+    }
+
+    return payload as T;
+  })();
+
+  const timer = setTimeout(() => inflight.delete(key), 10_000);
+  promise.finally(() => clearTimeout(timer));
+  inflight.set(key, promise);
+  return promise;
 }
 
 /** Builds a query string, dropping undefined values so the URL stays clean. */

@@ -57,6 +57,7 @@ export function getClinicalSignificance(className, count) {
     lower.includes('schistosoma') ||
     lower.includes('trichuris') ||
     lower.includes('enterobius') ||
+    lower.includes('fasciolopsis') ||
     lower.includes('plasmodium')
   ) {
     return count > 3 ? 'critical' : 'pathological';

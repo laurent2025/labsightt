@@ -47,10 +47,13 @@ type ViewFilterMode = 'boxes' | 'original' | 'enhanced' | 'split' | 'darkfield';
 type LightFilter = 'daylight' | 'halogen' | 'daylight_blue' | 'fluorescence_filter';
 
 const CLASS_COLORS: Record<string, { stroke: string; fill: string; text: string }> = {
+  'Ascaris lumbricoides': { stroke: '#d97706', fill: 'rgba(217, 119, 6, 0.15)', text: '#b45309' },
+  'Enterobius vermicularis': { stroke: '#0891b2', fill: 'rgba(8, 149, 178, 0.15)', text: '#0e7490' },
+  'Fasciolopsis buski': { stroke: '#7c3aed', fill: 'rgba(124, 58, 237, 0.15)', text: '#6d28d9' },
+  'Hookworm egg': { stroke: '#ea580c', fill: 'rgba(234, 88, 12, 0.15)', text: '#c2410c' },
+  'Trichuris trichiura': { stroke: '#db2777', fill: 'rgba(219, 39, 119, 0.15)', text: '#be125c' },
   'Giardia lamblia cyst': { stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.15)', text: '#0891b2' },
   'Entamoeba histolytica': { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)', text: '#d97706' },
-  'Hookworm egg': { stroke: '#ea580c', fill: 'rgba(234, 88, 12, 0.15)', text: '#c2410c' },
-  'Ascaris lumbricoides ovum': { stroke: '#d97706', fill: 'rgba(217, 119, 6, 0.15)', text: '#b45309' },
   'Plasmodium falciparum ring': { stroke: '#dc2626', fill: 'rgba(220, 38, 38, 0.15)', text: '#b91c1c' },
   'Erythrocyte (RBC)': { stroke: '#e11d48', fill: 'rgba(225, 29, 72, 0.12)', text: '#be123c' },
   'Polymorphonuclear Neutrophil': { stroke: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.15)', text: '#7c3aed' },

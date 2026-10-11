@@ -54,6 +54,7 @@ interface MicroscopyWorkspaceProps {
   onGenerateReport: (analysisId: string) => Promise<LaboratoryReport>;
   onOpenReportModal: (report: LaboratoryReport) => void;
   onOpenNewPatientModal: () => void;
+  onSwitchPatient: (patientId: string, sampleId: string) => void;
   onSelectAnalysis?: (analysisId: string) => void;
   browseFilter?: string | null;
 }
@@ -77,6 +78,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   onGenerateReport,
   onOpenReportModal,
   onOpenNewPatientModal,
+  onSwitchPatient,
   onSelectAnalysis,
   browseFilter
 }) => {
@@ -805,15 +807,26 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
               SPECIMEN ACCESSION
             </label>
             <select
-              value={activeAnalysis.id}
-              onChange={e => setSelectedAnalysisId(e.target.value)}
+              value={activePatient?.id ?? ''}
+              onChange={e => {
+                const patientId = e.target.value;
+                if (!patientId) return;
+                const patientSamples = samples
+                  .filter(s => s.patientId === patientId)
+                  .sort((a, b) => (a.collectionDatetime < b.collectionDatetime ? -1 : 1));
+                const sample = patientSamples[0] || samples.find(s => s.patientId === patientId);
+                if (sample) {
+                  void onSwitchPatient(patientId, sample.id);
+                }
+              }}
               className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500"
             >
-              {analyses.map(a => {
-                const pat = patients.find(p => p.id === a.patientId);
+              <option value="">Select a patient…</option>
+              {patients.map(p => {
+                const hasSpecimen = samples.some(s => s.patientId === p.id);
                 return (
-                  <option key={a.id} value={a.id}>
-                    {pat?.fullName || 'Patient'} · {pat?.patientNumber}
+                  <option key={p.id} value={p.id} disabled={!hasSpecimen}>
+                    {p.fullName} · {p.patientNumber}{!hasSpecimen ? ' (no specimen)' : ''}
                   </option>
                 );
               })}

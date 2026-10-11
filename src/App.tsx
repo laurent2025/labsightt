@@ -3,29 +3,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { useLabStore } from './store/labStore';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
-import { DashboardOverview } from './components/dashboard/DashboardOverview';
-import { PatientListView } from './components/patients/PatientListView';
 import { PatientFormModal } from './components/patients/PatientFormModal';
 import { PatientEditModal } from './components/patients/PatientEditModal';
-import { MicroscopyWorkspace } from './components/microscopy/MicroscopyWorkspace';
-import { ReportsListView } from './components/reports/ReportsListView';
-import { LaboratoryReportModal } from './components/reports/LaboratoryReportModal';
 import { LegalModal } from './components/legal/LegalModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { LandingPage } from './components/marketing/LandingPage';
-import { AuditLogView } from './components/admin/AuditLogView';
-import { AIModelsView } from './components/admin/AIModelsView';
-import { UsersAdminView } from './components/admin/UsersAdminView';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { Skeleton } from './components/ui/States';
-import { ApiError, authApi, samplesApi } from './services/api';
 import { Microscope } from 'lucide-react';
+import type { LaboratoryReport, NewPatient, Patient, Sample } from './types';
+import { ApiError, authApi, samplesApi } from './services/api';
 
-/** Matches the dashboard's layout so content does not jump when it arrives. */
+/** Eager: the default view after sign-in. */
+import { DashboardOverview } from './components/dashboard/DashboardOverview';
+
+/** Lazy-loaded: only fetched when the operator navigates to that tab. */
+const PatientListView = lazy(() => import('./components/patients/PatientListView').then(m => ({ default: m.PatientListView })));
+const MicroscopyWorkspace = lazy(() => import('./components/microscopy/MicroscopyWorkspace').then(m => ({ default: m.MicroscopyWorkspace })));
+const ReportsListView = lazy(() => import('./components/reports/ReportsListView').then(m => ({ default: m.ReportsListView })));
+const AuditLogView = lazy(() => import('./components/admin/AuditLogView').then(m => ({ default: m.AuditLogView })));
+const UsersAdminView = lazy(() => import('./components/admin/UsersAdminView').then(m => ({ default: m.UsersAdminView })));
+
+/** Lazy-loaded: only needed when an operator opens a report. */
+const LaboratoryReportModal = lazy(() =>
+  import('./components/reports/LaboratoryReportModal').then(m => ({ default: m.LaboratoryReportModal }))
+);
+
+/** Lazy-loaded: only rendered before sign-in. */
+const LandingPage = lazy(() => import('./components/marketing/LandingPage').then(m => ({ default: m.LandingPage })));
+
 function DashboardSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-busy="true">
@@ -50,7 +59,25 @@ function DashboardSkeleton() {
     </div>
   );
 }
-import { LaboratoryReport, NewPatient, Patient, Sample } from './types';
+
+/** Lightweight placeholder shown while a lazy-loaded tab is being fetched. */
+function TabSkeleton({ label }: { label: string }) {
+  return (
+    <div className="space-y-4" role="status" aria-busy="true">
+      <span className="sr-only">Loading {label}…</span>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+      <Skeleton className="h-10 w-full max-w-xs" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-40" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const {
@@ -84,13 +111,13 @@ export default function App() {
   } = useLabStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users'
+    'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users'
   >('dashboard');
 
   const [microscopyBrowseFilter, setMicroscopyBrowseFilter] = useState<string | null>(null);
   const [reportsBrowseFilter, setReportsBrowseFilter] = useState<'all' | 'verified' | 'pending_verification'>('all');
 
-  const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users', filter?: string | null) => {
+  const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users', filter?: string | null) => {
     setActiveTab(tab);
     setMicroscopyBrowseFilter(filter ?? null);
     setReportsBrowseFilter(
@@ -104,7 +131,7 @@ export default function App() {
   // Administrative tabs exist in state for both roles; a non-admin who lands
   // on one (stale state, back button) is redirected to the dashboard.
   const effectiveTab =
-    (activeTab === 'audit' || activeTab === 'models' || activeTab === 'users') && !user?.isAdmin
+    (activeTab === 'audit' || activeTab === 'users') && !user?.isAdmin
       ? 'dashboard'
       : activeTab;
 
@@ -117,7 +144,6 @@ export default function App() {
       microscopy: '#microscopy',
       reports: '#reports',
       audit: '#audit',
-      models: '#models',
       users: '#users'
     };
     const hash = tabToHash[effectiveTab];
@@ -128,13 +154,12 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const hashToTab: Record<string, 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'models' | 'users'> = {
+    const hashToTab: Record<string, 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users'> = {
       '#dashboard': 'dashboard',
       '#patients': 'patients',
       '#microscopy': 'microscopy',
       '#reports': 'reports',
       '#audit': 'audit',
-      '#models': 'models',
       '#users': 'users'
     };
     const handleHashChange = () => {
@@ -319,7 +344,20 @@ export default function App() {
     // surfaces the failure; it must not call the API itself, or the cookie
     // would be set while the store stayed unauthenticated and the app would
     // bounce straight back to this screen.
-    return <LandingPage onSubmit={login} onSignup={authApi.signup} />;
+    return (
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
+              <Microscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+            </div>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Loading LenziAI…</span>
+          </div>
+        }
+      >
+        <LandingPage onSubmit={login} onSignup={authApi.signup} />
+      </Suspense>
+    );
   }
 
   return (
@@ -386,21 +424,24 @@ export default function App() {
 
         {effectiveTab === 'patients' && (
           <ErrorBoundary resetKey="patients">
-            <PatientListView
-              patients={patients}
-              samples={samples}
-              onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
-              onSelectPatientForAnalysis={handleSelectPatientForAnalysis}
-              onEditPatient={patient => handleEditPatient(patient)}
-              onDeletePatient={(patient) => handleDeletePatient(patient)}
-              canDeletePatients
-            />
+            <Suspense fallback={<TabSkeleton label="patient directory" />}>
+              <PatientListView
+                patients={patients}
+                samples={samples}
+                onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
+                onSelectPatientForAnalysis={handleSelectPatientForAnalysis}
+                onEditPatient={patient => handleEditPatient(patient)}
+                onDeletePatient={(patient) => handleDeletePatient(patient)}
+                canDeletePatients
+              />
+            </Suspense>
           </ErrorBoundary>
         )}
 
         {effectiveTab === 'microscopy' && (
           <ErrorBoundary resetKey={`microscopy-${selectedAnalysisId ?? 'none'}`}>
-            <MicroscopyWorkspace
+            <Suspense fallback={<TabSkeleton label="microscopy optical stage" />}>
+              <MicroscopyWorkspace
             patients={patients}
             samples={samples}
             analyses={analyses}
@@ -423,44 +464,54 @@ export default function App() {
             onGenerateReport={generateReport}
             onOpenReportModal={report => setActiveReportModal(report)}
             onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
+            onSwitchPatient={(patientId, sampleId) => {
+              const existing = analyses.find(a => a.sampleId === sampleId);
+              if (existing) {
+                setSelectedAnalysisId(existing.id);
+              } else {
+                setPendingMicroscopy({ patientId, sampleId, error: '', scanning: false });
+                setSelectedAnalysisId(null);
+              }
+            }}
             onSelectAnalysis={setSelectedAnalysisId}
             browseFilter={microscopyBrowseFilter}
             />
+            </Suspense>
           </ErrorBoundary>
         )}
 
         {effectiveTab === 'reports' && (
           <ErrorBoundary resetKey="reports">
-            <ReportsListView
-              reports={reports}
-              initialStatusFilter={reportsBrowseFilter}
-              currentUserName={user.name}
-              currentUserId={user.id}
-              canManageReports
-              canDeleteReports
-              onOpenReport={report => setActiveReportModal(report)}
-              onVerifyReport={verifyReport}
-              onEditReport={updateReport}
-              onDeleteReport={handleDeleteReport}
-            />
-          </ErrorBoundary>
-        )}
-
-        {effectiveTab === 'models' && user.isAdmin && (
-          <ErrorBoundary resetKey="models">
-            <AIModelsView models={models} />
+            <Suspense fallback={<TabSkeleton label="reports" />}>
+              <ReportsListView
+                reports={reports}
+                initialStatusFilter={reportsBrowseFilter}
+                currentUserName={user.name}
+                currentUserId={user.id}
+                canManageReports
+                canDeleteReports
+                onOpenReport={report => setActiveReportModal(report)}
+                onVerifyReport={verifyReport}
+                onEditReport={updateReport}
+                onDeleteReport={handleDeleteReport}
+              />
+            </Suspense>
           </ErrorBoundary>
         )}
 
         {effectiveTab === 'audit' && user.isAdmin && (
           <ErrorBoundary resetKey="audit">
-            <AuditLogView />
+            <Suspense fallback={<TabSkeleton label="audit log" />}>
+              <AuditLogView />
+            </Suspense>
           </ErrorBoundary>
         )}
 
         {effectiveTab === 'users' && user.isAdmin && (
           <ErrorBoundary resetKey="users">
-            <UsersAdminView currentUserId={user.id} />
+            <Suspense fallback={<TabSkeleton label="user administration" />}>
+              <UsersAdminView currentUserId={user.id} />
+            </Suspense>
           </ErrorBoundary>
         )}
 
@@ -490,20 +541,32 @@ export default function App() {
 
       {/* Printable Clinical Laboratory Diagnostic Report Modal */}
       {activeReportModal && (
-        <LaboratoryReportModal
-          report={activeReportModal}
-          onClose={() => setActiveReportModal(null)}
-          onVerify={async reportId => {
-            setVerifyError(null);
-            try {
-              await verifyReport(reportId);
-              setActiveReportModal(prev => (prev ? { ...prev, status: 'verified' } : null));
-            } catch (err) {
-              setVerifyError(err instanceof Error ? err.message : String(err));
-            }
-          }}
-          verifyError={verifyError}
-        />
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs">
+              <div className="flex flex-col items-center gap-3 rounded-2xl bg-white dark:bg-slate-900 p-8 shadow-2xl">
+                <span className="sr-only">Loading report…</span>
+                <div className="w-8 h-8 rounded-full border-2 border-slate-200 dark:border-slate-700 border-t-green-600 animate-spin" />
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Loading report…</span>
+              </div>
+            </div>
+          }
+        >
+          <LaboratoryReportModal
+            report={activeReportModal}
+            onClose={() => setActiveReportModal(null)}
+            onVerify={async reportId => {
+              setVerifyError(null);
+              try {
+                await verifyReport(reportId);
+                setActiveReportModal(prev => (prev ? { ...prev, status: 'verified' } : null));
+              } catch (err) {
+                setVerifyError(err instanceof Error ? err.message : String(err));
+              }
+            }}
+            verifyError={verifyError}
+          />
+        </Suspense>
       )}
 
       {/* Regulatory, Terms & Privacy Modal */}
