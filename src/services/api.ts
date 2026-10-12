@@ -314,34 +314,45 @@ export interface SpecimenSlide {
 
 // ------------------------------------------------------------- analyses ----
 
+/** One crop of a slide, with where it was taken from in whole-slide pixels. */
+export interface ScanTile {
+  imageBase64: string;
+  offsetX?: number;
+  offsetY?: number;
+}
+
 export const analysesApi = {
   list: (params: { limit?: number; offset?: number; sampleId?: string; status?: string } = {}) =>
     request<{ analyses: Analysis[]; pagination: Pagination }>(`/analyses${query(params)}`),
 
-/**
-   * Runs inference on one crop of a slide. The model credential stays server-side.
-   *
-   * `offsetX`/`offsetY` say where this crop was taken from in whole-slide
-   * pixels, so detections found in it are stored at their true position on the
-   * slide the technologist looks at. Omitting them means the image is the
-   * whole slide.
-   */
+ /**
+    * Runs inference on a slide and persists the proposals. The model credential
+    * stays server-side.
+    *
+    * The slide is sent as every tile it was cut into, so one scan is one request
+    * that the server reads in parallel. The tiles are not sent as separate
+    * requests: a 3024x4032 field is 63 tiles, and 63 round trips in series took
+    * minutes, while the tiles racing each other for the one analysis row a
+    * sample may have open could drop findings. `offsetX`/`offsetY` say where
+    * each crop sits on the slide so its detections land in the right place.
+    */
   run: (
     sampleId: string,
-    imageBase64: string,
+    tiles: ScanTile[],
     confidence?: number,
-    imageRef?: string,
-    offset?: { x?: number; y?: number }
+    imageRef?: string
   ) =>
     request<{ analysis: Analysis }>('/analyses', {
       method: 'POST',
       body: JSON.stringify({
         sampleId,
-        imageBase64,
+        images: (tiles ?? []).map(tile => ({
+          imageBase64: tile.imageBase64,
+          offsetX: Number(tile.offsetX) || 0,
+          offsetY: Number(tile.offsetY) || 0
+        })),
         confidence,
-        imageRef,
-        offsetX: offset?.x ?? 0,
-        offsetY: offset?.y ?? 0
+        imageRef
       })
     })
 };

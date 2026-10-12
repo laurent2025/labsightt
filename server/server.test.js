@@ -1465,3 +1465,96 @@ describe('inference proxy', () => {
     expect(repeat.body.analysis.totalDetections).toBe(2);
   });
 });
+
+describe('batched slide scan', () => {
+  const stubProvider = () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    // One candidate per tile, read from the tile's own origin, so the stored
+    // box only lands in the right place if the tile offset was applied.
+    const providerFetch = vi.fn().mockImplementation(() => Promise.resolve(new Response(
+      JSON.stringify({
+        predictions: [{ class: 'Hookworm egg', confidence: 0.88, x: 60, y: 70, width: 22, height: 18 }]
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )));
+    vi.stubGlobal('fetch', providerFetch);
+    return providerFetch;
+  };
+
+  it('reads every tile as one request and lands each box on the slide', async () => {
+    const providerFetch = stubProvider();
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [
+        { imageBase64: 'tile-a', offsetX: 0, offsetY: 0 },
+        { imageBase64: 'tile-b', offsetX: 1000, offsetY: 0 },
+        { imageBase64: 'tile-c', offsetX: 0, offsetY: 1000 }
+      ]
+    });
+
+    expect(scan.status).toBe(201);
+    // Three tiles, three provider calls, but a single request and a single
+    // analysis row: this is what keeps a 63-tile field from taking minutes and
+    // from racing itself for the one analysis a sample may have open.
+    expect(providerFetch).toHaveBeenCalledTimes(3);
+    expect(scan.body.analysis.detections).toHaveLength(3);
+    expect(scan.body.analysis.totalDetections).toBe(3);
+
+    const positions = scan.body.analysis.detections.map(d => [d.x, d.y]);
+    expect(positions).toEqual(
+      expect.arrayContaining([[60, 70], [1060, 70], [60, 1070]])
+    );
+  });
+
+  it('de-duplicates the merged batch so an overlapping tile cannot double a finding', async () => {
+    stubProvider();
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    // Two tiles covering the same region report the same box. The slide must
+    // hold one finding, not two, or the report over-counts the specimen.
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [
+        { imageBase64: 'tile-a', offsetX: 0, offsetY: 0 },
+        { imageBase64: 'tile-b', offsetX: 0, offsetY: 0 }
+      ]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(1);
+    expect(scan.body.analysis.totalDetections).toBe(1);
+  });
+
+  it('still accepts a single whole-slide image', async () => {
+    stubProvider();
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image'
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(1);
+  });
+
+  it('rejects a scan whose tiles are all empty', async () => {
+    stubProvider();
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: '' }, { imageBase64: '   ' }]
+    });
+
+    expect(scan.status).toBe(400);
+    expect(scan.body.error).toMatch(/image/i);
+  });
+});

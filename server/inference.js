@@ -100,12 +100,16 @@ function reclassifyHelminthOva(detections) {
  *
  * The request is given an AbortSignal so a hung provider cannot pin a server
  * thread indefinitely.
+ *
+ * `audit` is false when the caller is reading a slide as several tiles and will
+ * write one summary entry for the whole slide: a 3024x4032 field is 63 tiles,
+ * and one audit row per tile buries the trail instead of explaining it.
  */
 export async function runInference(
   db,
   actor,
   imageBase64,
-  { confidence = 0.2, iou = 0.55, offsetX = 0, offsetY = 0 } = {}
+  { confidence = 0.2, iou = 0.55, offsetX = 0, offsetY = 0, audit = true } = {}
 ) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
@@ -154,16 +158,18 @@ export async function runInference(
   const { detections, corrections } = reclassifyHelminthOva(nmsApplied);
 
   const suppressed = candidates.length - nmsApplied.length;
-  appendAudit(db, {
-    actorId: actor.id,
-    actorName: actor.display_name,
-    action: 'INFERENCE_EXECUTED',
-    entity: 'analysis',
-    details: `proposed ${detections.length} candidate(s) above confidence ${threshold}`
-      + `${suppressed > 0 ? ` (${suppressed} overlapping box(es) suppressed by NMS at IoU ${iou})` : ''}`
-      + `${corrections > 0 ? ` (${corrections} class(es) corrected by ovum morphology)` : ''}`
-      + `${offsetX || offsetY ? ` (tile offset ${Math.round(offsetX ?? 0)},${Math.round(offsetY ?? 0)})` : ''}`
-  });
+  if (audit) {
+    appendAudit(db, {
+      actorId: actor.id,
+      actorName: actor.display_name,
+      action: 'INFERENCE_EXECUTED',
+      entity: 'analysis',
+      details: `proposed ${detections.length} candidate(s) above confidence ${threshold}`
+        + `${suppressed > 0 ? ` (${suppressed} overlapping box(es) suppressed by NMS at IoU ${iou})` : ''}`
+        + `${corrections > 0 ? ` (${corrections} class(es) corrected by ovum morphology)` : ''}`
+        + `${offsetX || offsetY ? ` (tile offset ${Math.round(offsetX ?? 0)},${Math.round(offsetY ?? 0)})` : ''}`
+    });
+  }
 
   return detections;
 }

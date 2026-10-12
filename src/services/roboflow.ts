@@ -37,9 +37,48 @@ export interface TilingConfig {
   tileSize: number;
   /** Fraction each tile overlaps its neighbour, 0 to 0.5. */
   overlap: number;
+  /**
+   * Upper bound on the tiles read for one slide. A slide that would need more
+   * is read with larger tiles rather than more of them, so a very large
+   * photograph cannot turn into hundreds of provider calls.
+   */
+  maxTiles?: number;
 }
 
 const MIN_TILE_EDGE = 32;
+
+/** Tiles a slide of this size needs at a given tile edge and stride. */
+export function tileCount(width: number, height: number, tileSize: number, stride: number): number {
+  const columns = width <= tileSize ? 1 : Math.ceil(width / stride);
+  const rows = height <= tileSize ? 1 : Math.ceil(height / stride);
+  return columns * rows;
+}
+
+/**
+ * Grows the tile edge until the slide fits the tile budget.
+ *
+ * The tile is enlarged rather than the grid trimmed, so every part of the slide
+ * is still read even when a slide is far larger than expected. A larger tile is
+ * presented to the detector at a slightly smaller scale, which costs some
+ * sensitivity on the smallest ova, but it never silently skips a region of the
+ * specimen the way dropping tiles would.
+ */
+export function fitTileBudget(
+  width: number,
+  height: number,
+  tileSize: number,
+  overlap: number,
+  maxTiles: number
+): number {
+  if (!maxTiles || maxTiles < 1) return tileSize;
+  let size = tileSize;
+  for (let guard = 0; guard < 32; guard += 1) {
+    const stride = Math.max(1, Math.round(size * (1 - overlap)));
+    if (tileCount(width, height, size, stride) <= maxTiles) return size;
+    size = Math.round(size * 1.3);
+  }
+  return size;
+}
 
 function drawImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -67,12 +106,17 @@ export async function sliceImageTiles(
   url: string,
   config: TilingConfig
 ): Promise<ImageTile[] | null> {
-  const tileSize = Math.max(64, Math.round(config.tileSize) || 640);
+  const requested = Math.max(64, Math.round(config.tileSize) || 640);
   const overlap = Math.min(0.5, Math.max(0, Number(config.overlap) || 0));
+  const maxTiles = Math.max(1, Math.round(Number(config.maxTiles) || 160));
 
   const image = await drawImage(url);
   const { naturalWidth: width, naturalHeight: height } = image;
   if (!width || !height) return null;
+
+  // A slide bigger than the budget is read with larger tiles so the grid stays
+  // bounded; a slide that fits is read at the detector's own input size.
+  const tileSize = fitTileBudget(width, height, requested, overlap, maxTiles);
   if (width <= tileSize && height <= tileSize) return null;
 
   const step = Math.max(1, Math.round(tileSize * (1 - overlap)));

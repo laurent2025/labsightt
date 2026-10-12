@@ -415,25 +415,26 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        // Each pass returns the whole analysis as accumulated so far, so the
-        // final one is authoritative. A failed tile aborts the read exactly as
-        // a failed whole-slide read would.
-        let hydrated: Analysis | null = null;
+        // The whole slide is read as one request. Every tile is sent together
+        // and the server reads them in parallel, so a 63-tile field costs one
+        // round trip instead of 63 — and the tiles no longer race each other
+        // for the single analysis row this sample may have open, which is what
+        // made a scan look hung on the first field.
         const passes = tiles ?? [{ dataUrl: source.base64, offsetX: 0, offsetY: 0, width: 0, height: 0 }];
 
-        for (const tile of passes) {
-          const { analysis } = await analysesApi.run(
-            sampleId,
-            tile.dataUrl,
-            confidence,
-            imageRef,
-            { x: tile.offsetX, y: tile.offsetY }
-          );
-          hydrated = hydrateAnalysis(analysis, patientId, model?.name ?? 'Server model');
-        }
+        const { analysis } = await analysesApi.run(
+          sampleId,
+          passes.map(tile => ({
+            imageBase64: tile.dataUrl,
+            offsetX: tile.offsetX,
+            offsetY: tile.offsetY
+          })),
+          confidence,
+          imageRef
+        );
+        const hydrated = hydrateAnalysis(analysis, patientId, model?.name ?? 'Server model');
 
-        if (!hydrated) throw new ReportGateError('The slide could not be read. Try again.');
-        setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated!.id)]);
+        setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated.id)]);
         return hydrated;
       } catch (err) {
         handleError(err, 'Inference failed. The AI service may be temporarily unavailable. Please try again in a moment.');

@@ -72,6 +72,62 @@ function detectionKey(className, x, y, width, height, imageRef = 'primary') {
 }
 
 /**
+ * Reads every tile of a slide, in parallel, and returns one merged list.
+ *
+ * A microscopy field is far larger than the detector's input, so the slide is
+ * sent as overlapping tiles to keep a small ovum at its native size instead of
+ * letting the provider downscale it away. A 3024x4032 photograph is 63 tiles
+ * at 640px with 30% overlap, and reading them one after another spends minutes
+ * round-tripping a provider that answers in seconds — which is why a scan
+ * appeared to hang on the first field.
+ *
+ * The tiles are independent provider calls, so they run concurrently up to
+ * `INFERENCE_CONCURRENCY`. The pool is bounded rather than unbounded because
+ * the provider rate-limits, because every in-flight call holds a socket and a
+ * thread, and because an unbounded burst from one scan can starve the other
+ * operators sharing the same credential.
+ *
+ * One audit entry summarises the whole slide, so the trail records the scan the
+ * technologist actually ran rather than 63 fragments of it.
+ */
+async function readSlide(db, actor, passes, confidence) {
+  const concurrency = Math.max(1, Math.min(Number(process.env.INFERENCE_CONCURRENCY) || 6, passes.length));
+  const collected = new Array(passes.length);
+  let next = 0;
+
+  const worker = async () => {
+    while (next < passes.length) {
+      const index = next;
+      next += 1;
+      const tile = passes[index];
+      collected[index] = await runInference(db, actor, tile.imageBase64, {
+        confidence,
+        iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
+        offsetX: tile.offsetX,
+        offsetY: tile.offsetY,
+        audit: false
+      });
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  const detections = collected.flat();
+
+  appendAudit(db, {
+    actorId: actor.id,
+    actorName: actor.display_name,
+    action: 'INFERENCE_EXECUTED',
+    entity: 'analysis',
+    details: `read ${passes.length} tile(s) of the slide, ${detections.length} candidate(s) proposed`
+      + ` above confidence ${confidence > 1 ? confidence / 100 : confidence}`
+  });
+
+  return detections;
+}
+
+export { readSlide };
+
+/**
  * True when a stored owner id proves the request came from someone else.
  *
  * A null owner means the row was written while sign-in ran against the local
@@ -1218,17 +1274,18 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   /**
    * Runs inference and persists the proposals. They are stored UNADJUDICATED;
    * they carry no clinical weight until a person rules on each one.
+   *
+   * A slide is sent as every tile it was cut into, so one scan is one request
+   * that the server reads in parallel. Sending the tiles as separate requests
+   * made the scan take minutes, and made the tiles race each other for the one
+   * analysis row a sample may have open. A single-image request is still
+   * accepted, and is treated as a one-tile slide.
    */
   app.post('/api/analyses', auth, async (req, res, next) => {
     const startedAt = new Date().toISOString();
     try {
-      const { sampleId, imageBase64, confidence, imageRef, offsetX, offsetY } = req.body ?? {};
+      const { sampleId, imageBase64, confidence, imageRef, offsetX, offsetY, images } = req.body ?? {};
       const scanRef = typeof imageRef === 'string' && imageRef.trim() ? imageRef.trim() : 'primary';
-      // Tile offset: the slide is read as overlapping tiles so a small ovum is
-      // presented to the detector at its native input size. Each tile carries
-      // where it was cropped from, so its detections land on the whole slide.
-      const tileOffsetX = Number.isFinite(Number(offsetX)) ? Number(offsetX) : 0;
-      const tileOffsetY = Number.isFinite(Number(offsetY)) ? Number(offsetY) : 0;
 
       // Validate before touching the database. A missing sampleId makes the
       // store reject the query itself with an opaque error, which surfaces to
@@ -1236,18 +1293,48 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       if (typeof sampleId !== 'string' || !sampleId.trim()) {
         return res.status(400).json({ error: 'A valid sampleId is required.' });
       }
-      if (typeof imageBase64 !== 'string' || !imageBase64.trim()) {
-        return res.status(400).json({ error: 'No image was supplied for analysis.' });
+
+      // Normalise both request shapes into the one thing the scan needs: the
+      // list of crops to read, each carrying where it sits on the slide.
+      let passes = [];
+      if (Array.isArray(images)) {
+        for (const entry of images) {
+          const base64 = typeof entry?.imageBase64 === 'string' ? entry.imageBase64 : entry?.dataUrl;
+          if (typeof base64 !== 'string' || !base64.trim()) continue;
+          passes.push({
+            imageBase64: base64,
+            offsetX: Number.isFinite(Number(entry?.offsetX)) ? Number(entry.offsetX) : 0,
+            offsetY: Number.isFinite(Number(entry?.offsetY)) ? Number(entry.offsetY) : 0
+          });
+        }
+      } else if (typeof imageBase64 === 'string' && imageBase64.trim()) {
+        // Tile offset: the slide is read as overlapping tiles so a small ovum
+        // is presented to the detector at its native input size. Each tile
+        // carries where it was cropped from, so its detections land on the
+        // whole slide.
+        passes.push({
+          imageBase64,
+          offsetX: Number.isFinite(Number(offsetX)) ? Number(offsetX) : 0,
+          offsetY: Number.isFinite(Number(offsetY)) ? Number(offsetY) : 0
+        });
       }
 
-      if (typeof imageBase64 === 'string') {
-        const base64Length = imageBase64.length;
-        if (base64Length > 15 * 1024 * 1024) {
+      if (passes.length === 0) {
+        return res.status(400).json({ error: 'No image was supplied for analysis.' });
+      }
+      if (passes.length > 400) {
+        return res.status(400).json({ error: 'Too many slide images in one scan. Re-read the slide in fewer passes.' });
+      }
+
+      let payloadBytes = 0;
+      for (const pass of passes) {
+        const length = pass.imageBase64.length;
+        if (length > 15 * 1024 * 1024) {
           return res.status(413).json({ error: 'Image payload is too large. Maximum size is 15 MB.' });
         }
-        const decodedLength = Math.floor(base64Length * 0.75);
-        if (decodedLength > 20 * 1024 * 1024) {
-          return res.status(413).json({ error: 'Decoded image would exceed 20 MB.' });
+        payloadBytes += Math.floor(length * 0.75);
+        if (payloadBytes > 60 * 1024 * 1024) {
+          return res.status(413).json({ error: 'The slide images together exceed the 60 MB scan limit.' });
         }
       }
 
@@ -1315,12 +1402,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
         let detections;
         try {
-          detections = await runInference(db, req.user, imageBase64, {
-            confidence: Number(confidence) || 0.3,
-            iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
-            offsetX: tileOffsetX,
-            offsetY: tileOffsetY
-          });
+          detections = await readSlide(db, req.user, passes, Number(confidence) || 0.3);
         } catch (err) {
           if (existingRow) {
             const { error: restoreError } = await supabase
@@ -1454,12 +1536,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       let detections;
       try {
-        detections = await runInference(db, req.user, imageBase64, {
-          confidence: Number(confidence) || 0.3,
-          iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
-          offsetX: tileOffsetX,
-          offsetY: tileOffsetY
-        });
+        detections = await readSlide(db, req.user, passes, Number(confidence) || 0.3);
       } catch (err) {
         if (existing) {
           db.prepare('UPDATE analyses SET status = ?, started_at = ?, completed_at = ? WHERE id = ?').run(
