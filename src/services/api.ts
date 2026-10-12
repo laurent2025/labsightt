@@ -318,11 +318,31 @@ export const analysesApi = {
   list: (params: { limit?: number; offset?: number; sampleId?: string; status?: string } = {}) =>
     request<{ analyses: Analysis[]; pagination: Pagination }>(`/analyses${query(params)}`),
 
-/** Runs inference on the server. The model credential stays server-side. */
-  run: (sampleId: string, imageBase64: string, confidence?: number, imageRef?: string) =>
+/**
+   * Runs inference on one crop of a slide. The model credential stays server-side.
+   *
+   * `offsetX`/`offsetY` say where this crop was taken from in whole-slide
+   * pixels, so detections found in it are stored at their true position on the
+   * slide the technologist looks at. Omitting them means the image is the
+   * whole slide.
+   */
+  run: (
+    sampleId: string,
+    imageBase64: string,
+    confidence?: number,
+    imageRef?: string,
+    offset?: { x?: number; y?: number }
+  ) =>
     request<{ analysis: Analysis }>('/analyses', {
       method: 'POST',
-      body: JSON.stringify({ sampleId, imageBase64, confidence, imageRef })
+      body: JSON.stringify({
+        sampleId,
+        imageBase64,
+        confidence,
+        imageRef,
+        offsetX: offset?.x ?? 0,
+        offsetY: offset?.y ?? 0
+      })
     })
 };
 

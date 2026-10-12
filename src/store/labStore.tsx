@@ -18,7 +18,7 @@ import {
 } from '../types';
 import { DEFAULT_AI_MODELS, LAB_METADATA } from '../lib/constants';
 import { quantifyDetections } from '../lib/quantification';
-import { loadImageSource } from '../services/roboflow';
+import { loadImageSource, sliceImageTiles, type ImageTile } from '../services/roboflow';
 import {
   ApiError,
   SessionExpiredError,
@@ -396,16 +396,44 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       if (!imageUrl) throw new ReportGateError('No slide image is available for this specimen. Please upload or capture an image before running analysis.');
 
       const source = await loadImageSource(imageUrl);
+      const confidence = model?.confidenceThreshold ?? 0.3;
+
+      // Read the slide as overlapping tiles when the model asks for it, so an
+      // ovum reaches the detector at its own input size instead of being
+      // downscaled out of existence on a full microscopy field. Every tile
+      // carries the same image ref, so its findings accumulate onto this one
+      // image and the report still describes a single slide.
+      let tiles: ImageTile[] | null = null;
+      if (model?.tiling?.enabled) {
+        try {
+          tiles = await sliceImageTiles(imageUrl, model.tiling);
+        } catch {
+          // Tiling is an enhancement. If it fails, fall back to one whole-slide
+          // read rather than failing the scan.
+          tiles = null;
+        }
+      }
 
       try {
-        const { analysis } = await analysesApi.run(
-          sampleId,
-          source.base64,
-          model?.confidenceThreshold ?? 0.3,
-          imageRef
-        );
-        const hydrated = hydrateAnalysis(analysis, patientId, model?.name ?? 'Server model');
-        setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated.id)]);
+        // Each pass returns the whole analysis as accumulated so far, so the
+        // final one is authoritative. A failed tile aborts the read exactly as
+        // a failed whole-slide read would.
+        let hydrated: Analysis | null = null;
+        const passes = tiles ?? [{ dataUrl: source.base64, offsetX: 0, offsetY: 0, width: 0, height: 0 }];
+
+        for (const tile of passes) {
+          const { analysis } = await analysesApi.run(
+            sampleId,
+            tile.dataUrl,
+            confidence,
+            imageRef,
+            { x: tile.offsetX, y: tile.offsetY }
+          );
+          hydrated = hydrateAnalysis(analysis, patientId, model?.name ?? 'Server model');
+        }
+
+        if (!hydrated) throw new ReportGateError('The slide could not be read. Try again.');
+        setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated!.id)]);
         return hydrated;
       } catch (err) {
         handleError(err, 'Inference failed. The AI service may be temporarily unavailable. Please try again in a moment.');

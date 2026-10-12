@@ -23,6 +23,90 @@ export interface PixelDetection {
   height: number;
 }
 
+/** One crop of a slide, with where it was taken from in whole-slide pixels. */
+export interface ImageTile {
+  dataUrl: string;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+}
+
+export interface TilingConfig {
+  /** Tile edge length in pixels. Matched to the detector's input size. */
+  tileSize: number;
+  /** Fraction each tile overlaps its neighbour, 0 to 0.5. */
+  overlap: number;
+}
+
+const MIN_TILE_EDGE = 32;
+
+function drawImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new InferenceError('Slide image could not be decoded.'));
+    img.src = url;
+  });
+}
+
+/**
+ * Crops a slide into overlapping tiles so each one reaches the detector at its
+ * own input size instead of being downscaled away.
+ *
+ * A microscopy field is far larger than the detector's input, so sending the
+ * whole slide forces the provider to shrink it and an ovum a few dozen pixels
+ * tall becomes a couple of pixels - below anything the model can recognise.
+ * Reading the slide as tiles of `tileSize` keeps that ovum at full detector
+ * resolution in at least one tile.
+ *
+ * Returns null when the slide is already smaller than one tile, which is the
+ * common case for a phone photograph and means no tiling is needed.
+ */
+export async function sliceImageTiles(
+  url: string,
+  config: TilingConfig
+): Promise<ImageTile[] | null> {
+  const tileSize = Math.max(64, Math.round(config.tileSize) || 640);
+  const overlap = Math.min(0.5, Math.max(0, Number(config.overlap) || 0));
+
+  const image = await drawImage(url);
+  const { naturalWidth: width, naturalHeight: height } = image;
+  if (!width || !height) return null;
+  if (width <= tileSize && height <= tileSize) return null;
+
+  const step = Math.max(1, Math.round(tileSize * (1 - overlap)));
+  const tiles: ImageTile[] = [];
+
+  for (let offsetY = 0; offsetY < height; offsetY += step) {
+    for (let offsetX = 0; offsetX < width; offsetX += step) {
+      const tileWidth = Math.min(tileSize, width - offsetX);
+      const tileHeight = Math.min(tileSize, height - offsetY);
+      if (tileWidth < MIN_TILE_EDGE || tileHeight < MIN_TILE_EDGE) continue;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = tileWidth;
+      canvas.height = tileHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(image, offsetX, offsetY, tileWidth, tileHeight, 0, 0, tileWidth, tileHeight);
+
+      tiles.push({
+        dataUrl: canvas.toDataURL('image/jpeg', 0.92),
+        offsetX,
+        offsetY,
+        width: tileWidth,
+        height: tileHeight
+      });
+
+      if (offsetX + tileWidth >= width) break;
+    }
+    if (offsetY + Math.min(tileSize, height - offsetY) >= height) break;
+  }
+
+  return tiles.length > 0 ? tiles : null;
+}
+
 export interface SourceImage {
   base64: string;
   width: number;

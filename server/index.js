@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LenziAI API server.
  *
  * Holds the patient record, enforces the reporting workflow, and proxies
@@ -1139,8 +1139,13 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.post('/api/analyses', auth, async (req, res, next) => {
     const startedAt = new Date().toISOString();
     try {
-      const { sampleId, imageBase64, confidence, imageRef } = req.body ?? {};
+      const { sampleId, imageBase64, confidence, imageRef, offsetX, offsetY } = req.body ?? {};
       const scanRef = typeof imageRef === 'string' && imageRef.trim() ? imageRef.trim() : 'primary';
+      // Tile offset: the slide is read as overlapping tiles so a small ovum is
+      // presented to the detector at its native input size. Each tile carries
+      // where it was cropped from, so its detections land on the whole slide.
+      const tileOffsetX = Number.isFinite(Number(offsetX)) ? Number(offsetX) : 0;
+      const tileOffsetY = Number.isFinite(Number(offsetY)) ? Number(offsetY) : 0;
 
       if (typeof imageBase64 === 'string') {
         const base64Length = imageBase64.length;
@@ -1219,7 +1224,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         try {
           detections = await runInference(db, req.user, imageBase64, {
             confidence: Number(confidence) || 0.3,
-            iou: Number(process.env.ROBOFLOW_IOU) || 0.4
+            iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
+            offsetX: tileOffsetX,
+            offsetY: tileOffsetY
           });
         } catch (err) {
           if (existingRow) {
@@ -1284,7 +1291,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         }
       }
 
-      // Re-scan support (SQLite branch): same rule as above —
+      // Re-scan support (SQLite branch): same rule as above â€”
       // reuse the sample's active analysis and append the
       // fresh findings to the ones already captured.
       const existing = db.prepare(`
@@ -1322,7 +1329,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       try {
         detections = await runInference(db, req.user, imageBase64, {
           confidence: Number(confidence) || 0.3,
-          iou: Number(process.env.ROBOFLOW_IOU) || 0.4
+          iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
+          offsetX: tileOffsetX,
+          offsetY: tileOffsetY
         });
       } catch (err) {
         if (existing) {
@@ -1347,8 +1356,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       }
 
       const insert = db.prepare(`
-        INSERT INTO detections (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected, image_ref)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+        INSERT INTO detections (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected, image_ref, reclassified_from)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
       `);
       const priorRows = db.prepare('SELECT class_name, x, y, width, height, image_ref FROM detections WHERE analysis_id = ?').all(id);
       const seen = new Set(priorRows.map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
@@ -1361,7 +1370,10 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           const key = detectionKey(d.class, d.x, d.y, d.width, d.height, scanRef);
           if (seen.has(key)) continue;
           seen.add(key);
-          insert.run(newId('det'), id, d.class, d.confidence, d.x, d.y, d.width, d.height, scanRef);
+          insert.run(
+            newId('det'), id, d.class, d.confidence, d.x, d.y, d.width, d.height,
+            scanRef, d.reclassifiedFrom ?? null
+          );
           inserted += 1;
         }
         db.prepare('UPDATE analyses SET total_detections = ?, status = ?, completed_at = ? WHERE id = ?').run(
@@ -1398,7 +1410,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       }
 
       if (hasSupabaseDatabaseConfig()) {
-        // In database mode detection rows are written to Supabase only — the
+        // In database mode detection rows are written to Supabase only â€” the
         // local mirror is never populated, so an existence check against it
         // would 404 every adjudication. Resolve existence, lock state, and
         // ownership in Supabase instead.

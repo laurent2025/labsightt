@@ -274,6 +274,17 @@ const MIGRATIONS = [
      `,
    },
    {
+     version: 10,
+     name: 'detection-reclassified-from',
+     up: `
+       -- Helminth ova are corrected by box aspect ratio when the geometry
+       -- clearly contradicts the predicted class. The detector's original
+       -- class is preserved here so the technologist can see exactly what
+       -- changed instead of trusting a silent override.
+       ALTER TABLE detections ADD COLUMN reclassified_from TEXT;
+     `,
+   },
+   {
      version: 9,
      name: 'sample-slide-images',
      up: `

@@ -35,9 +35,56 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
     roboflowModel: "labsight-vlabsight-wji6g-1-yolo26m-t1-logic",
     roboflowVersion: "1",
     isWorkflow: true,
-    confidenceThreshold: 0.30,
-    iouThreshold: 0.40,
+    /*
+     * Detection sensitivity.
+     *
+     * 0.20 is deliberately low. On a stool microscopy field the cost of a
+     * missed ovum is a false-negative report, while a false positive costs one
+     * click to reject, so the floor is set to surface more candidates for the
+     * technologist rather than fewer. Everything above the floor is still a
+     * *candidate*: nothing counts in the report until it is adjudicated.
+     */
+    confidenceThreshold: 0.20,
+    /*
+     * Non-maximum suppression is intentionally loose. Ova in a stool field sit
+     * close together and their predicted boxes overlap at the edges; a tight
+     * threshold folds two neighbouring ova into one and under-counts the
+     * specimen, so only a genuine double-box on the same ovum is suppressed.
+     */
+    iouThreshold: 0.55,
     active: true,
+    /*
+     * Per-class floors. Helminth ova are the smallest, faintest targets in the
+     * field and are the ones a single pass at native resolution loses, so they
+     * are read at a lower floor than the global one. Every class stays above
+     * the point where noise dominates.
+     */
+    classThresholds: {
+      "Ascaris lumbricoides": 0.10,
+      "Hookworm egg": 0.10,
+      "Trichuris trichiura": 0.12,
+      "Enterobius vermicularis": 0.15,
+      "Fasciolopsis buski": 0.15
+    },
+    /*
+     * Tiled inference (SAHI-style slicing).
+     *
+     * A full microscopy field is far larger than the detector's input size, so
+     * sending it in one piece forces the provider to downscale and small ova
+     * vanish. The slide is read as overlapping tiles and each tile is scaled to
+     * the detector's native input, which is what makes a faint ovum a
+     * detectable object instead of a few pixels.
+     */
+    tiling: {
+      enabled: true,
+      // Detector input size. Tiles are cropped to this so the provider never
+      // has to downscale the tile it is asked to read.
+      tileSize: 640,
+      // Fraction each tile overlaps its neighbour. Overlap keeps an ovum that
+      // straddles a tile boundary present whole in at least one tile; the
+      // detector's own NMS then merges the duplicate it produces.
+      overlap: 0.30
+    },
     // Detection targets. Not clinically validated; no accuracy figure
     // exists for this software. Model output requires technologist review
     // and two-person verification before release.

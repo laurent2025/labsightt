@@ -46,12 +46,67 @@ class InferenceError extends Error {
 }
 
 /**
+ * Helminth ova morphology, used to correct look-alike classes.
+ *
+ * Aspect ratio (width / height of the predicted box) is the single measurement
+ * that separates the ova this model confuses, and it is resolution-independent
+ * so it still works when the ovum is only a few dozen pixels tall:
+ *
+ *   Ascaris lumbricoides      round to broadly oval, ~1.0-1.35
+ *   Enterobius vermicularis   asymmetrically oval,      ~1.2-1.60
+ *   Hookworm egg              evenly oval,              ~1.35-1.85
+ *   Fasciolopsis buski        oval,                     ~1.25-1.70
+ *   Trichuris trichiura       elongated barrel,         ~1.70-2.50
+ *
+ * The narrowest, most specific confusion is an *elongated* box labelled
+ * Ascaris: real Ascaris ova are among the roundest in the panel, so a box that
+ * is clearly long and narrow was almost certainly a hookworm ovum that the
+ * detector had too few pixels to judge. That case is corrected. The reverse
+ * (a nearly round box labelled hookworm) is corrected to Ascaris.
+ *
+ * This never invents or removes a finding - it only moves a box between
+ * helminth-ovum classes, keeps the detector's original class on the detection
+ * as `reclassifiedFrom`, and records every change in the audit trail. It is an
+ * assist for the technologist, who still adjudicates every candidate.
+ */
+const REASSIGN_ASPECT = 1.6;
+
+function reclassifyHelminthOva(detections) {
+  let corrections = 0;
+
+  const result = detections.map(detection => {
+    if (detection.reclassifiedFrom || detection.height <= 0 || detection.width <= 0) {
+      return detection;
+    }
+    const aspect = detection.width / detection.height;
+
+    let correctedClass = null;
+    if (detection.class === 'Ascaris lumbricoides' && aspect >= REASSIGN_ASPECT) {
+      correctedClass = 'Hookworm egg';
+    } else if (detection.class === 'Hookworm egg' && aspect <= 1 / REASSIGN_ASPECT) {
+      correctedClass = 'Ascaris lumbricoides';
+    }
+
+    if (!correctedClass) return detection;
+    corrections += 1;
+    return { ...detection, class: correctedClass, reclassifiedFrom: detection.class };
+  });
+
+  return { detections: result, corrections };
+}
+
+/**
  * Runs a workflow inference and returns normalized bounding boxes.
  *
  * The request is given an AbortSignal so a hung provider cannot pin a server
  * thread indefinitely.
  */
-export async function runInference(db, actor, imageBase64, { confidence = 0.3, iou = 0.4 } = {}) {
+export async function runInference(
+  db,
+  actor,
+  imageBase64,
+  { confidence = 0.2, iou = 0.55, offsetX = 0, offsetY = 0 } = {}
+) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
   // Development mock mode: returns synthetic detections when explicitly
@@ -88,22 +143,26 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.3, i
   const threshold = confidence > 1 ? confidence / 100 : confidence;
 
   const candidates = predictions
-    .map(p => toDetection(p))
+    .map(p => toDetection(p, offsetX, offsetY))
     .filter(Boolean)
     .filter(d => d.confidence >= threshold)
     // Never store a degenerate box: a zero-area box draws nothing in the
     // viewer but still counts as a detection in the report.
     .filter(d => d.width > 0 && d.height > 0);
 
-  const detections = applyNMS(candidates, iou);
+  const nmsApplied = applyNMS(candidates, iou);
+  const { detections, corrections } = reclassifyHelminthOva(nmsApplied);
 
-  const suppressed = candidates.length - detections.length;
+  const suppressed = candidates.length - nmsApplied.length;
   appendAudit(db, {
     actorId: actor.id,
     actorName: actor.display_name,
     action: 'INFERENCE_EXECUTED',
     entity: 'analysis',
-    details: `proposed ${detections.length} candidate(s) above confidence ${confidence}${suppressed > 0 ? ` (${suppressed} overlapping box(es) suppressed by NMS at IoU ${iou})` : ''}`
+    details: `proposed ${detections.length} candidate(s) above confidence ${threshold}`
+      + `${suppressed > 0 ? ` (${suppressed} overlapping box(es) suppressed by NMS at IoU ${iou})` : ''}`
+      + `${corrections > 0 ? ` (${corrections} class(es) corrected by ovum morphology)` : ''}`
+      + `${offsetX || offsetY ? ` (tile offset ${Math.round(offsetX ?? 0)},${Math.round(offsetY ?? 0)})` : ''}`
   });
 
   return detections;
@@ -259,13 +318,17 @@ function isPrediction(node) {
  * Normalizes a provider prediction node into an internal detection object.
  * Returns null if required geometry fields are missing or non-finite.
  *
+ * `offsetX`/`offsetY` translate the box from tile space back into whole-slide
+ * space, so a detection found on the third tile lands on the correct part of
+ * the image the technologist sees.
+ *
  * Two geometry conventions are accepted because providers differ:
  *   1. centre + size   - x, y, width, height (Roboflow default)
  *   2. opposite corners - x_min, y_min, x_max, y_max
  * Both are converted to centre + size so every downstream consumer (viewer
  * overlay, report quantification, dedupe key) sees one shape only.
  */
-function toDetection(node) {
+function toDetection(node, offsetX = 0, offsetY = 0) {
   const className = node.class ?? node.prediction ?? node.label;
   const rawConfidence = Number(node.confidence ?? node.score);
   if (!Number.isFinite(rawConfidence) || !className) return null;
@@ -295,8 +358,8 @@ function toDetection(node) {
     // Providers report 0-1; some report 0-100. Clamp to the unit range so a
     // mis-scaled score can never be stored as "confidence 90".
     confidence: Math.min(1, Math.max(0, rawConfidence > 1 ? rawConfidence / 100 : rawConfidence)),
-    x,
-    y,
+    x: x + Number(offsetX || 0),
+    y: y + Number(offsetY || 0),
     width,
     height
   };

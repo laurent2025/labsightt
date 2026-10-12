@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { quantifyDetections } from '../src/lib/quantification.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 
@@ -49,7 +49,7 @@ export async function getSupabaseProfile(supabase, userId) {
  * Loads the profile for a Supabase auth user, auto-creating it if the row is
  * missing (e.g. when the database trigger was never applied or failed silently).
  *
- * @param {import('@supabase/supabase-js').SupabaseClient} supabase – an admin client (service-role)
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase â€“ an admin client (service-role)
  * @param {{ id: string; email?: string; user_metadata?: Record<string, unknown> }} authUser
  * @returns {Promise<{ email: string; username: string; display_name: string }>}
  */
@@ -547,6 +547,7 @@ function mapSupabaseDetection(row) {
     manual: Boolean(row.manual),
     note: row.note,
     imageRef: row.image_ref ?? 'primary',
+    reclassifiedFrom: row.reclassified_from ?? undefined,
     adjudicatedBy: row.adjudicated_by,
     adjudicatedAt: row.adjudicated_at
   };
@@ -789,7 +790,8 @@ export async function saveSupabaseDetections(supabase, analysisId, detections = 
     rejected: false,
     manual: false,
     note: d.note ?? null,
-    image_ref: imageRef
+    image_ref: imageRef,
+    reclassified_from: d.reclassifiedFrom ?? null
   }));
 
   const { data, error } = await supabase

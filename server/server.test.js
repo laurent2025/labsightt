@@ -1111,6 +1111,60 @@ describe('inference proxy', () => {
     expect(repeat.body.analysis.totalDetections).toBe(2);
   });
 
+  it('corrects an elongated box labelled Ascaris to a hookworm ovum', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    // Real Ascaris ova are among the roundest in the panel; a box this
+    // elongated was a hookworm ovum the detector had too few pixels to judge.
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [{ class: 'Ascaris lumbricoides', confidence: 0.62, x: 100, y: 100, width: 90, height: 40 }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.2 });
+
+    expect(detections).toHaveLength(1);
+    expect(detections[0].class).toBe('Hookworm egg');
+    // The detector's original call is preserved, never silently overwritten.
+    expect(detections[0].reclassifiedFrom).toBe('Ascaris lumbricoides');
+  });
+
+  it('leaves a genuinely round Ascaris ovum alone', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [{ class: 'Ascaris lumbricoides', confidence: 0.71, x: 100, y: 100, width: 50, height: 45 }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.2 });
+
+    expect(detections).toHaveLength(1);
+    expect(detections[0].class).toBe('Ascaris lumbricoides');
+    expect(detections[0].reclassifiedFrom).toBeUndefined();
+  });
+
+  it('offsets tile detections onto the whole slide', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [{ class: 'Hookworm egg', confidence: 0.8, x: 30, y: 20, width: 10, height: 8 }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', {
+      confidence: 0.2,
+      offsetX: 640,
+      offsetY: 640
+    });
+
+    expect(detections[0].x).toBe(670);
+    expect(detections[0].y).toBe(660);
+  });
+
   it('collapses a detector\'s duplicate boxes for one organism with NMS', async () => {
     vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
     vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');

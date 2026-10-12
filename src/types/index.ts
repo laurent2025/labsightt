@@ -79,6 +79,12 @@ export interface Detection {
   note?: string;
   /** Which uploaded image of the specimen this detection came from. */
   imageRef?: string;
+  /**
+   * Set when the class was corrected by geometry after inference. The
+   * detector's original class is preserved here so the technologist can see
+   * exactly what changed and why, and so the raw prediction is never lost.
+   */
+  reclassifiedFrom?: string;
 }
 
 export interface QuantifiedFinding {
@@ -155,6 +161,24 @@ export interface AIModelConfig {
   roboflowVersion: string;
   confidenceThreshold: number; // 0.10 to 0.95
   iouThreshold: number;
+  /**
+   * Per-class confidence floors. A class absent from this map uses
+   * `confidenceThreshold`. Lets the faint helminth ova be read at a lower
+   * floor than the global one without lowering the floor for everything.
+   */
+  classThresholds?: Record<string, number>;
+  /**
+   * Tiled inference configuration. Reads the slide as overlapping tiles so a
+   * small ovum is presented to the detector at its native input size instead
+   * of being downscaled away.
+   */
+  tiling?: {
+    enabled: boolean;
+    /** Tile edge length in pixels, matched to the detector input size. */
+    tileSize: number;
+    /** Fraction each tile overlaps its neighbour, 0 to 0.5. */
+    overlap: number;
+  };
   active: boolean;
   classes: string[];
   /** Parasites reported as confirmed findings when detected. */

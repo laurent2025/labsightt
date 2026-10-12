@@ -391,6 +391,17 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
                             )}
                           </span>
                         )}
+                        {det.reclassifiedFrom && (
+                          <span
+                            className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-mono text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-px max-w-full"
+                            title={`The detector called this ${det.reclassifiedFrom}; the box's aspect ratio indicates ${det.class}. The original call is kept in the record.`}
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate">
+                              morphology: {det.class} (model said {det.reclassifiedFrom})
+                            </span>
+                          </span>
+                        )}
                         <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                           Confidence: {(det.confidence * 100).toFixed(1)}% · Pos: ({Math.round(det.x)},{' '}
                           {Math.round(det.y)})

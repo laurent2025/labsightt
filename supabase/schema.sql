@@ -535,13 +535,18 @@ create table if not exists public.detections (
 
     adjudicated_at timestamptz,
 
-    image_ref text
+    image_ref text,
+
+    reclassified_from text
 );
 
 -- Upgrade existing installations where detections was created before
 -- per-slide image references were added.
 alter table public.detections
     add column if not exists image_ref text;
+
+alter table public.detections
+    add column if not exists reclassified_from text;
 
 create index if not exists
 idx_detections_analysis
