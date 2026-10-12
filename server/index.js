@@ -130,6 +130,29 @@ function describeSupabaseFailure(err) {
   return message;
 }
 
+/**
+ * Reads the column name an unknown-column Supabase failure names, or null when
+ * the failure is not of that kind.
+ *
+ * Postgres reports an unknown column as SQLSTATE 42703 with the column in the
+ * message (`column "detections.image_ref" does not exist`). PostgREST reports
+ * the same condition before the statement reaches Postgres as PGRST204
+ * (`Could not find the 'image_ref' column of 'detections' in the schema
+ * cache`), which is what a deployment sees right after a migration until the
+ * cache reloads. Both name the column, so a pending migration never has to be
+ * diagnosed by hand: the column the database does not know is the one dropped
+ * before the write is retried.
+ */
+function missingColumnFromMessage(error) {
+  if (!error) return null;
+  if (error.code !== '42703' && error.code !== 'PGRST204') return null;
+  const message = String(error.message ?? '');
+  const match =
+    /column\s+"?(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)"?\s+does not exist/i.exec(message) ??
+    /could not find the '([a-zA-Z0-9_]+)' column/i.exec(message);
+  return match ? match[1] : null;
+}
+
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   const db = openDatabase(dbPath);
   installImmutabilityGuards(db);
@@ -1332,25 +1355,29 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         // deployments: a database whose schema.sql has not been re-applied
         // rejects a query naming it, so fall back to reading the box and class
         // alone. Scans then de-duplicate within the image being scanned, which
-        // is the behaviour that matters for a re-scan.
-        const priorColumns = 'class_name, x, y, width, height, image_ref';
+        // is the behaviour that matters for a re-scan. PostgREST reports the
+        // same unknown column before it reaches Postgres when its schema cache
+        // has not reloaded since the migration, so both codes are handled.
+        let priorColumns = 'class_name, x, y, width, height, image_ref';
         let priorDetections;
-        let priorError = null;
-        const priorResult = await supabase
-          .from('detections')
-          .select(priorColumns)
-          .eq('analysis_id', analysisId);
-        priorDetections = priorResult.data;
-        priorError = priorResult.error;
-        if (priorError && (priorError.code === '42703' || String(priorError.message ?? '').includes('42703'))) {
-          const fallback = await supabase
+        for (let attempt = 0; ; attempt += 1) {
+          const result = await supabase
             .from('detections')
-            .select('class_name, x, y, width, height')
+            .select(priorColumns)
             .eq('analysis_id', analysisId);
-          priorDetections = fallback.data;
-          priorError = fallback.error;
+          if (!result.error) {
+            priorDetections = result.data;
+            break;
+          }
+          if (attempt >= 4) throw result.error;
+          const missing = missingColumnFromMessage(result.error);
+          if (!missing) throw result.error;
+          priorColumns = priorColumns
+            .split(',')
+            .map(column => column.trim())
+            .filter(column => column !== missing)
+            .join(', ');
         }
-        if (priorError) throw new InferenceError('Could not read previous findings for this specimen.', 502);
 
         const seen = new Set((priorDetections ?? []).map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
         const fresh = detections.filter(d => {

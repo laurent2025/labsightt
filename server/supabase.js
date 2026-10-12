@@ -820,33 +820,31 @@ export async function saveSupabaseDetections(supabase, analysisId, detections = 
   }));
 
 /*
- * `image_ref` and `reclassified_from` were added after the first
- * deployments. A database whose schema.sql has not been re-applied still
- * lacks one or both, and an insert naming them fails with an unknown-column
- * error. Scan results must not be lost to a pending migration, so any column
- * the database rejects is dropped and the insert retried, keeping the
- * finding itself. Both columns are informational: the audit trail records
- * the morphology correction and multi-image findings re-appear on the next
- * scan of the same slide.
+ * `image_ref` and `reclassified_from` were added after the first deployments.
+ * A database whose schema.sql has not been re-applied still lacks one or both,
+ * and an insert naming them fails with an unknown-column error — as does a
+ * request that reaches a PostgREST schema cache which has not reloaded since
+ * the column was added. Scan results must not be lost to a pending migration
+ * or a stale cache, so any column the database rejects is dropped and the
+ * insert retried, keeping the finding itself. Those columns are
+ * informational: the audit trail records the morphology correction and
+ * multi-image findings re-appear on the next scan of the same slide.
  *
- * Each column is dropped at most once, so the retry chain is bounded: a
- * database that rejects a column for any other reason terminates on the
- * second pass and the original error is raised.
+ * The rejected column is read from the database's own message, so the retry
+ * chain needs no hard-coded list of which columns may be absent, and a column
+ * it has already dropped is never dropped again. It is bounded, so a database
+ * that rejects a column for any other reason terminates on the original error
+ * rather than retrying indefinitely.
  */
-const OPTIONAL_COLUMNS = ['image_ref', 'reclassified_from'];
 let candidate = rows;
 let { data, error } = await supabase.from('detections').insert(candidate).select();
-const dropped = new Set();
 
-while (error) {
-  const missing = OPTIONAL_COLUMNS.find(
-    // Only a message that names this column identifies it as the offender;
-    // matching on SQLSTATE alone would drop the same column repeatedly and
-    // retry forever against an error that never changes.
-    column => !dropped.has(column) && isMissingColumnError(error, column)
-  );
+for (let attempt = 0; error; attempt += 1) {
+  // Bounded so a database that rejects a column for any other reason ends on
+  // the original error instead of retrying indefinitely.
+  if (attempt >= 8) break;
+  const missing = missingColumnFromError(error);
   if (!missing) break;
-  dropped.add(missing);
   candidate = candidate.map(row => {
     const trimmed = { ...row };
     delete trimmed[missing];
@@ -860,14 +858,25 @@ return data ?? [];
 }
 
 /**
- * True when a Supabase error is "column does not exist" for the named column.
- * Postgres reports an unknown column as SQLSTATE 42703, and supabase-js
- * surfaces it both as `code` and inside the message text. The column name must
- * appear in the message, so an unrelated 42703 is not mistaken for this one.
+ * Reads the name of the column a rejected write was rejected for, or null when
+ * the failure is not an unknown-column failure.
+ *
+ * Postgres reports an unknown column as SQLSTATE 42703 with the column in the
+ * message (`column "detections.x" does not exist`). PostgREST reports the same
+ * condition before the statement reaches Postgres as PGRST204
+ * (`Could not find the 'x' column of 'detections' in the schema cache`), which
+ * is what a deployment sees immediately after a migration until the cache
+ * reloads. Both name the column and both are repaired the same way: drop the
+ * column the database does not know and retry with the rest.
  */
-function isMissingColumnError(error, column) {
-  if (!error || error.code !== '42703') return false;
-  return String(error.message ?? '').includes(column);
+function missingColumnFromError(error) {
+  if (!error) return null;
+  if (error.code !== '42703' && error.code !== 'PGRST204') return null;
+  const message = String(error.message ?? '');
+  const match =
+    /column\s+"?(?:[a-zA-Z0-9_]+\.)?([a-zA-Z0-9_]+)"?\s+does not exist/i.exec(message) ??
+    /could not find the '([a-zA-Z0-9_]+)' column/i.exec(message);
+  return match ? match[1] : null;
 }
 
 export async function finalizeSupabaseAnalysis(supabase, id, { totalDetections, status, completedAt } = {}) {
