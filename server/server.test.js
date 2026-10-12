@@ -827,6 +827,22 @@ describe('reporting workflow gates', () => {
     expect(again.status).toBe(409);
   });
 
+  it('rejects a scan with no specimen id instead of failing opaquely', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const client = authed(await login('tech1', 'tech-password-1234'));
+
+    // A missing sampleId used to reach the store, which rejected the query
+    // itself and surfaced to the operator as an unexplained server error.
+    const noSample = await client.post('/api/analyses', { imageBase64: 'AAAA' });
+    expect(noSample.status).toBe(400);
+    expect(noSample.body.error).toMatch(/sampleId/i);
+
+    const noImage = await client.post('/api/analyses', { sampleId: 'sam-does-not-exist' });
+    expect(noImage.status).toBe(400);
+    expect(noImage.body.error).toMatch(/image/i);
+  });
+
   it('records a report generation in the audit log', async () => {
     const tech = authed(await login('tech1', 'tech-password-1234'));
     const admin = authed(await login('admin1', 'admin-password-1234'));

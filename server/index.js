@@ -1148,6 +1148,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       const tileOffsetX = Number.isFinite(Number(offsetX)) ? Number(offsetX) : 0;
       const tileOffsetY = Number.isFinite(Number(offsetY)) ? Number(offsetY) : 0;
 
+      // Validate before touching the database. A missing sampleId makes the
+      // store reject the query itself with an opaque error, which surfaces to
+      // the operator as an unexplained server error instead of a clear one.
+      if (typeof sampleId !== 'string' || !sampleId.trim()) {
+        return res.status(400).json({ error: 'A valid sampleId is required.' });
+      }
+      if (typeof imageBase64 !== 'string' || !imageBase64.trim()) {
+        return res.status(400).json({ error: 'No image was supplied for analysis.' });
+      }
+
       if (typeof imageBase64 === 'string') {
         const base64Length = imageBase64.length;
         if (base64Length > 15 * 1024 * 1024) {
@@ -2509,6 +2519,24 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     }
     if (err?.type === 'entity.parse.failed') {
       return res.status(400).json({ error: 'Request body is not valid JSON.' });
+    }
+    /*
+     * A Postgres failure caught here is a schema or policy problem, not a crash:
+     * the message names the column, constraint or policy that rejected the
+     * write. Returning it tells the operator what to fix in schema.sql instead
+     * of leaving them with an unexplained error, and it carries no patient data
+     * or credential. Anything without a SQLSTATE keeps the generic message.
+     */
+    if (typeof err?.code === 'string' && err.code.length === 5) {
+      const guidance = err.code === '42501'
+        ? 'Row-level security rejected this write. Grant the service role full access, or sign in with a Supabase Auth account.'
+        : err.code === '42703' || err.code === '42P01'
+          ? 'The Supabase schema is out of date. Run supabase/schema.sql in the Supabase SQL editor, then retry.'
+          : null;
+      return res.status(502).json({
+        error: err.message || 'The database rejected this request.',
+        ...(guidance ? { hint: guidance } : {})
+      });
     }
     logger({
       level: 'error',

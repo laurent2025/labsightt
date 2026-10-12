@@ -129,6 +129,50 @@ if (process.env.USE_SUPABASE_AUTH === 'true') {
   await bootstrapRoles();
 }
 
+/**
+ * Confirms the Supabase service role can actually read and write.
+ *
+ * Every table has row-level security enabled, and the policies allow only an
+ * approved authenticated session. The service-role key bypasses RLS — but only
+ * if the right key was supplied. A deployment that sets SUPABASE_SERVICE_ROLE_KEY
+ * to the anon key passes the configuration check and then fails on the first
+ * write with a policy error, which is invisible until an operator tries to scan.
+ * This check runs once at startup and reports exactly which condition applies.
+ */
+async function checkSupabaseConnectivity() {
+  if (process.env.USE_SUPABASE_DB !== 'true') return;
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn(
+      '  supabase: NOT CONFIGURED — USE_SUPABASE_DB is true but SUPABASE_URL and\n' +
+      '            SUPABASE_SERVICE_ROLE_KEY are required. The API will answer 503.'
+    );
+    return;
+  }
+
+  try {
+    const { getSupabaseClient } = await import('./supabase.js');
+    const supabase = getSupabaseClient({ admin: true });
+    const { error } = await supabase.from('profiles').select('id').limit(1);
+    if (error) {
+      const detail = error.message || String(error);
+      const advice = error.code === '42501'
+        ? 'Row-level security rejected the read. SUPABASE_SERVICE_ROLE_KEY must be the service-role key, not the anon key.'
+        : error.code === 'PGRST301' || /JWT/i.test(detail)
+          ? 'The supplied key was rejected as a credential. Check SUPABASE_SERVICE_ROLE_KEY.'
+          : 'Run supabase/schema.sql in the Supabase SQL editor to create the tables.';
+      console.warn(`  supabase: UNREACHABLE — ${detail}\n            ${advice}`);
+      return;
+    }
+    console.log('  supabase: connected (service role)');
+  } catch (err) {
+    console.warn(
+      `  supabase: connection check failed — ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+}
+
+await checkSupabaseConnectivity();
+
 const server = app.listen(PORT, () => {
   const configured = Boolean(process.env.ROBOFLOW_API_KEY);
   console.log(`LenziAI API listening on http://localhost:${PORT}`);
