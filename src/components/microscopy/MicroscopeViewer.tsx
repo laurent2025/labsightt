@@ -646,7 +646,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
               disabled={currentField <= 1}
               className="text-slate-400 hover:text-white disabled:opacity-30 px-1 cursor-pointer"
             >
-              ◀
+              <ChevronLeft className="w-3 h-3" />
             </button>
             <span className="text-cyan-300 font-semibold">
               {currentField}/{totalFields}
@@ -660,7 +660,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
               disabled={currentField >= totalFields}
               className="text-slate-400 hover:text-white disabled:opacity-30 px-1 cursor-pointer"
             >
-              ▶
+              <ChevronRight className="w-3 h-3" />
             </button>
           </div>
         </div>

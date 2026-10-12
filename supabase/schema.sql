@@ -548,6 +548,24 @@ alter table public.detections
 alter table public.detections
     add column if not exists reclassified_from text;
 
+-- Reports written before technologist_id was made nullable. Existing
+-- installations keep their rows; new ones simply omit the column when the
+-- actor has no auth.users row (local sign-in with Supabase storage).
+do $$
+begin
+    if exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'reports'
+          and column_name = 'technologist_id'
+          and is_nullable = 'NO'
+    ) then
+        alter table public.reports
+            alter column technologist_id drop not null;
+    end if;
+end $$;
+
 create index if not exists
 idx_detections_analysis
 on public.detections(analysis_id);
@@ -571,7 +589,11 @@ create table if not exists public.reports (
         references public.analyses(id)
         on delete cascade,
 
-    technologist_id uuid not null,
+    -- Nullable: USE_SUPABASE_DB and USE_SUPABASE_AUTH are independent, so a
+    -- deployment may keep the local user table for sign-in while storing data
+    -- here. That actor has no auth.users row, and a NOT NULL uuid would reject
+    -- every report. technologist_name still carries the attribution.
+    technologist_id uuid,
 
     technologist_name text not null,
 

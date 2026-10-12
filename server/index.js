@@ -30,6 +30,7 @@ import { requestContext, createLoginLimiter, healthRoutes } from './operations.j
 import * as repo from './repository.js';
 import {
   getSupabaseClient,
+  supabaseActorId,
   hasSupabaseConfig,
   hasSupabaseDatabaseConfig,
   getSupabaseProfile,
@@ -625,7 +626,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           referringDoctor,
           referringFacility,
           clinicalNotes,
-          createdBy: req.user.id
+          createdBy: supabaseActorId(req.user)
         });
 
         appendAudit(db, {
@@ -876,7 +877,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           collectionDatetime: b.collectionDatetime,
           imageUrl: b.imageUrl,
           notes: b.notes,
-          createdBy: req.user.id
+          createdBy: supabaseActorId(req.user)
         });
 
         appendAudit(db, {
@@ -1023,7 +1024,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         name: name.trim(),
         imageData,
         createdAt: new Date().toISOString(),
-        createdBy: req.user.id
+        createdBy: supabaseActorId(req.user)
       };
       const saved = supabase
         ? await createSupabaseSampleSlide(supabase, slide)
@@ -1215,7 +1216,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           await createSupabaseAnalysis(supabase, {
             id: analysisId,
             sampleId,
-            initiatedBy: req.user.id,
+            initiatedBy: supabaseActorId(req.user),
             startedAt
           });
         }
@@ -1280,7 +1281,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           priorDetections = fallback.data;
           priorError = fallback.error;
         }
-        if (priorError) throw priorError;
+        if (priorError) throw new InferenceError('Could not read previous findings for this specimen.', 502);
 
         const seen = new Set((priorDetections ?? []).map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
         const fresh = detections.filter(d => {
@@ -1289,7 +1290,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           seen.add(key);
           return true;
         });
-        await saveSupabaseDetections(supabase, analysisId, fresh, scanRef);
+        // Each step is named so a failure tells the operator which part of the
+        // save failed instead of surfacing a generic internal error.
+        try {
+          await saveSupabaseDetections(supabase, analysisId, fresh, scanRef);
+        } catch (saveErr) {
+          throw new InferenceError(
+            'Could not save the scan results. Run supabase/schema.sql in the Supabase SQL editor to add the missing columns, then retry.',
+            502
+          );
+        }
         const finalised = await finalizeSupabaseAnalysis(supabase, analysisId, {
           totalDetections: (priorDetections ?? []).length + fresh.length,
           status: 'in_review',
@@ -1458,7 +1468,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         const result = await adjudicateSupabaseDetection(supabase, req.params.id, {
           confirmed: nextConfirmed,
           rejected: nextRejected,
-          userId: req.user.id
+          userId: supabaseActorId(req.user)
         });
         appendAudit(db, {
           actorId: req.user.id,
@@ -1594,7 +1604,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         }
         const report = await createSupabaseReport(supabase, {
           analysisId,
-          technologistId: req.user.id,
+          technologistId: supabaseActorId(req.user),
           technologistName: req.user.display_name,
           supervisorName: req.body?.supervisorName ?? null,
           technologistNotes: req.body?.technologistNotes ?? '',

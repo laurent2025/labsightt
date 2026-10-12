@@ -16,6 +16,27 @@ export function hasSupabaseDatabaseConfig() {
   );
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolves the id to store in a `uuid references auth.users(id)` column.
+ *
+ * `USE_SUPABASE_DB` and `USE_SUPABASE_AUTH` are independent settings, so the
+ * common deployment runs the Supabase database with the local user table for
+ * sign-in. In that case `user.id` is an `usr-...` string: not a UUID, and with
+ * no matching row in `auth.users`. Writing it makes Postgres reject the whole
+ * insert, which surfaces to the operator as an unexplained server error on
+ * every write. When the actor cannot be a Supabase user the column is left
+ * null instead, so the operation still succeeds and the data is complete
+ * apart from the attribution.
+ */
+export function supabaseActorId(user) {
+  const id = user?.id;
+  if (typeof id !== 'string' || !id) return null;
+  return UUID_PATTERN.test(id) ? id : null;
+}
+
 export function getSupabaseClient({ admin = false } = {}) {
   if (!hasSupabaseConfig()) return null;
 

@@ -11,6 +11,7 @@ import { verifyPassword, hashPassword, validatePasswordStrength } from './crypto
 import { appendAudit, verifyChain, GENESIS_HASH } from './audit.js';
 import { encryptPHI, decryptPHI } from './encryption.js';
 import { inferenceStatus, runInference } from './inference.js';
+import { supabaseActorId } from './supabase.js';
 import { deleteSupabasePatient, updateSupabasePatient } from './supabase.js';
 
 // Encryption is mandatory, so a key must exist before any module is imported.
@@ -142,6 +143,23 @@ async function makeSample(client) {
 }
 
 // ------------------------------------------------------------------ auth ----
+
+describe('supabase actor attribution', () => {
+  it('passes a Supabase auth uuid through unchanged', () => {
+    const supabaseUser = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+    expect(supabaseActorId({ id: supabaseUser })).toBe(supabaseUser);
+  });
+
+  it('nulls a local user id instead of failing an auth.users foreign key', () => {
+    // A local sign-in id has no row in auth.users and is not a uuid, so writing
+    // it into an actor column would make Postgres reject the whole insert and
+    // surface to the operator as an unexplained server error.
+    expect(supabaseActorId({ id: 'usr-I-3K_hWj2yBU' })).toBeNull();
+    expect(supabaseActorId({ id: '' })).toBeNull();
+    expect(supabaseActorId({})).toBeNull();
+    expect(supabaseActorId(undefined)).toBeNull();
+  });
+});
 
 describe('password hashing', () => {
   it('produces a different salt and hash for the same password', async () => {
@@ -749,6 +767,64 @@ describe('reporting workflow gates', () => {
     insertDetection('det-1', 'ana-test', { rejected: 1, className: 'Giardia lamblia cyst' });
 
     expect((await client.post('/api/reports', { analysisId: 'ana-test' })).status).toBe(201);
+  });
+
+  it('carries a specimen from scan through adjudication to a verified report', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockImplementation(() => Promise.resolve(new Response(
+      JSON.stringify({
+        predictions: [
+          { class: 'Hookworm egg', confidence: 0.88, x: 60, y: 70, width: 22, height: 18 },
+          { class: 'Hookworm egg', confidence: 0.81, x: 200, y: 160, width: 20, height: 16 }
+        ]
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const sample = await makeSample(tech);
+
+    // 1. Scan the specimen.
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image'
+    });
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.totalDetections).toBe(2);
+    expect(scan.body.analysis.status).toBe('in_review');
+
+    // 2. Both candidates must be adjudicated before a report is allowed.
+    const blocked = await tech.post('/api/reports', { analysisId: scan.body.analysis.id });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.pendingAdjudication).toBe(2);
+
+    // 3. Confirm one and reject the other: only the confirmed one counts.
+    const [first, second] = scan.body.analysis.detections;
+    expect((await tech.patch(`/api/detections/${first.id}`, { confirmed: true })).status).toBe(200);
+    expect((await tech.patch(`/api/detections/${second.id}`, { rejected: true })).status).toBe(200);
+
+    // 4. Generate the report; it quantifies the confirmed finding only.
+    const generated = await tech.post('/api/reports', { analysisId: scan.body.analysis.id });
+    expect(generated.status).toBe(201);
+    const report = generated.body.report;
+    expect(report.status).toBe('pending_verification');
+    expect(report.technologistName).toBeTruthy();
+    const hookworm = report.findings.find(f => f.name === 'Hookworm egg');
+    expect(hookworm).toBeDefined();
+    expect(hookworm.confirmedCount).toBe(1);
+
+    // 5. A second technologist verifies and releases it.
+    const verified = await admin.post(`/api/reports/${report.id}/verify`);
+    expect(verified.status).toBe(200);
+    expect(verified.body.report.status).toBe('verified');
+    expect(verified.body.report.verifiedBy).toBe(userId('admin1'));
+
+    // 6. A released report cannot be verified a second time.
+    const again = await admin.post(`/api/reports/${report.id}/verify`);
+    expect(again.status).toBe(409);
   });
 
   it('records a report generation in the audit log', async () => {
