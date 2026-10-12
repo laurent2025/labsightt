@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { Analysis, Patient, Sample } from '../../types';
 import {
+  orderImageRefs,
+  imageRefLabel,
+  quantificationHeading,
+  targetsHeading,
+  allSourcesOptionLabel
+} from '../../lib/slideSources';
+import {
   CheckCircle2,
   AlertTriangle,
   FileText,
@@ -72,11 +79,23 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
   const allConfirmed = totalDetections > 0 && confirmedDetections === totalDetections;
 
   // Image refs present in this analysis, in a stable order (specimen first).
-  const sourceOptions = Array.from(
-    new Set(analysis.detections.map(d => d.imageRef ?? 'primary'))
-  ).sort((a, b) => (a === 'primary' ? -1 : b === 'primary' ? 1 : a.localeCompare(b)));
+  const sourceOptions = orderImageRefs(analysis.detections.map(d => d.imageRef ?? 'primary'));
 
-  const sourceLabel = (ref: string) => slideNames[ref] ?? (ref === 'primary' ? 'Specimen image' : ref);
+  /**
+   * A name for an image ref that is never blank and never a raw database id.
+   *
+   * A specimen uploaded as several photographs has one finding per image, so the
+   * review panel has to say which image each came from. Falling back to the id
+   * itself rendered an opaque `slide_1791...` string that told the technologist
+   * nothing; `Source image 2` at least says it is the second one.
+   */
+  const sourceLabel = (ref: string) => imageRefLabel(ref, slideNames, sourceOptions);
+
+  // How many photographs this analysis actually read. The specimen may be
+  // uploaded as one image or several, and the quantification below is stated
+  // per examined field, so the header says how many images were scanned rather
+  // than leaving the operator to assume one.
+  const scannedImageCount = sourceOptions.length;
 
   const filteredDetections = analysis.detections.filter(
     d =>
@@ -84,6 +103,11 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
       d.confidence >= minConfidenceFilter &&
       (sourceFilter === 'all' || (d.imageRef ?? 'primary') === sourceFilter)
   );
+
+  // The list is filtered, so say so: "12 of 18" reads as a filtered view, while
+  // a bare number implies the specimen holds that many targets.
+  const isFiltered = minConfidenceFilter > 0 || sourceFilter !== 'all';
+  const targetsLabel = targetsHeading(filteredDetections.length, totalDetections, isFiltered);
 
   return (
     <div className="clinical-form flex flex-col h-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
@@ -213,7 +237,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
-              Organism & Cellular Quantification ({sample.fieldsExamined} Examined Fields)
+              Organism &amp; Cellular Quantification ({quantificationHeading(scannedImageCount, sample.fieldsExamined)})
             </h3>
             <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
               {confirmedDetections} / {totalDetections} verified
@@ -297,25 +321,34 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
-              Identified Targets ({filteredDetections.length})
+              Identified Targets ({targetsLabel})
             </h3>
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-slate-500">
-              {sourceOptions.length > 1 && (
+              {scannedImageCount > 0 && (
                 <div className="flex items-center gap-1.5">
                   <Layers className="w-3 h-3 text-slate-400" />
                   <span>Source:</span>
                   <select
                     value={sourceFilter}
                     onChange={e => setSourceFilter(e.target.value)}
-                    title="Filter findings by the image they were detected in"
+                    title={
+                      scannedImageCount > 1
+                        ? 'Filter findings by the image they were detected in'
+                        : 'Every finding came from the one scanned image of this specimen'
+                    }
                     className="bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-800 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-600"
                   >
-                    <option value="all">All images ({totalDetections})</option>
-                    {sourceOptions.map(ref => (
-                      <option key={ref} value={ref}>
-                        {sourceLabel(ref)} ({analysis.detections.filter(d => !d.rejected && (d.imageRef ?? 'primary') === ref).length})
-                      </option>
-                    ))}
+                    <option value="all">
+                      {allSourcesOptionLabel(scannedImageCount, totalDetections, sourceOptions[0], slideNames, sourceOptions)}
+                    </option>
+                    {sourceOptions
+                      .filter(ref => !(scannedImageCount === 1 && (sourceFilter === 'all' || sourceFilter === ref)))
+                      .map(ref => (
+                        <option key={ref} value={ref}>
+                          {sourceLabel(ref)} (
+                          {analysis.detections.filter(d => !d.rejected && (d.imageRef ?? 'primary') === ref).length})
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}

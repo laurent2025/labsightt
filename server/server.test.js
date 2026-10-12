@@ -1591,3 +1591,167 @@ describe('batched slide scan', () => {
     expect(res.body.error).toMatch(/too large/i);
   });
 });
+
+describe('de-duplicating one organism found several times', () => {
+  /**
+   * A provider that answers each tile with its own view of the field.
+   *
+   * `responder` is called once per tile in order, so a test can have one ovum
+   * straddle two overlapping tiles and be reported by both — which is exactly
+   * what produced the duplicate findings.
+   */
+  const stubTiles = (responder) => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    let call = 0;
+    const providerFetch = vi.fn().mockImplementation(async () => {
+      const predictions = responder(call, call += 1);
+      return new Response(JSON.stringify({ predictions }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    });
+    vi.stubGlobal('fetch', providerFetch);
+    return providerFetch;
+  };
+
+  const ovum = (confidence, x, y) => ({
+    class: 'Hookworm egg', confidence, x, y, width: 24, height: 20
+  });
+
+  it('folds one ovum that straddles two overlapping tiles', async () => {
+    // Tile 1 covers slide x 0..640, tile 2 starts at x=448. One ovum sits at
+    // slide x=508, inside their 192px shared border, so tile 1 reports it at
+    // local x=508 and tile 2 — which is re-encoded as its own JPEG — reports it
+    // at local x=62, drifting a pixel or two from where it truly is.
+    stubTiles(call => (call === 0
+      ? [ovum(0.82, 508, 400)]
+      : [ovum(0.79, 62, 401)]));
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [
+        { imageBase64: 'tile-1', offsetX: 0, offsetY: 0 },
+        { imageBase64: 'tile-2', offsetX: 448, offsetY: 0 }
+      ]
+    });
+
+    expect(scan.status).toBe(201);
+    // One ovum, one finding — not one per tile that saw it.
+    expect(scan.body.analysis.detections).toHaveLength(1);
+    expect(scan.body.analysis.totalDetections).toBe(1);
+    expect(scan.body.analysis.findings[0].count).toBe(1);
+  });
+
+  it('keeps the strongest reading of an organism found twice', async () => {
+    stubTiles(call => (call === 0
+      ? [ovum(0.62, 300, 200)]
+      : [ovum(0.91, 102, 201)]));
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [
+        { imageBase64: 'tile-1', offsetX: 0, offsetY: 0 },
+        { imageBase64: 'tile-2', offsetX: 200, offsetY: 0 }
+      ]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(1);
+    expect(scan.body.analysis.detections[0].confidence).toBeCloseTo(0.91, 2);
+  });
+
+  it('still counts two genuinely different ova in one field', async () => {
+    // Distinct boxes of the same class, far enough apart that neither covers the
+    // other. Collapsing these would under-count the specimen, which is the
+    // failure mode the loose IoU threshold exists to avoid.
+    stubTiles(() => [ovum(0.85, 100, 100), ovum(0.80, 300, 300)]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(2);
+    expect(scan.body.analysis.findings[0].count).toBe(2);
+  });
+
+  it('keeps two different parasites that overlap in the field', async () => {
+    // Overlapping boxes of *different* classes are two findings, not one:
+    // suppression is class-scoped.
+    stubTiles(() => [
+      { class: 'Hookworm egg', confidence: 0.88, x: 200, y: 200, width: 24, height: 20 },
+      { class: 'Ascaris lumbricoides', confidence: 0.8, x: 202, y: 201, width: 22, height: 19 }
+    ]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(2);
+    expect(scan.body.analysis.findings).toHaveLength(2);
+  });
+
+  it('does not double a finding when the same image is scanned again', async () => {
+    // The reported box drifts between reads, so an exact-coordinate match never
+    // fires and the same ovum used to be stored a second time.
+    stubTiles(call => [ovum(call === 0 ? 0.82 : 0.77, 300, 200)]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const first = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+    expect(first.body.analysis.detections).toHaveLength(1);
+
+    const second = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+
+    expect(second.body.analysis.detections).toHaveLength(1);
+    expect(second.body.analysis.totalDetections).toBe(1);
+  });
+
+  it('appends a finding from a different image of the same specimen', async () => {
+    // The same position in a different photograph is a different observation, so
+    // it must survive de-duplication and add to the count.
+    stubTiles(() => [ovum(0.86, 300, 200)]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const first = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }],
+      imageRef: 'primary'
+    });
+    expect(first.body.analysis.detections).toHaveLength(1);
+
+    const second = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }],
+      imageRef: 'slide-2'
+    });
+
+    expect(second.body.analysis.detections).toHaveLength(2);
+    expect(second.body.analysis.findings[0].count).toBe(2);
+  });
+});

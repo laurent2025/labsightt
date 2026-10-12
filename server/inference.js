@@ -391,4 +391,12 @@ function num(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-export { InferenceError };
+/**
+ * Exports the merge primitives a whole-slide read needs.
+ *
+ * `applyNMS` and `iou` are exported because a slide's tiles are read
+ * independently and their predictions merged afterwards, so the duplicate
+ * suppression has to run over the merged set as well as within one tile. A
+ * private copy here would let the two drift apart.
+ */
+export { InferenceError, applyNMS, iou };

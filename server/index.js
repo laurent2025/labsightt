@@ -23,7 +23,7 @@ import {
   purgeExpiredSessions
 } from './auth.js';
 import { appendAudit, verifyChain, chainHead } from './audit.js';
-import { runInference, inferenceStatus, InferenceError } from './inference.js';
+import { runInference, applyNMS, inferenceStatus, InferenceError } from './inference.js';
 import { newId, validatePasswordStrength } from './crypto.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 import { requestContext, createLoginLimiter, healthRoutes } from './operations.js';
@@ -61,14 +61,63 @@ import {
   deleteSupabaseReport
 } from './supabase.js';
 
-// Stable identity for a detection, used to de-duplicate a
-// repeat scan of the same image: same class and the same
-// (rounded) bounding box. Boxes captured from other images
-// of the specimen differ, so their findings append to the
-// active analysis instead of replacing it.
-function detectionKey(className, x, y, width, height, imageRef = 'primary') {
-  const round = value => Math.round(Number(value) * 10000) / 10000;
-  return `${imageRef}|${className}|${round(x)},${round(y)},${round(width)},${round(height)}`;
+/**
+ * Against how much of a finding a repeat box has to overlap before it counts as
+ * the same organism.
+ *
+ * The same number as the detector's own NMS, deliberately: a re-read of a slide
+ * predicts the same ovum a pixel or two off, and a box found again should be
+ * recognised by how much of the organism it covers rather than by matching
+ * coordinates to four decimal places.
+ */
+const RE_SCAN_OVERLAP = 0.55;
+
+/**
+ * True when a box describes an organism a previously stored finding already
+ * covers.
+ *
+ * An exact-coordinate key almost never matches a re-read: every tile is
+ * re-encoded as its own JPEG, so the same ovum lands a pixel or two away and is
+ * stored a second time. Matching on overlap instead recognises it. It is
+ * class-scoped, because two different parasites in the same field are two
+ * findings, not one.
+ */
+function coversExistingFinding(candidate, existing) {
+  if (existing.class !== candidate.class) return false;
+  const width = Math.min(existing.x + existing.width / 2, candidate.x + candidate.width / 2)
+    - Math.max(existing.x - existing.width / 2, candidate.x - candidate.width / 2);
+  const height = Math.min(existing.y + existing.height / 2, candidate.y + candidate.height / 2)
+    - Math.max(existing.y - existing.height / 2, candidate.y - candidate.height / 2);
+  if (width <= 0 || height <= 0) return false;
+
+  const intersection = width * height;
+  const union = existing.width * existing.height + candidate.width * candidate.height - intersection;
+  return union > 0 && intersection / union >= RE_SCAN_OVERLAP;
+}
+
+/**
+ * Drops boxes the analysis already holds, whatever the jitter between reads.
+ *
+ * Within a single scan `readSlide` has already folded the overlapping tiles'
+ * copies of one ovum and kept its strongest reading, so what reaches here is one
+ * box per organism. Across scans the stored row is left as it is: a repeat
+ * reading of the same organism is recognised and discarded rather than stored
+ * again, which is the thing that has to stop.
+ */
+function dropAlreadyFound(detections, priorDetections = []) {
+  if (priorDetections.length === 0) return detections;
+
+  const kept = [];
+  const survivors = [...priorDetections];
+  for (const candidate of detections) {
+    const alreadyStored = survivors.some(existing => coversExistingFinding(candidate, existing));
+    if (alreadyStored) continue;
+    // A box this pass keeps is also prior for the next candidate, so two copies
+    // of the same ovum within one pass cannot both survive.
+    survivors.push(candidate);
+    kept.push(candidate);
+  }
+  return kept;
 }
 
 /**
@@ -121,8 +170,27 @@ async function readSlide(db, actor, passes, confidence) {
   };
 
   await Promise.all(Array.from({ length: concurrency }, worker));
-  const detections = collected.flat();
 
+  /*
+   * Suppress duplicates across the whole slide, not just within one tile.
+   *
+   * Tiles overlap by 30%, so a single ovum sitting in the shared border is
+   * presented whole to the detector twice. Each tile is re-encoded as its own
+   * JPEG, so the two predicted boxes land a pixel or two apart rather than
+   * exactly on top of each other — which means the exact-coordinate
+   * de-duplication downstream never matches them, and the technologist is shown
+   * the same ovum two or three times.
+   *
+   * Every tile reports its box in whole-slide coordinates, so the copies are in
+   * the same space and non-maximum suppression over the merged set collapses
+   * them. It is size-aware, so two genuinely different ova that happen to sit
+   * near each other still both survive: only the same organism found twice is
+   * folded, which is why the threshold is the detector's own IoU setting.
+   */
+  const iou = Number(process.env.ROBOFLOW_IOU) || 0.55;
+  const detections = applyNMS(collected.flat(), iou);
+
+  const suppressed = collected.flat().length - detections.length;
   appendAudit(db, {
     actorId: actor.id,
     actorName: actor.display_name,
@@ -130,6 +198,7 @@ async function readSlide(db, actor, passes, confidence) {
     entity: 'analysis',
     details: `read ${passes.length} tile(s) of the slide, ${detections.length} candidate(s) proposed`
       + ` above confidence ${confidence > 1 ? confidence / 100 : confidence}`
+      + (suppressed > 0 ? ` (${suppressed} duplicate box(es) across overlapping tiles suppressed)` : '')
   });
 
   return detections;
@@ -1486,13 +1555,27 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             .join(', ');
         }
 
-        const seen = new Set((priorDetections ?? []).map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
-        const fresh = detections.filter(d => {
-          const key = detectionKey(d.class, d.x, d.y, d.width, d.height, scanRef);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
+        // Previously stored findings, as whole-slide boxes.
+        const prior = (priorDetections ?? []).map(r => ({
+          class: r.class_name,
+          x: Number(r.x) || 0,
+          y: Number(r.y) || 0,
+          width: Number(r.width) || 0,
+          height: Number(r.height) || 0,
+          confidence: Number(r.confidence) || 0,
+          imageRef: r.image_ref ?? 'primary'
+        }));
+        // Per-image scope: a finding from another image of this specimen is a
+        // different observation, so only findings from the image just read are
+        // candidates for a re-read. `dropAlreadyFound` then decides by overlap
+        // rather than by exact coordinates.
+        const freshWithinImage = dropAlreadyFound(
+          detections,
+          prior.filter(r => r.imageRef === scanRef)
+        );
+        // And within the batch itself, so two copies of one ovum in this pass
+        // cannot both be stored.
+        const fresh = dropAlreadyFound(freshWithinImage);
         // Each step is named so a failure tells the operator which part of the
         // save failed instead of surfacing a generic internal error. The
         // database's own message is kept, because it is what identifies the
@@ -1588,17 +1671,31 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         INSERT INTO detections (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected, image_ref, reclassified_from)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
       `);
-      const priorRows = db.prepare('SELECT class_name, x, y, width, height, image_ref FROM detections WHERE analysis_id = ?').all(id);
-      const seen = new Set(priorRows.map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
+      const priorRows = db.prepare('SELECT class_name, x, y, width, height, confidence, image_ref FROM detections WHERE analysis_id = ?').all(id);
+      // Scoped to the image just read, and matched on overlap rather than on
+      // exact coordinates, so a re-read of the same slide does not double its
+      // findings. Boxes from the specimen's other images are a separate
+      // observation and still append.
+      const survivors = priorRows
+        .filter(r => (r.image_ref ?? 'primary') === scanRef)
+        .map(r => ({
+          class: r.class_name,
+          x: Number(r.x) || 0,
+          y: Number(r.y) || 0,
+          width: Number(r.width) || 0,
+          height: Number(r.height) || 0,
+          confidence: Number(r.confidence) || 0
+        }));
       let inserted = 0;
       db.exec('BEGIN');
       try {
         for (const d of detections) {
-          // Scanning the same image twice must not double its
-          // findings; distinct boxes from other images append.
-          const key = detectionKey(d.class, d.x, d.y, d.width, d.height, scanRef);
-          if (seen.has(key)) continue;
-          seen.add(key);
+          const index = survivors.findIndex(existing => coversExistingFinding(d, existing));
+          if (index !== -1) continue;
+          survivors.push({
+            class: d.class, x: d.x, y: d.y,
+            width: d.width, height: d.height, confidence: d.confidence
+          });
           insert.run(
             newId('det'), id, d.class, d.confidence, d.x, d.y, d.width, d.height,
             scanRef, d.reclassifiedFrom ?? null
