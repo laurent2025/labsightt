@@ -71,6 +71,65 @@ function detectionKey(className, x, y, width, height, imageRef = 'primary') {
   return `${imageRef}|${className}|${round(x)},${round(y)},${round(width)},${round(height)}`;
 }
 
+/**
+ * True when a stored owner id proves the request came from someone else.
+ *
+ * A null owner means the row was written while sign-in ran against the local
+ * user table, so there is no Supabase account to compare against. That is an
+ * absence of evidence, not evidence of another operator's record, and treating
+ * it as a denial would lock every non-admin out of data this deployment
+ * created. Only a mismatched, non-null owner is a real denial.
+ */
+function isOtherUsersRecord(ownerId, currentUserId) {
+  return Boolean(ownerId) && ownerId !== currentUserId;
+}
+
+/**
+ * Turns a Supabase write failure into a sentence that names the cause and the
+ * fix, because the operator is the only one who can apply either.
+ *
+ * The failures that reach a write are distinguishable by SQLSTATE, and each has
+ * a different remedy, so guessing between them sends the operator to the wrong
+ * place.
+ */
+function describeSupabaseFailure(err) {
+  const code = err?.code;
+  const message = err?.message || 'The database rejected the write.';
+
+  // Row-level security. The service-role key is the only credential that
+  // bypasses the policies; anything else is an ordinary session and is denied
+  // by is_lab_user_approved().
+  if (code === '42501' || /row-level security/i.test(message)) {
+    return (
+      `${message} Row-level security refused the write. Set SUPABASE_SERVICE_ROLE_KEY to the ` +
+      'service-role key (Project Settings, API), not the anon key, then restart the API.'
+    );
+  }
+
+  // A column or table the database does not have yet.
+  if (code === '42703' || code === '42P01') {
+    return (
+      `${message} The Supabase schema is out of date. Run supabase/schema.sql in the ` +
+      'Supabase SQL editor, then retry.'
+    );
+  }
+
+  // A row the write points at does not exist.
+  if (code === '23503') {
+    return (
+      `${message} The analysis this scan belongs to is missing. Re-run the scan so the ` +
+      'analysis row is created first.'
+    );
+  }
+
+  // A rejected credential.
+  if (code === 'PGRST301' || /JWT|invalid api key/i.test(message)) {
+    return `${message} The Supabase credential was rejected. Check SUPABASE_SERVICE_ROLE_KEY.`;
+  }
+
+  return message;
+}
+
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   const db = openDatabase(dbPath);
   installImmutabilityGuards(db);
@@ -689,7 +748,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           .maybeSingle();
         if (error) throw error;
         if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
-        if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+        if (req.user.role !== 'admin' && isOtherUsersRecord(existing.created_by, req.user.id)) {
           return res.status(403).json({ error: 'Only the operator who registered this patient can update their record.' });
         }
         const updates = req.body ?? {};
@@ -731,7 +790,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       const existing = db.prepare('SELECT id, created_by FROM patients WHERE id = ? AND active = 1').get(req.params.id);
       if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
-      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+      if (req.user.role !== 'admin' && isOtherUsersRecord(existing.created_by, req.user.id)) {
         return res.status(403).json({ error: 'Only the operator who registered this patient can update their record.' });
       }
 
@@ -787,7 +846,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           .maybeSingle();
         if (error) throw error;
         if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
-        if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+        if (req.user.role !== 'admin' && isOtherUsersRecord(existing.created_by, req.user.id)) {
           return res.status(403).json({ error: 'Only the operator who registered this patient can archive their record.' });
         }
 
@@ -806,7 +865,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       const existing = db.prepare('SELECT id, created_by, full_name FROM patients WHERE id = ? AND active = 1').get(req.params.id);
       if (!existing) return res.status(404).json({ error: 'This patient record could not be found. It may have been archived.' });
-      if (req.user.role !== 'admin' && existing.created_by !== req.user.id) {
+      if (req.user.role !== 'admin' && isOtherUsersRecord(existing.created_by, req.user.id)) {
         return res.status(403).json({ error: 'Only the operator who registered this patient can archive their record.' });
       }
 
@@ -1174,9 +1233,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         if (req.user.role !== 'admin') {
           const { data: sampleRow } = await supabase.from('samples').select('patient_id, created_by').eq('id', sampleId).maybeSingle();
           if (!sampleRow) return res.status(400).json({ error: 'A valid sampleId is required.' });
-          if (sampleRow.created_by !== req.user.id) {
+          if (isOtherUsersRecord(sampleRow.created_by, req.user.id)) {
             const { data: patientRow } = await supabase.from('patients').select('created_by').eq('id', sampleRow.patient_id).maybeSingle();
-            if (!patientRow || patientRow.created_by !== req.user.id) {
+            if (!patientRow || isOtherUsersRecord(patientRow.created_by, req.user.id)) {
               return res.status(403).json({ error: 'You do not have permission to analyse this specimen.' });
             }
           }
@@ -1301,12 +1360,14 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return true;
         });
         // Each step is named so a failure tells the operator which part of the
-        // save failed instead of surfacing a generic internal error.
+        // save failed instead of surfacing a generic internal error. The
+        // database's own message is kept, because it is what identifies the
+        // constraint or policy that rejected the write.
         try {
           await saveSupabaseDetections(supabase, analysisId, fresh, scanRef);
         } catch (saveErr) {
           throw new InferenceError(
-            'Could not save the scan results. Run supabase/schema.sql in the Supabase SQL editor to add the missing columns, then retry.',
+            `Could not save the scan results. ${describeSupabaseFailure(saveErr)}`,
             502
           );
         }
@@ -1565,7 +1626,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         if (!report) return res.status(404).json({ error: 'This report could not be found. It may have been removed or released.' });
         if (req.user.role !== 'admin') {
           const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', report.analysisId).maybeSingle();
-          if (analysisRow?.initiated_by !== req.user.id && report.technologistId !== req.user.id) {
+          if (isOtherUsersRecord(analysisRow?.initiated_by, req.user.id) && isOtherUsersRecord(report.technologistId, req.user.id)) {
             return res.status(403).json({ error: 'You can only view reports for specimens you have registered or analysed.' });
           }
         }
@@ -1608,10 +1669,32 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         const supabase = getSupabaseClient({ admin: true });
         if (req.user.role !== 'admin') {
           const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', analysisId).maybeSingle();
-          if (!analysisRow || analysisRow.initiated_by !== req.user.id) {
+          if (!analysisRow) {
+            return res.status(400).json({ error: 'Please select a valid analysis before generating a report.' });
+          }
+          if (isOtherUsersRecord(analysisRow.initiated_by, req.user.id)) {
             return res.status(403).json({ error: 'You can only generate reports for analyses you have initiated.' });
           }
         }
+
+        // Same gate as the SQLite branch, and for the same reason: a report is a
+        // clinical document, so no candidate may be left unadjudicated. In
+        // database mode the detections live in Supabase only, so the count is
+        // taken from there rather than the local mirror.
+        const { count: pending, error: pendingError } = await supabase
+          .from('detections')
+          .select('id', { count: 'exact', head: true })
+          .eq('analysis_id', analysisId)
+          .eq('confirmed', false)
+          .eq('rejected', false);
+        if (pendingError) throw pendingError;
+        if (pending > 0) {
+          return res.status(409).json({
+            error: `${pending} detection${pending === 1 ? '' : 's'} still need${pending === 1 ? 's' : ''} to be adjudicated. Please confirm or reject every candidate before generating a report.`,
+            pendingAdjudication: pending
+          });
+        }
+
         const report = await createSupabaseReport(supabase, {
           analysisId,
           technologistId: supabaseActorId(req.user),
@@ -1871,7 +1954,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         if (!existing) return res.status(404).json({ error: 'This report could not be found. It may have been removed or released.' });
         if (req.user.role !== 'admin') {
           const { data: analysisRow } = await supabase.from('analyses').select('initiated_by').eq('id', existing.analysisId).maybeSingle();
-          if (analysisRow?.initiated_by !== req.user.id && existing.technologistId !== req.user.id) {
+          if (isOtherUsersRecord(analysisRow?.initiated_by, req.user.id) && isOtherUsersRecord(existing.technologistId, req.user.id)) {
             return res.status(403).json({ error: 'Only the operator who created this report can remove it.' });
           }
         }

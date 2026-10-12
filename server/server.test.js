@@ -11,7 +11,7 @@ import { verifyPassword, hashPassword, validatePasswordStrength } from './crypto
 import { appendAudit, verifyChain, GENESIS_HASH } from './audit.js';
 import { encryptPHI, decryptPHI } from './encryption.js';
 import { inferenceStatus, runInference } from './inference.js';
-import { supabaseActorId } from './supabase.js';
+import { supabaseActorId, saveSupabaseDetections } from './supabase.js';
 import { deleteSupabasePatient, updateSupabasePatient } from './supabase.js';
 
 // Encryption is mandatory, so a key must exist before any module is imported.
@@ -158,6 +158,89 @@ describe('supabase actor attribution', () => {
     expect(supabaseActorId({ id: '' })).toBeNull();
     expect(supabaseActorId({})).toBeNull();
     expect(supabaseActorId(undefined)).toBeNull();
+  });
+});
+
+describe('supabase detection insert resilience', () => {
+  /**
+   * A stand-in for the Supabase query builder that rejects any row naming a
+   * column the database is said not to have, exactly as Postgres answers with
+   * SQLSTATE 42703.
+   */
+  const clientMissingColumns = (...missing) => ({
+    from: () => ({
+      insert: rows => {
+        const offending = missing.find(column => rows.some(row => column in row));
+        return {
+          select: () =>
+            offending
+              ? Promise.resolve({ data: null, error: { code: '42703', message: `column "${offending}" does not exist` } })
+              : Promise.resolve({ data: rows, error: null })
+        };
+      }
+    })
+  });
+
+  const detections = [
+    { class: 'Hookworm egg', confidence: 0.9, x: 10, y: 10, width: 12, height: 9, reclassifiedFrom: 'Ascaris lumbricoides' },
+    { class: 'Ascaris lumbricoides', confidence: 0.8, x: 40, y: 30, width: 20, height: 18 }
+  ];
+
+  it('saves every finding when the database predates both optional columns', async () => {
+    // A scan result must not be lost to a pending migration. Both informational
+    // columns are dropped and the findings themselves are still written.
+    const rows = await saveSupabaseDetections(
+      clientMissingColumns('image_ref', 'reclassified_from'),
+      'ana-1',
+      detections,
+      'primary'
+    );
+    expect(rows).toHaveLength(2);
+    expect('image_ref' in rows[0]).toBe(false);
+    expect('reclassified_from' in rows[0]).toBe(false);
+  });
+
+  it('drops only the column the database actually rejects', async () => {
+    const rows = await saveSupabaseDetections(
+      clientMissingColumns('reclassified_from'),
+      'ana-1',
+      detections,
+      'primary'
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0].image_ref).toBe('primary');
+    expect('reclassified_from' in rows[0]).toBe(false);
+  });
+
+  it('keeps both optional columns when the schema is current', async () => {
+    const rows = await saveSupabaseDetections(clientMissingColumns(), 'ana-1', detections, 'primary');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].image_ref).toBe('primary');
+    expect(rows[0].reclassified_from).toBe('Ascaris lumbricoides');
+  });
+
+  it('generates a distinct id for every detection in one batch', async () => {
+    // One batch shares a millisecond, so a timestamp alone would collide on the
+    // primary key and lose the whole scan.
+    const rows = await saveSupabaseDetections(clientMissingColumns(), 'ana-1', detections, 'primary');
+    expect(new Set(rows.map(r => r.id)).size).toBe(rows.length);
+  });
+
+  it('propagates a failure that is not a missing column', async () => {
+    const client = {
+      from: () => ({
+        insert: () => ({
+          select: () =>
+            Promise.resolve({
+              data: null,
+              error: { code: '42501', message: 'new row violates row-level security policy' }
+            })
+        })
+      })
+    };
+    await expect(
+      saveSupabaseDetections(client, 'ana-1', detections, 'primary')
+    ).rejects.toThrow(/row-level security/);
   });
 });
 

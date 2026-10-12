@@ -798,8 +798,12 @@ export async function createSupabaseAnalysis(supabase, payload) {
 
 export async function saveSupabaseDetections(supabase, analysisId, detections = [], imageRef = 'primary') {
   if (!detections.length) return [];
-  const rows = detections.map(d => ({
-    id: d.id ?? `det_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  // One batch shares a millisecond, so a timestamp alone would give several
+  // rows the same id and the insert would fail on the primary key. A per-row
+  // counter keeps every generated id distinct within the batch.
+  const batchId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const rows = detections.map((d, index) => ({
+    id: d.id ?? `det_${batchId}_${index}`,
     analysis_id: analysisId,
     class_name: d.class,
     confidence: Number(d.confidence) || 0,
@@ -815,46 +819,55 @@ export async function saveSupabaseDetections(supabase, analysisId, detections = 
     reclassified_from: d.reclassifiedFrom ?? null
   }));
 
-  /*
-   * `image_ref` and `reclassified_from` were added after the first
-   * deployments. A database whose schema.sql has not been re-applied still
-   * lacks one or both, and an insert naming them fails with an unknown-column
-   * error. Scan results must not be lost to a pending migration, so any column
-   * the database rejects is dropped and the insert retried, keeping the
-   * finding itself. Both columns are informational: the audit trail records
-   * the morphology correction and multi-image findings re-appear on the next
-   * scan of the same slide.
-   */
-  const OPTIONAL_COLUMNS = ['image_ref', 'reclassified_from'];
-  let candidate = rows;
-  let { data, error } = await supabase.from('detections').insert(candidate).select();
+/*
+ * `image_ref` and `reclassified_from` were added after the first
+ * deployments. A database whose schema.sql has not been re-applied still
+ * lacks one or both, and an insert naming them fails with an unknown-column
+ * error. Scan results must not be lost to a pending migration, so any column
+ * the database rejects is dropped and the insert retried, keeping the
+ * finding itself. Both columns are informational: the audit trail records
+ * the morphology correction and multi-image findings re-appear on the next
+ * scan of the same slide.
+ *
+ * Each column is dropped at most once, so the retry chain is bounded: a
+ * database that rejects a column for any other reason terminates on the
+ * second pass and the original error is raised.
+ */
+const OPTIONAL_COLUMNS = ['image_ref', 'reclassified_from'];
+let candidate = rows;
+let { data, error } = await supabase.from('detections').insert(candidate).select();
+const dropped = new Set();
 
-  while (error) {
-    const missing = OPTIONAL_COLUMNS.find(column => isMissingColumnError(error, column));
-    if (!missing) break;
-    const doomed = new Set([missing]);
-    candidate = candidate.map(row => {
-      const trimmed = { ...row };
-      for (const key of doomed) delete trimmed[key];
-      return trimmed;
-    });
-    ({ data, error } = await supabase.from('detections').insert(candidate).select());
-  }
+while (error) {
+  const missing = OPTIONAL_COLUMNS.find(
+    // Only a message that names this column identifies it as the offender;
+    // matching on SQLSTATE alone would drop the same column repeatedly and
+    // retry forever against an error that never changes.
+    column => !dropped.has(column) && isMissingColumnError(error, column)
+  );
+  if (!missing) break;
+  dropped.add(missing);
+  candidate = candidate.map(row => {
+    const trimmed = { ...row };
+    delete trimmed[missing];
+    return trimmed;
+  });
+  ({ data, error } = await supabase.from('detections').insert(candidate).select());
+}
 
-  if (error) throw error;
-  return data ?? [];
+if (error) throw error;
+return data ?? [];
 }
 
 /**
  * True when a Supabase error is "column does not exist" for the named column.
  * Postgres reports an unknown column as SQLSTATE 42703, and supabase-js
- * surfaces it both as `code` and inside the message text.
+ * surfaces it both as `code` and inside the message text. The column name must
+ * appear in the message, so an unrelated 42703 is not mistaken for this one.
  */
 function isMissingColumnError(error, column) {
-  if (!error) return false;
-  if (error.code === '42703') return true;
-  const message = String(error.message ?? '');
-  return message.includes('42703') && message.includes(column);
+  if (!error || error.code !== '42703') return false;
+  return String(error.message ?? '').includes(column);
 }
 
 export async function finalizeSupabaseAnalysis(supabase, id, { totalDetections, status, completedAt } = {}) {
