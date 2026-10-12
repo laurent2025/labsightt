@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Patient, Sample, Analysis, AIModelConfig, Detection, LaboratoryReport } from '../../types';
 import { MicroscopeViewer } from './MicroscopeViewer';
 import { TechnologistReview } from './TechnologistReview';
@@ -245,12 +245,25 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     );
   }
 
-  // Keep the current image while switching analyses for the same specimen;
-  // images are specimen-scoped and restored from the server when needed.
+  // Switching analyses within the same specimen keeps the current image,
+  // because images are specimen-scoped and restored from the server when
+  // needed. Switching to a different specimen resets the slide view so the
+  // previous patient's uploaded photos and boxes never appear under the new
+  // patient's name.
+  const activeSampleIdRef = useRef<string | null>(null);
   useEffect(() => {
+    const nextSampleId =
+      pendingSampleId ?? analyses.find(a => a.id === selectedAnalysisId)?.sampleId ?? null;
     setInferenceError(null);
     setScanSummary(null);
-  }, [selectedAnalysisId]);
+    setSelectedDetectionId(null);
+    if (activeSampleIdRef.current !== null && activeSampleIdRef.current !== nextSampleId) {
+      setCustomSlideDataUrl(null);
+      setActiveSlideRef('primary');
+      setUploadedSlides([]);
+    }
+    activeSampleIdRef.current = nextSampleId;
+  }, [selectedAnalysisId, pendingSampleId, analyses]);
 
   const activeAnalysis = pendingSampleId
     ? analyses.find(a => a.sampleId === pendingSampleId)
@@ -1215,6 +1228,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         {/* Right Column: Technologist Findings Review */}
         <div className={`lg:col-span-5 flex flex-col ${mobileActivePane === 'microscope' ? 'hidden lg:flex' : 'flex'}`}>
           <TechnologistReview
+            key={activeAnalysis.id}
             analysis={activeAnalysis}
             patient={activePatient}
             sample={activeSample}

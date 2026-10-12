@@ -6,6 +6,7 @@
  */
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import zlib from 'node:zlib';
 import { openDatabase, installImmutabilityGuards } from './db.js';
 import {
   authenticate,
@@ -109,6 +110,38 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.use(express.json({ limit: '25mb' }));
   app.use(cookieParser());
   app.use(requestContext(logger));
+
+  // Gzip JSON responses when the client accepts them. Uses Node's built-in
+  // zlib so no extra dependency is added. Only compresses text payloads
+  // above a small threshold; base64 image responses are already incompressible.
+  app.use((req, res, next) => {
+    const accept = req.get('accept-encoding') || '';
+    if (!accept.includes('gzip')) return next();
+
+    const originalSend = res.send.bind(res);
+    res.send = function send(body) {
+      if (res.headersSent || res.getHeader('Content-Encoding')) {
+        return originalSend(body);
+      }
+      // Only compress string/buffer bodies; res.json already serialises to a
+      // string, and res.sendFile streams files that zlib cannot buffer here.
+      const payload = typeof body === 'string' || Buffer.isBuffer(body) ? body : null;
+      if (payload === null || payload.length < 1024) {
+        return originalSend(body);
+      }
+      const type = res.getHeader('Content-Type') || '';
+      if (!type.includes('json') && !type.includes('text')) {
+        return originalSend(body);
+      }
+      res.setHeader('Content-Encoding', 'gzip');
+      res.removeHeader('Content-Length');
+      const stream = zlib.createGzip();
+      stream.pipe(res);
+      stream.end(payload);
+      return res;
+    };
+    next();
+  });
 
   app.use('/api', (req, res, next) => {
     if (process.env.USE_SUPABASE_AUTH === 'true' && (!hasSupabaseConfig() || !process.env.SUPABASE_SERVICE_ROLE_KEY)) {

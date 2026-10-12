@@ -10,6 +10,25 @@ export default defineConfig(() => {
         '@': import.meta.dirname,
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Split vendor code from app code so React and its runtime cache
+          // independently of application changes. Without this, every app
+          // edit invalidates the browser cache for React as well.
+          manualChunks(id) {
+            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('node_modules/lucide-react')) {
+              return 'vendor-icons';
+            }
+            return undefined;
+          },
+        },
+      },
+      chunkSizeWarningLimit: 700,
+    },
     test: {
       environment: 'node',
       include: ['src/**/*.test.ts', 'server/**/*.test.js'],

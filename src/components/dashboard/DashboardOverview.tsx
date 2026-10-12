@@ -414,6 +414,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <img
                 src={activePipeline.img}
                 alt={activePipeline.imgAlt}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover"
               />
 
