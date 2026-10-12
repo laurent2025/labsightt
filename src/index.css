@@ -699,14 +699,38 @@ table thead tr {
 }
 
 #laboratory-report-container table {
-  font-size: 0.8125rem;
-  line-height: 1.4;
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 
 #laboratory-report-container thead th {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.4rem;
+  line-height: 1.25;
+}
+
+#laboratory-report-container table tbody td {
+  padding: 0.4rem 0.45rem;
+  line-height: 1.3;
+}
+
+/*
+ * The findings table is the densest block in the report. Fixed layout keeps
+ * the five columns inside the page at every width so long analyte names wrap
+ * inside their own cell instead of stretching the table past the screen.
+ */
+#laboratory-report-container .report-findings-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+#laboratory-report-container .report-findings-table th,
+#laboratory-report-container .report-findings-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
 }
 
 @media print {

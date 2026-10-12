@@ -177,26 +177,34 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   <div className="text-sm text-slate-800 font-mono font-medium mt-0.5">
                     {LAB_METADATA.license}
                   </div>
-                  <div className="text-xs text-rose-700 font-mono font-semibold mt-1">
-                    ● {report.status === 'verified'
-                      ? `Verified ${report.verifiedAt ? new Date(report.verifiedAt).toLocaleString() : ''}`
-                      : 'NOT VERIFIED - draft output'}
+                  <div className="text-xs font-mono font-semibold mt-1">
+                    {report.status === 'verified' ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                        Verified {report.verifiedAt ? new Date(report.verifiedAt).toLocaleString() : ''}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                        NOT VERIFIED - draft output
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Document Title Banner */}
-            <div className="my-4 py-1.5 px-3 bg-slate-100 rounded text-center">
+            <div className="my-4 py-2 px-3 bg-slate-100 rounded text-center border-y border-slate-300">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-900">
                 CLINICAL MICROSCOPY &amp; DIAGNOSTIC PATHOLOGY REPORT
               </span>
             </div>
 
             {/* Patient & Specimen Metadata Two-Column Grid */}
-            <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-lg border border-slate-200 mb-5 print:grid-cols-2">
+            <div className="grid grid-cols-2 gap-0 p-0 border border-slate-200 rounded-lg mb-5 print:grid-cols-2">
               {/* Left: Patient */}
-              <div className="space-y-2.5">
+              <div className="p-4 space-y-2.5 border-r border-slate-200">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800 block border-b-2 border-slate-400 pb-1">
                   PATIENT DEMOGRAPHICS
                 </span>
@@ -223,7 +231,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               </div>
 
               {/* Right: Specimen & Examination Details */}
-              <div className="space-y-2.5">
+              <div className="p-4 space-y-2.5">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800 block border-b-2 border-slate-400 pb-1">
                   SPECIMEN &amp; MICROSCOPY METRICS
                 </span>
@@ -269,11 +277,16 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             </div>
 
             {/* Microscopic Findings Table */}
-            <div className="mb-5">
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800 mb-2 border-b-2 border-slate-400 pb-1">
-                STANDARDIZED MICROSCOPIC QUANTIFICATION
-              </h3>
-              <table className="clinical-table report-findings-table a4-findings-table w-full border-collapse border border-slate-300 text-left text-sm">
+            <div className="mb-5 border border-slate-200 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 border-b border-slate-200">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800">
+                  STANDARDIZED MICROSCOPIC QUANTIFICATION
+                </h3>
+                <span className="text-[10px] font-mono text-slate-600">
+                  {report.findings.length} element{report.findings.length === 1 ? '' : 's'} · {report.sample.fieldsExamined} HPFs
+                </span>
+              </div>
+              <table className="clinical-table report-findings-table a4-findings-table w-full border-collapse border-0 text-left text-sm">
                 <caption className="sr-only">Verified counts, standardized quantities, reference ranges, and diagnostic status</caption>
                 <colgroup>
                   <col style={{ width: '30%' }} />
@@ -283,7 +296,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   <col style={{ width: '15%' }} />
                 </colgroup>
                 <thead>
-                  <tr className="bg-slate-100 text-slate-800 font-semibold border-b border-slate-300">
+                  <tr className="bg-slate-50 text-slate-700 border-b border-slate-300">
                     <th className="p-2 border border-slate-300">Analyte / Microscopic Element</th>
                     <th className="p-2 border border-slate-300 text-center">Verified Count</th>
                     <th className="p-2 border border-slate-300 font-mono">Standardized Diagnostic Quantity</th>
@@ -331,9 +344,9 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               </table>
             </div>
 
-            {/* Microscopy Photomicrograph Plate & Legend */}
-            <div className="mb-5 border border-slate-200 rounded-lg p-4 bg-slate-50">
-              <div className="flex items-center justify-between mb-3">
+{/* Microscopy Photomicrograph Plate & Legend */}
+            <div className="mb-5 border border-slate-200 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 border-b border-slate-200">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800">
                   SPECIMEN PHOTOMICROGRAPHS
                 </span>
@@ -342,21 +355,21 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                 </span>
               </div>
               {imageLoadError ? (
-                <p role="alert" className="text-xs text-rose-700 print:hidden">
+                <p role="alert" className="text-xs text-rose-700 print:hidden px-4 py-3">
                   Saved specimen images could not be loaded: {imageLoadError}
                 </p>
               ) : sampleImages.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3 print:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3 p-3 print:grid-cols-2">
                   {sampleImages.map((image, index) => (
                     <figure key={image.id} className="break-inside-avoid border border-slate-300 rounded bg-white p-2">
                       <div className="aspect-video bg-slate-950 rounded overflow-hidden flex items-center justify-center print:h-auto print:min-h-[50mm] print:bg-white">
-                      <img
-                        src={image.imageData}
-                        alt={`${image.name} microscopy image`}
-                        loading="lazy"
-                        decoding="async"
-                        className="max-h-full max-w-full object-contain print:max-h-[75mm]"
-                      />
+                        <img
+                          src={image.imageData}
+                          alt={`${image.name} microscopy image`}
+                          loading="lazy"
+                          decoding="async"
+                          className="max-h-full max-w-full object-contain print:max-h-[75mm]"
+                        />
                       </div>
                       <figcaption className="mt-1.5 flex items-center justify-between gap-1 text-[10px] font-mono text-slate-700">
                         <span className="truncate">
@@ -393,8 +406,8 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
 
           {/* Footer & Electronic Signatures Block */}
           <div>
-            <div className="grid grid-cols-2 gap-8 pt-4 border-t-2 border-slate-300 mb-4">
-              <div>
+            <div className="grid grid-cols-2 gap-0 pt-4 border-t-2 border-slate-300">
+              <div className="pr-6">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800 block mb-3 border-b-2 border-slate-400 pb-1">
                   PERFORMED &amp; REVIEWED BY
                 </span>
@@ -409,7 +422,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                 </div>
               </div>
 
-              <div>
+              <div className="pl-6 border-l border-slate-200">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800 block mb-3 border-b-2 border-slate-400 pb-1">
                   VERIFIED &amp; AUTHORIZED BY
                 </span>
@@ -425,6 +438,12 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                     : 'No electronic signature applied. This document is not a valid released report.'}
                 </div>
               </div>
+            </div>
+
+            {/* Document identification footer */}
+            <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[9px] font-mono text-slate-400 uppercase tracking-wider">
+              <span>{report.reportNumber}</span>
+              <span>End of report</span>
             </div>
           </div>
         </div>
