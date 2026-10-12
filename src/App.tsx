@@ -377,7 +377,7 @@ export default function App() {
 
       {/* Main Clinical Content Body. Shares the header's max width and gutter
           so the content edges line up with the nav instead of sitting inset. */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto gutter-x py-5 sm:py-6 lg:py-8">
+      <main className="no-print flex-1 max-w-[1440px] w-full mx-auto gutter-x py-5 sm:py-6 lg:py-8">
         {connectionError && (
           <div role="alert" className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-900 p-3 rounded-xl text-xs">
             <span className="font-bold">Server unavailable:</span>

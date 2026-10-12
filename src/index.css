@@ -346,6 +346,20 @@ html {
     color: #000000 !important;
   }
 
+  /*
+   * Printing must produce the report only. The report modal is a sibling of
+   * the app shell inside the React root, so hiding the shell's landmarks
+   * leaves the report document as the only thing on the page. The app shell
+   * also carries .no-print on each element, which is the primary mechanism;
+   * these rules are the safety net if a view ever forgets the class.
+   */
+  header,
+  footer,
+  main,
+  nav {
+    display: none !important;
+  }
+
   .no-print {
     display: none !important;
   }

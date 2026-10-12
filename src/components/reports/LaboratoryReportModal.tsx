@@ -74,7 +74,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
   const scaleBarUm = report.sample.objective === '100x_oil' ? '20' : report.sample.objective === '40x' ? '25' : '50';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex justify-center p-4 print:p-0 print:bg-white print:static print:block">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex justify-center p-4 print:p-0 print:bg-white print:static print:block print:overflow-visible print:backdrop-blur-none">
       <div
         ref={panelRef}
         tabIndex={-1}
