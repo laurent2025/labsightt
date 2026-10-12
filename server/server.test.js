@@ -1557,4 +1557,37 @@ describe('batched slide scan', () => {
     expect(scan.status).toBe(400);
     expect(scan.body.error).toMatch(/image/i);
   });
+
+  it('rejects a batch too large to send in one request', async () => {
+    stubProvider();
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    // A serverless deployment refuses a request body over ~4.5 MB. Sending the
+    // whole field in one request used to surface as the platform's opaque
+    // FUNCTION_PAYLOAD_TOO_LARGE, so the server answers first, and says what to
+    // do about it.
+    const oversized = 'x'.repeat(4 * 1024 * 1024 + 1);
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: oversized }]
+    });
+
+    expect(scan.status).toBe(413);
+    expect(scan.body.error).toMatch(/smaller batches/i);
+  });
+
+  it('rejects a slide image too large for one request', async () => {
+    stubProvider();
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const res = await tech.post(`/api/samples/${sample.id}/slides`, {
+      name: 'too-big.jpg',
+      imageData: `data:image/jpeg;base64,${'x'.repeat(4 * 1024 * 1024 + 1)}`
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/too large/i);
+  });
 });

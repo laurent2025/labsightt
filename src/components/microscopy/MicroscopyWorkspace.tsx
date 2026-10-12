@@ -21,7 +21,7 @@ import {
   ChevronRight,
   Layers
 } from 'lucide-react';
-import { fileToDataUrl } from '../../services/roboflow';
+import { prepareImageForUpload, downscaleImage } from '../../services/roboflow';
 import {
   readCachedSlidesForSample,
   writeCachedSlide,
@@ -570,7 +570,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     try {
       for (const file of files) {
         try {
-          const dataUrl = await fileToDataUrl(file);
+          // Scaled before it is sent: a full photograph is several megabytes of
+          // base64 before it is even encrypted, and the platform refuses that
+          // body outright. The slide only ever needs to survive a detector read
+          // at 640px and a technologist's screen.
+          const dataUrl = await prepareImageForUpload(file);
           const { slide } = await samplesApi.addSlide(activeSample.id, { name: file.name, imageData: dataUrl });
           const saved = { id: slide.id, name: slide.name, dataUrl: slide.imageData };
           savedSlides.push(saved);
@@ -676,7 +680,10 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     setIsSavingSlides(true);
     try {
       const name = `Microscope capture ${new Date().toLocaleString()}`;
-      const { slide } = await samplesApi.addSlide(activeSample.id, { name, imageData: dataUrl });
+      // Same scaling as a file upload: a camera frame at full resolution is a
+      // request body the platform will refuse.
+      const imageData = await downscaleImage(dataUrl);
+      const { slide } = await samplesApi.addSlide(activeSample.id, { name, imageData });
       const saved = { id: slide.id, name: slide.name, dataUrl: slide.imageData };
       setUploadedSlides(prev => [...prev, saved]);
           void writeCachedSlide(activeSample.id, saved.id, saved.dataUrl);

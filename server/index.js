@@ -1139,12 +1139,19 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       if (typeof name !== 'string' || !name.trim() || name.trim().length > 180) {
         return res.status(400).json({ error: 'Please provide a slide image filename no longer than 180 characters.' });
       }
+      // The request body a serverless deployment accepts is ~4.5 MB, and what
+      // travels is the base64 data URL, so the cap is the platform's expressed
+      // in the characters that actually cross the wire. The client scales a
+      // photograph before it sends it; a request that still arrives over the cap
+      // gets an actionable message instead of the platform's opaque one.
       if (
         typeof imageData !== 'string' ||
-        imageData.length > 14 * 1024 * 1024 ||
+        imageData.length > 4 * 1024 * 1024 ||
         !/^data:image\/(?:jpeg|png|webp|gif);base64,/i.test(imageData)
       ) {
-        return res.status(400).json({ error: 'Please upload a supported image no larger than 10 MB.' });
+        return res.status(400).json({
+          error: 'This slide image is too large to upload. Use a smaller photograph, or one under about 3 MB.'
+        });
       }
 
       const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
@@ -1322,19 +1329,27 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       if (passes.length === 0) {
         return res.status(400).json({ error: 'No image was supplied for analysis.' });
       }
+      // A serverless deployment refuses a request body over ~4.5 MB, and what
+      // travels is base64, so the budget is the platform's expressed in the
+      // characters that actually cross the wire. The client splits a slide's
+      // tiles to stay under it; a request that still arrives over it gets an
+      // actionable message rather than the platform's opaque one.
+      const requestBase64Budget = 4 * 1024 * 1024;
+
       if (passes.length > 400) {
         return res.status(400).json({ error: 'Too many slide images in one scan. Re-read the slide in fewer passes.' });
       }
 
-      let payloadBytes = 0;
+      let payloadChars = 0;
       for (const pass of passes) {
-        const length = pass.imageBase64.length;
-        if (length > 15 * 1024 * 1024) {
+        if (pass.imageBase64.length > 15 * 1024 * 1024) {
           return res.status(413).json({ error: 'Image payload is too large. Maximum size is 15 MB.' });
         }
-        payloadBytes += Math.floor(length * 0.75);
-        if (payloadBytes > 60 * 1024 * 1024) {
-          return res.status(413).json({ error: 'The slide images together exceed the 60 MB scan limit.' });
+        payloadChars += pass.imageBase64.length;
+        if (payloadChars > requestBase64Budget) {
+          return res.status(413).json({
+            error: 'The images in this request are too large to send together. Send the slide in smaller batches.'
+          });
         }
       }
 

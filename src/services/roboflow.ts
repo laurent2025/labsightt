@@ -151,6 +151,48 @@ export async function sliceImageTiles(
   return tiles.length > 0 ? tiles : null;
 }
 
+/**
+ * Base64 bytes one batched scan request is allowed to carry.
+ *
+ * A batched scan reads a whole slide in one request so the server can read its
+ * tiles in parallel, but a serverless deployment still refuses a request body
+ * over ~4.5 MB, and the tiles of a full field do not fit in that. Tiles travel
+ * in groups under this budget, which costs a handful of requests for a 63-tile
+ * field — the per-request overhead was what made a scan take minutes, and a few
+ * of them is a few of them.
+ */
+export const SCAN_BATCH_BYTE_BUDGET = 3 * 1024 * 1024;
+
+/**
+ * Packs tiles into groups whose combined base64 stays under the budget.
+ *
+ * Tiles are never dropped to make a group fit: an oversized tile goes in a group
+ * of its own, so the caller sees it fail on its own rather than silently losing
+ * a region of the specimen.
+ */
+export function chunkTilesByBytes<T extends { dataUrl: string }>(
+  tiles: T[],
+  budget: number = SCAN_BATCH_BYTE_BUDGET
+): T[][] {
+  const groups: T[][] = [];
+  let group: T[] = [];
+  let bytes = 0;
+
+  for (const tile of tiles) {
+    const size = tile.dataUrl.length;
+    if (group.length > 0 && bytes + size > budget) {
+      groups.push(group);
+      group = [];
+      bytes = 0;
+    }
+    group.push(tile);
+    bytes += size;
+  }
+
+  if (group.length > 0) groups.push(group);
+  return groups;
+}
+
 export interface SourceImage {
   base64: string;
   width: number;
@@ -195,6 +237,99 @@ export function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+/** Longest edge, in pixels, a stored slide is kept at. */
+export const STORED_SLIDE_MAX_EDGE = 1920;
+
+/**
+ * The pixel size a slide is stored at once its longest edge is bounded.
+ *
+ * A photograph is scaled, never cropped, so no part of the specimen is lost —
+ * only the resolution the whole workflow discards anyway. A slide already
+ * inside the bound is returned unchanged rather than re-compressed for no gain.
+ */
+export function scaledDimensions(
+  width: number,
+  height: number,
+  maxEdge: number = STORED_SLIDE_MAX_EDGE
+): { width: number; height: number } {
+  if (!width || !height) return { width: 0, height: 0 };
+
+  const longest = Math.max(width, height);
+  if (longest <= maxEdge) return { width, height };
+
+  const scale = maxEdge / longest;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale))
+  };
+}
+
+/**
+ * Re-encodes a slide at a size an upload can actually carry.
+ *
+ * A phone photograph of a microscopy field is a 3024x4032 JPEG of a few
+ * megabytes. Sent unchanged it is base64 (×1.33) and then encrypted at rest
+ * (×1.33 again), so one photograph becomes a ~5 MB request body. The serverless
+ * platform this deploys to rejects a body over 4.5 MB outright, which is what
+ * "Request Entity Too Large" was: not a bug in the upload, a photograph too
+ * large to transport.
+ *
+ * Nothing in the workflow needs that resolution. The detector reads the slide
+ * as 640px tiles, and the technologist reviews it on a screen far smaller than
+ * 4032px, so the slide is scaled to `maxEdge` and re-encoded as JPEG. A
+ * photograph already inside the bound is returned untouched rather than being
+ * re-compressed for no gain.
+ */
+export async function downscaleImage(
+  dataUrl: string,
+  { maxEdge = STORED_SLIDE_MAX_EDGE, quality = 0.85 }: { maxEdge?: number; quality?: number } = {}
+): Promise<string> {
+  let image: HTMLImageElement;
+  try {
+    image = await drawImage(dataUrl);
+  } catch {
+    // An undecodable image is the caller's problem to report; silently sending
+    // the original would only move the failure.
+    return dataUrl;
+  }
+
+  const { naturalWidth: width, naturalHeight: height } = image;
+  if (!width || !height) return dataUrl;
+
+  const longest = Math.max(width, height);
+  if (longest <= maxEdge) return dataUrl;
+
+  const { width: targetWidth, height: targetHeight } = scaledDimensions(width, height, maxEdge);
+  if (targetWidth === width && targetHeight === height) return dataUrl;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+/**
+ * Reads a chosen file as a data URL scaled for storage.
+ *
+ * Uploading goes through here so every path that adds a photograph — the file
+ * picker, the microscope camera — pays the same once and none of them can
+ * reintroduce the oversized body.
+ */
+export async function prepareImageForUpload(
+  file: File,
+  options?: { maxEdge?: number; quality?: number }
+): Promise<string> {
+  const dataUrl = await fileToDataUrl(file);
+  return downscaleImage(dataUrl, options);
 }
 
 /**

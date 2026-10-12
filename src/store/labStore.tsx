@@ -18,7 +18,13 @@ import {
 } from '../types';
 import { DEFAULT_AI_MODELS, LAB_METADATA } from '../lib/constants';
 import { quantifyDetections } from '../lib/quantification';
-import { loadImageSource, sliceImageTiles, type ImageTile } from '../services/roboflow';
+import {
+  loadImageSource,
+  sliceImageTiles,
+  downscaleImage,
+  chunkTilesByBytes,
+  type ImageTile
+} from '../services/roboflow';
 import {
   ApiError,
   SessionExpiredError,
@@ -415,26 +421,39 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        // The whole slide is read as one request. Every tile is sent together
-        // and the server reads them in parallel, so a 63-tile field costs one
-        // round trip instead of 63 — and the tiles no longer race each other
-        // for the single analysis row this sample may have open, which is what
-        // made a scan look hung on the first field.
-        const passes = tiles ?? [{ dataUrl: source.base64, offsetX: 0, offsetY: 0, width: 0, height: 0 }];
+        // The whole slide is read as batched requests, so the server reads each
+        // batch's tiles in parallel and they no longer race each other for the
+        // one analysis row this sample may have open. A full field is still more
+        // base64 than a single request body may carry, so the tiles travel in
+        // groups under that limit: a handful of requests rather than one per
+        // tile, which is what made a scan look hung on the first field.
+        //
+        // A slide read whole rather than tiled is the one case a single image
+        // can still be a full photograph, and the provider downscales it to its
+        // own input anyway, so it is scaled before it is sent.
+        const passes = tiles
+          ?? [{ dataUrl: await downscaleImage(source.base64), offsetX: 0, offsetY: 0, width: 0, height: 0 }];
+        const batches = chunkTilesByBytes(passes);
 
-        const { analysis } = await analysesApi.run(
-          sampleId,
-          passes.map(tile => ({
-            imageBase64: tile.dataUrl,
-            offsetX: tile.offsetX,
-            offsetY: tile.offsetY
-          })),
-          confidence,
-          imageRef
-        );
-        const hydrated = hydrateAnalysis(analysis, patientId, model?.name ?? 'Server model');
+        let hydrated: Analysis | null = null;
+        for (const batch of batches) {
+          const { analysis } = await analysesApi.run(
+            sampleId,
+            batch.map(tile => ({
+              imageBase64: tile.dataUrl,
+              offsetX: tile.offsetX,
+              offsetY: tile.offsetY
+            })),
+            confidence,
+            imageRef
+          );
+          // Every response is the analysis as accumulated so far, so the last
+          // one is authoritative for the whole slide.
+          hydrated = hydrateAnalysis(analysis, patientId, model?.name ?? 'Server model');
+        }
 
-        setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated.id)]);
+        if (!hydrated) throw new ReportGateError('The slide could not be read. Try again.');
+        setAnalyses(prev => [hydrated, ...prev.filter(a => a.id !== hydrated!.id)]);
         return hydrated;
       } catch (err) {
         handleError(err, 'Inference failed. The AI service may be temporarily unavailable. Please try again in a moment.');
