@@ -1176,4 +1176,63 @@ describe('inference proxy', () => {
     // A 0-100 score is normalised, never stored as "confidence 80".
     expect(detections[0].confidence).toBeCloseTo(0.8);
   });
+
+  it('combines every scanned image of one specimen into a single reportable analysis', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    // Image A yields one organism, image B a different one.
+    const providerFetch = vi.fn()
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({
+        predictions: [{ class: 'Ascaris lumbricoides', confidence: 0.9, x: 50, y: 50, width: 20, height: 20 }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({
+        predictions: [{ class: 'Hookworm egg', confidence: 0.85, x: 150, y: 90, width: 18, height: 18 }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+      // A third pass repeats image B exactly; it must be de-duplicated away.
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({
+        predictions: [{ class: 'Hookworm egg', confidence: 0.85, x: 150, y: 90, width: 18, height: 18 }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(client);
+
+    // Scan 1: the specimen's stored image.
+    const first = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image'
+    });
+    expect(first.status).toBe(201);
+
+    // Scan 2: a second loaded image of the same specimen.
+    const second = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image',
+      imageRef: 'slide-2'
+    });
+    expect(second.status).toBe(200);
+
+    // One analysis carries both images' findings; there is no second analysis.
+    const combined = second.body.analysis;
+    expect(combined.id).toBe(first.body.analysis.id);
+    expect(combined.totalDetections).toBe(2);
+    expect(combined.detections.map(d => `${d.imageRef}:${d.class}`).sort()).toEqual([
+      'primary:Ascaris lumbricoides',
+      'slide-2:Hookworm egg'
+    ]);
+
+    // Both organisms reach the report's quantified findings.
+    expect(combined.findings.map(f => f.name).sort()).toEqual([
+      'Ascaris lumbricoides',
+      'Hookworm egg'
+    ]);
+
+    // A third pass over an already-scanned image adds nothing.
+    const repeat = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'base64-image',
+      imageRef: 'slide-2'
+    });
+    expect(repeat.body.analysis.totalDetections).toBe(2);
+  });
 });

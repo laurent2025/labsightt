@@ -9,13 +9,18 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Layers
 } from 'lucide-react';
 
 interface TechnologistReviewProps {
   analysis: Analysis;
   patient: Patient;
   sample: Sample;
+  /** Display name for each image ref, so a finding can name the slide it came from. */
+  slideNames?: Record<string, string>;
+  /** Image ref currently shown in the viewer, used by the "current image" filter. */
+  activeSlideRef?: string;
   onConfirmAll: () => void;
   onSelectDetection: (id: string | null) => void;
   selectedDetectionId?: string | null;
@@ -29,6 +34,8 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
   analysis,
   patient,
   sample,
+  slideNames = {},
+  activeSlideRef,
   onConfirmAll,
   onSelectDetection,
   selectedDetectionId,
@@ -42,6 +49,10 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [showQCChecklist, setShowQCChecklist] = useState(false);
   const [minConfidenceFilter, setMinConfidenceFilter] = useState<number>(0);
+  // Which image's findings to list. 'all' shows every scanned image, which is
+  // what the report quantifies; a specific ref narrows the review queue to
+  // one slide while working through a multi-image scan.
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [criticalCalloutLogged, setCriticalCalloutLogged] = useState<string | null>(null);
 
   const hasCriticalFindings = analysis.findings.some(f => f.clinicalSignificance === 'critical');
@@ -60,8 +71,18 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
   const confirmedDetections = analysis.detections.filter(d => d.confirmed && !d.rejected).length;
   const allConfirmed = totalDetections > 0 && confirmedDetections === totalDetections;
 
+  // Image refs present in this analysis, in a stable order (specimen first).
+  const sourceOptions = Array.from(
+    new Set(analysis.detections.map(d => d.imageRef ?? 'primary'))
+  ).sort((a, b) => (a === 'primary' ? -1 : b === 'primary' ? 1 : a.localeCompare(b)));
+
+  const sourceLabel = (ref: string) => slideNames[ref] ?? (ref === 'primary' ? 'Specimen image' : ref);
+
   const filteredDetections = analysis.detections.filter(
-    d => !d.rejected && d.confidence >= minConfidenceFilter
+    d =>
+      !d.rejected &&
+      d.confidence >= minConfidenceFilter &&
+      (sourceFilter === 'all' || (d.imageRef ?? 'primary') === sourceFilter)
   );
 
   return (
@@ -274,23 +295,44 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
 
         {/* Individual Detections Verification Cards */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
               Identified Targets ({filteredDetections.length})
             </h3>
-            <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500">
-              <SlidersHorizontal className="w-3 h-3 text-slate-400" />
-              <span>Min Conf:</span>
-              <select
-                value={minConfidenceFilter}
-                onChange={e => setMinConfidenceFilter(parseFloat(e.target.value))}
-                className="bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-800 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-600"
-              >
-                <option value={0}>All (&gt;0%)</option>
-                <option value={0.6}>&gt; 60%</option>
-                <option value={0.8}>&gt; 80%</option>
-                <option value={0.9}>&gt; 90%</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-slate-500">
+              {sourceOptions.length > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-3 h-3 text-slate-400" />
+                  <span>Source:</span>
+                  <select
+                    value={sourceFilter}
+                    onChange={e => setSourceFilter(e.target.value)}
+                    title="Filter findings by the image they were detected in"
+                    className="bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-800 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-600"
+                  >
+                    <option value="all">All images ({totalDetections})</option>
+                    {sourceOptions.map(ref => (
+                      <option key={ref} value={ref}>
+                        {sourceLabel(ref)} ({analysis.detections.filter(d => !d.rejected && (d.imageRef ?? 'primary') === ref).length})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3 h-3 text-slate-400" />
+                <span>Min Conf:</span>
+                <select
+                  value={minConfidenceFilter}
+                  onChange={e => setMinConfidenceFilter(parseFloat(e.target.value))}
+                  className="bg-slate-100 border border-slate-300 rounded px-1 py-0.5 text-[11px] text-slate-800 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-600"
+                >
+                  <option value={0}>All (&gt;0%)</option>
+                  <option value={0.6}>&gt; 60%</option>
+                  <option value={0.8}>&gt; 80%</option>
+                  <option value={0.9}>&gt; 90%</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -328,7 +370,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
                         <CheckCircle2 className="w-4 h-4" />
                       </button>
 
-                      <div>
+                      <div className="min-w-0">
                         <span className="font-semibold text-slate-800 dark:text-slate-200 block">
                           <span className="italic">{det.class}</span>
                           {det.manual && (
@@ -337,6 +379,18 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
                             </span>
                           )}
                         </span>
+                        {sourceOptions.length > 1 && (
+                          <span
+                            className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-px max-w-full"
+                            title={`Detected in: ${sourceLabel(det.imageRef ?? 'primary')}`}
+                          >
+                            <Layers className="w-2.5 h-2.5 shrink-0 text-slate-400" />
+                            <span className="truncate">{sourceLabel(det.imageRef ?? 'primary')}</span>
+                            {(det.imageRef ?? 'primary') === activeSlideRef && (
+                              <span className="shrink-0 text-emerald-600 dark:text-emerald-400">viewing</span>
+                            )}
+                          </span>
+                        )}
                         <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                           Confidence: {(det.confidence * 100).toFixed(1)}% · Pos: ({Math.round(det.x)},{' '}
                           {Math.round(det.y)})

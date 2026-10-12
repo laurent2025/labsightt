@@ -18,7 +18,8 @@ import {
   ArrowRight,
   Check,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Layers
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
@@ -112,6 +113,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
 
   const [scanSeconds, setScanSeconds] = useState<number>(0);
   const [scanSummary, setScanSummary] = useState<string | null>(null);
+  // Position within a "Scan All Images" pass, so the operator can see which
+  // image is being read while several are being worked through in one action.
+  const [scanProgress, setScanProgress] = useState<{ current: number; total: number } | null>(null);
   useEffect(() => {
     if (!isAnalyzing) return;
     setScanSeconds(0);
@@ -395,6 +399,92 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       setInferenceError(message);
       setScanSummary(null);
     } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  /**
+   * Scans every loaded image of this specimen in one action and folds the
+   * results into the single active analysis, so one report covers the whole
+   * specimen.
+   *
+   * The server appends each image's findings to the active analysis and scopes
+   * its de-duplication by image ref, so scanning the images one after another
+   * produces exactly the same combined result as scanning them individually —
+   * this only removes the repeated button presses.
+   */
+  const handleScanAllImages = async () => {
+    if (!activePatient || !activeSample) return;
+    if (slideChoices.length === 0) {
+      setInferenceError('No slide images are loaded for this specimen. Use "Load Slide" or "Capture from Microscope" first, then retry.');
+      return;
+    }
+
+    // Re-scanning an image adds nothing: the server de-duplicates by image ref
+    // plus box, so an already-scanned image is skipped to save the operator
+    // the provider round-trips. If every image is already scanned the pass
+    // still runs, so an explicit re-read is honoured.
+    const scannedRefs = new Set(
+      (activeAnalysis?.detections ?? []).map(d => d.imageRef ?? 'primary')
+    );
+    const pending = slideChoices.filter(slide => !scannedRefs.has(slide.id));
+    const queue = pending.length > 0 ? pending : slideChoices;
+
+    setIsAnalyzing(true);
+    setInferenceError(null);
+    setScanSummary(null);
+    setScanProgress({ current: 0, total: queue.length });
+
+    const startedAt = Date.now();
+    let lastAnalysis: Analysis | null = null;
+    let unscannable = 0;
+    let blocked = false;
+
+    try {
+      for (let index = 0; index < queue.length; index += 1) {
+        const slide = queue[index];
+        setScanProgress({ current: index + 1, total: queue.length });
+        try {
+          lastAnalysis = await onRunAnalysis(
+            activePatient.id,
+            activeSample.id,
+            selectedModelId || activeModel.id,
+            slide.dataUrl,
+            slide.id
+          );
+        } catch (err) {
+          // A provider-side payment block cannot be fixed by retrying another
+          // image, so stop the pass and surface the existing handling.
+          if (err instanceof ApiError && err.status === 402) {
+            blocked = true;
+            break;
+          }
+          // One unreadable image must not lose the rest of the pass.
+          unscannable += 1;
+        }
+      }
+
+      if (!lastAnalysis) return;
+
+      setSelectedAnalysisId(lastAnalysis.id);
+      playScanComplete();
+      if (lastAnalysis.findings.some(f => f.clinicalSignificance === 'critical' || f.clinicalSignificance === 'pathological')) {
+        setTimeout(() => playCriticalValueAlert(), 350);
+      }
+
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      const n = lastAnalysis.detections.length;
+      const lead = blocked
+        ? 'Scan stopped early because the provider rejected the request.'
+        : `Scanned ${queue.length} image${queue.length === 1 ? '' : 's'} in ${seconds}s.`;
+      const tail = n === 0
+        ? 'No parasites were detected. This does not rule out infection; review the slides manually before drawing a conclusion.'
+        : `${n} candidate object${n === 1 ? '' : 's'} detected across all scanned images of this specimen — adjudicate each before the report is generated.`;
+      setScanSummary(
+        `${lead} ${tail}${unscannable > 0 ? ` ${unscannable} image${unscannable === 1 ? '' : 's'} could not be scanned.` : ''}`
+      );
+    } finally {
+      setScanProgress(null);
       setIsAnalyzing(false);
     }
   };
@@ -923,6 +1013,24 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             <span className="hidden sm:inline">Capture from Microscope</span>
           </button>
 
+          {slideChoices.length > 1 && (
+            <button
+              type="button"
+              onClick={() => void handleScanAllImages()}
+              disabled={isAnalyzing || isSavingSlides}
+              title="Scan every loaded image of this specimen and combine the findings into one report"
+              className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
+            >
+              <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                Scan All Images
+                <span className="ml-1 font-mono text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                  ({slideChoices.length})
+                </span>
+              </span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => void handleTriggerAnalysis()}
@@ -932,7 +1040,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             {isAnalyzing ? (
               <>
                 <RotateCcw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                <span>Invoking Serverless YOLO...</span>
+                <span>
+                  {scanProgress
+                    ? `Scanning image ${scanProgress.current} of ${scanProgress.total}…`
+                    : 'Invoking Serverless YOLO...'}
+                </span>
               </>
             ) : (
               <>
@@ -1232,6 +1344,8 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             analysis={activeAnalysis}
             patient={activePatient}
             sample={activeSample}
+            slideNames={Object.fromEntries(slideChoices.map(slide => [slide.id, slide.name]))}
+            activeSlideRef={activeSlideRef}
             onConfirmAll={() => onConfirmAllDetections(activeAnalysis.id)}
             onSelectDetection={id => setSelectedDetectionId(id)}
             selectedDetectionId={selectedDetectionId}
