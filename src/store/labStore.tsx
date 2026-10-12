@@ -515,7 +515,10 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
             ...det,
             id: `det-manual-${Date.now()}`,
             confirmed: true,
-            manual: true
+            manual: true,
+            // Tagged with the slide the operator was viewing so the viewer's
+            // per-image filter can place the box on the correct image.
+            imageRef: det.imageRef ?? 'primary'
           };
           return requantify(ana, [...ana.detections, created]);
         })

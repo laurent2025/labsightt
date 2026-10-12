@@ -1110,4 +1110,70 @@ describe('inference proxy', () => {
     expect(repeat.status).toBe(200);
     expect(repeat.body.analysis.totalDetections).toBe(2);
   });
+
+  it('collapses a detector\'s duplicate boxes for one organism with NMS', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [
+        // One ovum, three overlapping boxes at decreasing confidence.
+        { class: 'Hookworm egg', confidence: 0.9, x: 100, y: 100, width: 30, height: 30 },
+        { class: 'Hookworm egg', confidence: 0.82, x: 104, y: 98, width: 30, height: 30 },
+        { class: 'Hookworm egg', confidence: 0.71, x: 96, y: 103, width: 30, height: 30 }
+      ]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.3 });
+
+    expect(detections).toHaveLength(1);
+    expect(detections[0].class).toBe('Hookworm egg');
+    // The strongest box is the one that survives.
+    expect(detections[0].confidence).toBeCloseTo(0.9);
+  });
+
+  it('keeps boxes of different classes that overlap in the same field', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [
+        { class: 'Ascaris lumbricoides', confidence: 0.9, x: 100, y: 100, width: 30, height: 30 },
+        { class: 'Trichuris trichiura', confidence: 0.8, x: 102, y: 101, width: 30, height: 30 }
+      ]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.3 });
+
+    // Suppression is class-scoped: two different organisms are two findings.
+    expect(detections.map(d => d.class).sort()).toEqual([
+      'Ascaris lumbricoides',
+      'Trichuris trichiura'
+    ]);
+  });
+
+  it('accepts corner-based geometry and drops degenerate boxes', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [
+        // Corner convention: centre 90/70, size 20x20.
+        { class: 'Enterobius vermicularis', confidence: 80, x_min: 80, y_min: 60, x_max: 100, y_max: 80 },
+        // Zero-area box draws nothing but would still count.
+        { class: 'Fasciolopsis buski', confidence: 0.6, x: 10, y: 10, width: 0, height: 12 }
+      ]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.3 });
+
+    expect(detections).toHaveLength(1);
+    expect(detections[0].class).toBe('Enterobius vermicularis');
+    expect(detections[0]).toMatchObject({ x: 90, y: 70, width: 20, height: 20 });
+    // A 0-100 score is normalised, never stored as "confidence 80".
+    expect(detections[0].confidence).toBeCloseTo(0.8);
+  });
 });

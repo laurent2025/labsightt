@@ -1218,7 +1218,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         let detections;
         try {
           detections = await runInference(db, req.user, imageBase64, {
-            confidence: Number(confidence) || 0.3
+            confidence: Number(confidence) || 0.3,
+            iou: Number(process.env.ROBOFLOW_IOU) || 0.4
           });
         } catch (err) {
           if (existingRow) {
@@ -1320,7 +1321,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       let detections;
       try {
         detections = await runInference(db, req.user, imageBase64, {
-          confidence: Number(confidence) || 0.3
+          confidence: Number(confidence) || 0.3,
+          iou: Number(process.env.ROBOFLOW_IOU) || 0.4
         });
       } catch (err) {
         if (existing) {

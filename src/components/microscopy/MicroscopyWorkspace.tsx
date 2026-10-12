@@ -1205,7 +1205,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             onSelectDetection={id => setSelectedDetectionId(id)}
             onToggleConfirm={id => onToggleConfirmDetection(activeAnalysis.id, id)}
             onRejectDetection={id => onRejectDetection(activeAnalysis.id, id)}
-            onAddManualDetection={det => onAddManualDetection(activeAnalysis.id, det)}
+            onAddManualDetection={det => onAddManualDetection(activeAnalysis.id, { ...det, imageRef: activeSlideRef })}
             objective={activeSample.objective}
             totalMagnification={activeSample.totalMagnification}
             slideLabel={activeSample.slideLabel}

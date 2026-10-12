@@ -51,7 +51,7 @@ class InferenceError extends Error {
  * The request is given an AbortSignal so a hung provider cannot pin a server
  * thread indefinitely.
  */
-export async function runInference(db, actor, imageBase64, { confidence = 0.3 } = {}) {
+export async function runInference(db, actor, imageBase64, { confidence = 0.3, iou = 0.4 } = {}) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
   // Development mock mode: returns synthetic detections when explicitly
@@ -62,9 +62,9 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.3 } 
     (process.env.NODE_ENV !== 'production' && !apiKey);
   if (mockMode) {
     return [
-      { class: 'parasite', confidence: 0.92, x: 120, y: 80, width: 40, height: 35 },
-      { class: 'ova', confidence: 0.87, x: 200, y: 150, width: 25, height: 20 },
-      { class: 'leukocyte', confidence: 0.78, x: 300, y: 200, width: 15, height: 15 }
+      { class: 'Ascaris lumbricoides', confidence: 0.92, x: 120, y: 80, width: 40, height: 35 },
+      { class: 'Hookworm egg', confidence: 0.87, x: 200, y: 150, width: 25, height: 20 },
+      { class: 'Enterobius vermicularis', confidence: 0.78, x: 300, y: 200, width: 15, height: 15 }
     ];
   }
 
@@ -82,20 +82,74 @@ export async function runInference(db, actor, imageBase64, { confidence = 0.3 } 
   const payload = await requestWorkflow(endpoint, apiKey, providerImage, timeoutMs);
 
   const predictions = extractPredictions(payload);
-  const detections = predictions
+
+  // Confidence floor. Providers report either 0-1 or 0-100, so the threshold
+  // is compared against the same scale as the raw value before normalising.
+  const threshold = confidence > 1 ? confidence / 100 : confidence;
+
+  const candidates = predictions
     .map(p => toDetection(p))
     .filter(Boolean)
-    .filter(d => d.confidence >= confidence);
+    .filter(d => d.confidence >= threshold)
+    // Never store a degenerate box: a zero-area box draws nothing in the
+    // viewer but still counts as a detection in the report.
+    .filter(d => d.width > 0 && d.height > 0);
 
+  const detections = applyNMS(candidates, iou);
+
+  const suppressed = candidates.length - detections.length;
   appendAudit(db, {
     actorId: actor.id,
     actorName: actor.display_name,
     action: 'INFERENCE_EXECUTED',
     entity: 'analysis',
-    details: `proposed ${detections.length} candidate(s) above confidence ${confidence}`
+    details: `proposed ${detections.length} candidate(s) above confidence ${confidence}${suppressed > 0 ? ` (${suppressed} overlapping box(es) suppressed by NMS at IoU ${iou})` : ''}`
   });
 
   return detections;
+}
+
+/**
+ * Intersection-over-Union of two centre-based boxes. Used by NMS so a
+ * detector's duplicate boxes for one organism collapse to the strongest one.
+ */
+function iou(a, b) {
+  const interWidth = Math.min(a.x + a.width / 2, b.x + b.width / 2)
+    - Math.max(a.x - a.width / 2, b.x - b.width / 2);
+  const interHeight = Math.min(a.y + a.height / 2, b.y + b.height / 2)
+    - Math.max(a.y - a.height / 2, b.y - b.height / 2);
+
+  if (interWidth <= 0 || interHeight <= 0) return 0;
+
+  const intersection = interWidth * interHeight;
+  const union = a.width * a.height + b.width * b.height - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Non-maximum suppression, per class.
+ *
+ * A single-celled detector emits several boxes for one organism. Without
+ * suppression the report counts the same ovum three or four times and the
+ * technologist adjudicates each duplicate by hand. Boxes are ranked by
+ * confidence and a box is dropped when an already-kept box of the same class
+ * overlaps it beyond the IoU threshold.
+ *
+ * Suppression is class-scoped: two different parasites that genuinely overlap
+ * in the field must both survive, because they are different findings.
+ */
+function applyNMS(detections, iouThreshold) {
+  const ranked = [...detections].sort((a, b) => b.confidence - a.confidence);
+  const kept = [];
+
+  for (const candidate of ranked) {
+    const isDuplicate = kept.some(
+      other => other.class === candidate.class && iou(other, candidate) >= iouThreshold
+    );
+    if (!isDuplicate) kept.push(candidate);
+  }
+
+  return kept;
 }
 
 /**
@@ -204,23 +258,43 @@ function isPrediction(node) {
 /**
  * Normalizes a provider prediction node into an internal detection object.
  * Returns null if required geometry fields are missing or non-finite.
+ *
+ * Two geometry conventions are accepted because providers differ:
+ *   1. centre + size   - x, y, width, height (Roboflow default)
+ *   2. opposite corners - x_min, y_min, x_max, y_max
+ * Both are converted to centre + size so every downstream consumer (viewer
+ * overlay, report quantification, dedupe key) sees one shape only.
  */
 function toDetection(node) {
   const className = node.class ?? node.prediction ?? node.label;
   const rawConfidence = Number(node.confidence ?? node.score);
-  if (!Number.isFinite(rawConfidence)) return null;
+  if (!Number.isFinite(rawConfidence) || !className) return null;
 
-  // Center-based Roboflow geometry.
-  const x = num(node.x);
-  const y = num(node.y);
-  const width = num(node.width);
-  const height = num(node.height);
+  let x = num(node.x);
+  let y = num(node.y);
+  let width = num(node.width);
+  let height = num(node.height);
+
+  // Corner form: derive centre and size from the two opposite corners.
+  if (x === null || y === null || width === null || height === null) {
+    const xMin = num(node.x_min ?? node.xmin ?? node.left);
+    const yMin = num(node.y_min ?? node.ymin ?? node.top);
+    const xMax = num(node.x_max ?? node.xmax ?? node.right);
+    const yMax = num(node.y_max ?? node.ymax ?? node.bottom);
+    if (xMin === null || yMin === null || xMax === null || yMax === null) return null;
+    width = Math.abs(xMax - xMin);
+    height = Math.abs(yMax - yMin);
+    x = xMin + width / 2;
+    y = yMin + height / 2;
+  }
+
   if ([x, y, width, height].some(v => v === null)) return null;
 
   return {
     class: String(className),
-    // Providers report 0-1; some report 0-100.
-    confidence: rawConfidence > 1 ? rawConfidence / 100 : rawConfidence,
+    // Providers report 0-1; some report 0-100. Clamp to the unit range so a
+    // mis-scaled score can never be stored as "confidence 90".
+    confidence: Math.min(1, Math.max(0, rawConfidence > 1 ? rawConfidence / 100 : rawConfidence)),
     x,
     y,
     width,
