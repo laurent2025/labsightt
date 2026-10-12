@@ -10,6 +10,14 @@ import { appendAudit } from './audit.js';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 250;
+/**
+ * Confidence floor used when a caller does not state one.
+ *
+ * It must match the model's configured `confidenceThreshold` in
+ * `src/lib/constants.ts`. A default that is lower surfaces candidates the
+ * operator did not ask for; one that is higher silently drops findings.
+ */
+const DEFAULT_CONFIDENCE = 0.4;
 const DEFAULT_WORKFLOW_ENDPOINT =
   'https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic';
 
@@ -104,12 +112,16 @@ function reclassifyHelminthOva(detections) {
  * `audit` is false when the caller is reading a slide as several tiles and will
  * write one summary entry for the whole slide: a 3024x4032 field is 63 tiles,
  * and one audit row per tile buries the trail instead of explaining it.
+ *
+ * `confidence` is the floor a candidate must clear. It defaults to the value the
+ * model is configured with, so a caller that omits it does not silently scan at
+ * a different sensitivity than the one the operator chose.
  */
 export async function runInference(
   db,
   actor,
   imageBase64,
-  { confidence = 0.2, iou = 0.55, offsetX = 0, offsetY = 0, audit = true } = {}
+  { confidence = DEFAULT_CONFIDENCE, iou = 0.55, offsetX = 0, offsetY = 0, audit = true } = {}
 ) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 

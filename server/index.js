@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LenziAI API server.
  *
  * Holds the patient record, enforces the reporting workflow, and proxies
@@ -70,6 +70,16 @@ function detectionKey(className, x, y, width, height, imageRef = 'primary') {
   const round = value => Math.round(Number(value) * 10000) / 10000;
   return `${imageRef}|${className}|${round(x)},${round(y)},${round(width)},${round(height)}`;
 }
+
+/**
+ * Confidence floor a scan falls back to when the request omits one.
+ *
+ * It must match the configured model threshold in `src/lib/constants.ts`. A
+ * fallback that is *lower* than the configured floor would silently return more
+ * candidates than the operator asked for, and a higher one would quietly miss
+ * findings; either way the request would disagree with the configuration.
+ */
+const DEFAULT_CONFIDENCE = 0.4;
 
 /**
  * Reads every tile of a slide, in parallel, and returns one merged list.
@@ -1417,7 +1427,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
         let detections;
         try {
-          detections = await readSlide(db, req.user, passes, Number(confidence) || 0.3);
+          detections = await readSlide(db, req.user, passes, Number(confidence) || DEFAULT_CONFIDENCE);
         } catch (err) {
           if (existingRow) {
             const { error: restoreError } = await supabase
@@ -1551,7 +1561,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       let detections;
       try {
-        detections = await readSlide(db, req.user, passes, Number(confidence) || 0.3);
+        detections = await readSlide(db, req.user, passes, Number(confidence) || DEFAULT_CONFIDENCE);
       } catch (err) {
         if (existing) {
           db.prepare('UPDATE analyses SET status = ?, started_at = ?, completed_at = ? WHERE id = ?').run(

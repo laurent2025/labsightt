@@ -38,13 +38,21 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
     /*
      * Detection sensitivity.
      *
-     * 0.20 is deliberately low. On a stool microscopy field the cost of a
-     * missed ovum is a false-negative report, while a false positive costs one
-     * click to reject, so the floor is set to surface more candidates for the
-     * technologist rather than fewer. Everything above the floor is still a
-     * *candidate*: nothing counts in the report until it is adjudicated.
+     * This is the floor a candidate must clear before it is proposed to a
+     * technologist. Raising it raises *precision* — fewer false alarms — and
+     * lowers *sensitivity*: an ovum the model calls at 0.28 is now shown to
+     * nobody, so it cannot be adjudicated back in.
+     *
+     * That is a real trade-off on a stool field, where a missed ovum means a
+     * false-negative report and a false positive costs one click to reject. The
+     * operator sets the floor at 0.40 to cut noise; if specimens start
+     * reporting clean while clinical suspicion persists, this number is the
+     * first thing to lower.
+     *
+     * Everything above the floor is still a *candidate*: nothing counts in the
+     * report until a person rules on each one.
      */
-    confidenceThreshold: 0.20,
+    confidenceThreshold: 0.40,
     /*
      * Non-maximum suppression is intentionally loose. Ova in a stool field sit
      * close together and their predicted boxes overlap at the edges; a tight
@@ -53,19 +61,6 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
      */
     iouThreshold: 0.55,
     active: true,
-    /*
-     * Per-class floors. Helminth ova are the smallest, faintest targets in the
-     * field and are the ones a single pass at native resolution loses, so they
-     * are read at a lower floor than the global one. Every class stays above
-     * the point where noise dominates.
-     */
-    classThresholds: {
-      "Ascaris lumbricoides": 0.10,
-      "Hookworm egg": 0.10,
-      "Trichuris trichiura": 0.12,
-      "Enterobius vermicularis": 0.15,
-      "Fasciolopsis buski": 0.15
-    },
     /*
      * Tiled inference (SAHI-style slicing).
      *

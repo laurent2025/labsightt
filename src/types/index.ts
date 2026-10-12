@@ -162,12 +162,6 @@ export interface AIModelConfig {
   confidenceThreshold: number; // 0.10 to 0.95
   iouThreshold: number;
   /**
-   * Per-class confidence floors. A class absent from this map uses
-   * `confidenceThreshold`. Lets the faint helminth ova be read at a lower
-   * floor than the global one without lowering the floor for everything.
-   */
-  classThresholds?: Record<string, number>;
-  /**
    * Tiled inference configuration. Reads the slide as overlapping tiles so a
    * small ovum is presented to the detector at its native input size instead
    * of being downscaled away.
