@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Data access for the laboratory record.
  *
  * Centralised so pagination, search, and batching are applied consistently and
@@ -238,7 +238,7 @@ export function deleteSampleSlide(db, slideId) {
  *
  * Detections for the whole page are fetched in ONE query and grouped in
  * memory. The previous implementation ran a query per analysis and mapped
- * detections twice each, and it hardcoded fieldsExamined to 10 â€” which meant
+ * detections twice each, and it hardcoded fieldsExamined to 10 — which meant
  * the server could report a different quantity than the technologist saw.
  */
 export function listAnalyses(db, { limit, offset, sampleId, status, createdBy } = {}) {

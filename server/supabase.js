@@ -1,4 +1,4 @@
-﻿import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { quantifyDetections } from '../src/lib/quantification.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 
@@ -49,7 +49,7 @@ export async function getSupabaseProfile(supabase, userId) {
  * Loads the profile for a Supabase auth user, auto-creating it if the row is
  * missing (e.g. when the database trigger was never applied or failed silently).
  *
- * @param {import('@supabase/supabase-js').SupabaseClient} supabase â€“ an admin client (service-role)
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase – an admin client (service-role)
  * @param {{ id: string; email?: string; user_metadata?: Record<string, unknown> }} authUser
  * @returns {Promise<{ email: string; username: string; display_name: string }>}
  */
@@ -794,13 +794,46 @@ export async function saveSupabaseDetections(supabase, analysisId, detections = 
     reclassified_from: d.reclassifiedFrom ?? null
   }));
 
-  const { data, error } = await supabase
-    .from('detections')
-    .insert(rows)
-    .select();
+  /*
+   * `image_ref` and `reclassified_from` were added after the first
+   * deployments. A database whose schema.sql has not been re-applied still
+   * lacks one or both, and an insert naming them fails with an unknown-column
+   * error. Scan results must not be lost to a pending migration, so any column
+   * the database rejects is dropped and the insert retried, keeping the
+   * finding itself. Both columns are informational: the audit trail records
+   * the morphology correction and multi-image findings re-appear on the next
+   * scan of the same slide.
+   */
+  const OPTIONAL_COLUMNS = ['image_ref', 'reclassified_from'];
+  let candidate = rows;
+  let { data, error } = await supabase.from('detections').insert(candidate).select();
+
+  while (error) {
+    const missing = OPTIONAL_COLUMNS.find(column => isMissingColumnError(error, column));
+    if (!missing) break;
+    const doomed = new Set([missing]);
+    candidate = candidate.map(row => {
+      const trimmed = { ...row };
+      for (const key of doomed) delete trimmed[key];
+      return trimmed;
+    });
+    ({ data, error } = await supabase.from('detections').insert(candidate).select());
+  }
 
   if (error) throw error;
   return data ?? [];
+}
+
+/**
+ * True when a Supabase error is "column does not exist" for the named column.
+ * Postgres reports an unknown column as SQLSTATE 42703, and supabase-js
+ * surfaces it both as `code` and inside the message text.
+ */
+function isMissingColumnError(error, column) {
+  if (!error) return false;
+  if (error.code === '42703') return true;
+  const message = String(error.message ?? '');
+  return message.includes('42703') && message.includes(column);
 }
 
 export async function finalizeSupabaseAnalysis(supabase, id, { totalDetections, status, completedAt } = {}) {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LenziAI API server.
  *
  * Holds the patient record, enforces the reporting workflow, and proxies
@@ -1257,10 +1257,29 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           throw err;
         }
 
-        const { data: priorDetections, error: priorError } = await supabase
+        // De-duplication is scoped per image, so the prior rows must be read
+        // with their image ref. `image_ref` was added after the first
+        // deployments: a database whose schema.sql has not been re-applied
+        // rejects a query naming it, so fall back to reading the box and class
+        // alone. Scans then de-duplicate within the image being scanned, which
+        // is the behaviour that matters for a re-scan.
+        const priorColumns = 'class_name, x, y, width, height, image_ref';
+        let priorDetections;
+        let priorError = null;
+        const priorResult = await supabase
           .from('detections')
-          .select('class_name, x, y, width, height, image_ref')
+          .select(priorColumns)
           .eq('analysis_id', analysisId);
+        priorDetections = priorResult.data;
+        priorError = priorResult.error;
+        if (priorError && (priorError.code === '42703' || String(priorError.message ?? '').includes('42703'))) {
+          const fallback = await supabase
+            .from('detections')
+            .select('class_name, x, y, width, height')
+            .eq('analysis_id', analysisId);
+          priorDetections = fallback.data;
+          priorError = fallback.error;
+        }
         if (priorError) throw priorError;
 
         const seen = new Set((priorDetections ?? []).map(r => detectionKey(r.class_name, r.x, r.y, r.width, r.height, r.image_ref ?? 'primary')));
@@ -1291,7 +1310,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         }
       }
 
-      // Re-scan support (SQLite branch): same rule as above â€”
+      // Re-scan support (SQLite branch): same rule as above —
       // reuse the sample's active analysis and append the
       // fresh findings to the ones already captured.
       const existing = db.prepare(`
@@ -1410,7 +1429,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       }
 
       if (hasSupabaseDatabaseConfig()) {
-        // In database mode detection rows are written to Supabase only â€” the
+        // In database mode detection rows are written to Supabase only — the
         // local mirror is never populated, so an existence check against it
         // would 404 every adjudication. Resolve existence, lock state, and
         // ownership in Supabase instead.

@@ -22,6 +22,11 @@ import {
   Layers
 } from 'lucide-react';
 import { fileToDataUrl } from '../../services/roboflow';
+import {
+  readCachedSlidesForSample,
+  writeCachedSlide,
+  clearCachedSlide
+} from '../../lib/slideCache';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
 import { ApiError, samplesApi } from '../../services/api';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
@@ -297,6 +302,30 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     setCustomSlideDataUrl(null);
     setActiveSlideRef('primary');
     setSlidesLoading(true);
+
+    // Show cached photographs immediately so switching specimens does not sit
+    // on a blank stage, then reconcile with the server, which is the record of
+    // truth for what slides a specimen has.
+    void readCachedSlidesForSample(sampleId)
+      .then(cached => {
+        if (!current || cached.size === 0) return;
+        const instant = [...cached.entries()].map(([id, dataUrl]) => ({
+          id,
+          name: id,
+          dataUrl
+        }));
+        setUploadedSlides(previous => {
+          const byId = new Map(previous.map(slide => [slide.id, slide]));
+          // Cached rows only fill gaps; anything already listed is kept.
+          for (const slide of instant) if (!byId.has(slide.id)) byId.set(slide.id, slide);
+          return [...byId.values()];
+        });
+      })
+      .catch(() => {
+        // A cache miss or a storage failure is not worth reporting: the
+        // network fetch below is the authoritative path.
+      });
+
     void samplesApi.slides(sampleId)
       .then(({ slides }) => {
         if (current) {
@@ -310,6 +339,11 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             previous.forEach(slide => byId.set(slide.id, slide));
             return [...byId.values()];
           });
+          // Write through so the next open of this specimen is instant. Each
+          // write is independent and failures are ignored by the cache.
+          for (const slide of persistedSlides) {
+            void writeCachedSlide(sampleId, slide.id, slide.dataUrl);
+          }
         }
       })
       .catch(err => {
@@ -357,12 +391,13 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // Re-run inference with current or selected model. An explicit image
   // override (e.g. a fresh microscope capture) takes precedence over the
   // last uploaded slide so a capture is analysed the instant it is taken.
-  const handleTriggerAnalysis = async (imageUrlOverride?: string, imageRefOverride?: string) => {
-    if (!activePatient || !activeSample) return;
+  // Returns the analysis the scan produced, or null when it did not run.
+  const handleTriggerAnalysis = async (imageUrlOverride?: string, imageRefOverride?: string): Promise<Analysis | null> => {
+    if (!activePatient || !activeSample) return null;
     const imageUrl = imageUrlOverride || customSlideDataUrl || resolvedImageUrl;
     if (!imageUrl) {
       setInferenceError('No slide image is loaded for this specimen. Use "Load Slide" or "Capture from Microscope" to attach one, then retry.');
-      return;
+      return null;
     }
     setIsAnalyzing(true);
     setInferenceError(null);
@@ -388,18 +423,49 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       // Honest, one-line result. Never implies certainty about a 0-count.
       const seconds = Math.round((Date.now() - startedAt) / 1000);
       const n = newAna.detections.length;
+      // How many of this specimen's images still have no findings.
+      const scannedRefs = new Set(newAna.detections.map(d => d.imageRef ?? 'primary'));
+      const remaining = slideChoices.filter(slide => !scannedRefs.has(slide.id)).length;
       setScanSummary(
-        n === 0
+        (n === 0
           ? `Scan finished in ${seconds}s. No parasites were detected in this scan. This does not rule out infection; review the slide manually before drawing a conclusion.`
-          : `Scan finished in ${seconds}s. ${n} candidate object${n === 1 ? '' : 's'} detected across all scanned images of this specimen — adjudicate each before the report is generated.`
+          : `Scan finished in ${seconds}s. ${n} candidate object${n === 1 ? '' : 's'} detected across all scanned images of this specimen — adjudicate each before the report is generated.`)
+        + (remaining > 0 ? ` ${remaining} of ${slideChoices.length} image${slideChoices.length === 1 ? '' : 's'} still to scan.` : '')
       );
+      return newAna;
     } catch (err) {
-      if (err instanceof ApiError && err.status === 402) return;
+      if (err instanceof ApiError && err.status === 402) return null;
       const message = err instanceof Error ? err.message : String(err);
       setInferenceError(message);
       setScanSummary(null);
+      return null;
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  /**
+   * Scans the image on screen and then moves to the next unscanned one, so the
+   * operator can work through a batch slide by slide instead of switching back
+   * and forth. Stops on the last unscanned image rather than wrapping around,
+   * so the end of the batch is obvious.
+   */
+  const handleScanAndNext = async () => {
+    // The returned analysis is the authoritative post-scan state, so the
+    // advance decision is made from fresh findings rather than a stale render.
+    const scanned = await handleTriggerAnalysis();
+    if (!scanned) return;
+
+    const scannedRefs = new Set(scanned.detections.map(d => d.imageRef ?? 'primary'));
+    const unscanned = slideChoices.filter(slide => !scannedRefs.has(slide.id) && slide.id !== activeSlideRef);
+    const next = unscanned[0];
+    if (!next) return;
+    if (next.id === 'primary') {
+      setCustomSlideDataUrl(null);
+      setActiveSlideRef('primary');
+    } else {
+      const uploaded = uploadedSlides.find(slide => slide.id === next.id);
+      if (uploaded) selectSlide(uploaded);
     }
   };
 
@@ -414,7 +480,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
    * this only removes the repeated button presses.
    */
   const handleScanAllImages = async () => {
-    if (!activePatient || !activeSample) return;
+    if (!activePatient || !activeSample) return null;
     if (slideChoices.length === 0) {
       setInferenceError('No slide images are loaded for this specimen. Use "Load Slide" or "Capture from Microscope" first, then retry.');
       return;
@@ -509,6 +575,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           const saved = { id: slide.id, name: slide.name, dataUrl: slide.imageData };
           savedSlides.push(saved);
           setUploadedSlides(prev => [...prev, saved]);
+          void writeCachedSlide(activeSample.id, saved.id, saved.dataUrl);
         } catch (err) {
           uploadErrors.push(`${file.name}: ${err instanceof Error ? err.message : 'upload failed'}`);
         }
@@ -545,6 +612,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     try {
       await samplesApi.removeSlide(activeSample.id, id);
       setUploadedSlides(prev => prev.filter(s => s.id !== id));
+      // Drop the cache entry too, or the removed photograph is served from
+      // IndexedDB the next time this specimen is opened.
+      void clearCachedSlide(activeSample.id, id);
       if (activeSlideRef === id) {
         setCustomSlideDataUrl(null);
         setActiveSlideRef('primary');
@@ -598,7 +668,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   };
 
   const captureFrame = async () => {
-    if (!activePatient || !activeSample) return;
+    if (!activePatient || !activeSample) return null;
     const dataUrl = camera.capture();
     if (!dataUrl) return;
     camera.close();
@@ -609,6 +679,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       const { slide } = await samplesApi.addSlide(activeSample.id, { name, imageData: dataUrl });
       const saved = { id: slide.id, name: slide.name, dataUrl: slide.imageData };
       setUploadedSlides(prev => [...prev, saved]);
+          void writeCachedSlide(activeSample.id, saved.id, saved.dataUrl);
       setCustomSlideDataUrl(saved.dataUrl);
       setActiveSlideRef(saved.id);
       setScanSummary(`Microscope capture saved to this specimen. Starting scan…`);
@@ -1031,6 +1102,19 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             </button>
           )}
 
+          {slideChoices.length > 1 && (
+            <button
+              type="button"
+              onClick={() => void handleScanAndNext()}
+              disabled={isAnalyzing || isSavingSlides}
+              title="Scan this image, then move to the next unscanned one"
+              className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-cyan-500 dark:hover:border-cyan-500 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
+            >
+              <ArrowRight className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+              <span>Scan &amp; Next</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => void handleTriggerAnalysis()}
@@ -1155,7 +1239,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
               onClick={() => setShowRawInspector(false)}
               className="text-slate-400 hover:text-white cursor-pointer"
             >
-              ✕
+              ✓
             </button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-[11px]">
@@ -1209,7 +1293,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             className="text-amber-500 hover:text-amber-800 font-bold ml-2 cursor-pointer"
             aria-label="Dismiss"
           >
-            ✕
+            ✓
           </button>
         </div>
       )}
@@ -1248,7 +1332,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             className="text-slate-400 hover:text-slate-100 font-bold ml-2 cursor-pointer"
             aria-label="Dismiss error"
           >
-            ✕
+            ✓
           </button>
         </div>
       )}
@@ -1269,7 +1353,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             className="text-indigo-400 hover:text-indigo-700 font-bold ml-2 cursor-pointer"
             aria-label="Dismiss summary"
           >
-            ✕
+            ✓
           </button>
         </div>
       )}
