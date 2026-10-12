@@ -23,7 +23,7 @@ import {
   purgeExpiredSessions
 } from './auth.js';
 import { appendAudit, verifyChain, chainHead } from './audit.js';
-import { runInference, applyNMS, inferenceStatus, InferenceError } from './inference.js';
+import { runInference, applyNMS, isSameOrganism, inferenceStatus, InferenceError } from './inference.js';
 import { newId, validatePasswordStrength } from './crypto.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 import { requestContext, createLoginLimiter, healthRoutes } from './operations.js';
@@ -62,37 +62,17 @@ import {
 } from './supabase.js';
 
 /**
- * Against how much of a finding a repeat box has to overlap before it counts as
- * the same organism.
- *
- * The same number as the detector's own NMS, deliberately: a re-read of a slide
- * predicts the same ovum a pixel or two off, and a box found again should be
- * recognised by how much of the organism it covers rather than by matching
- * coordinates to four decimal places.
- */
-const RE_SCAN_OVERLAP = 0.55;
-
-/**
  * True when a box describes an organism a previously stored finding already
  * covers.
  *
- * An exact-coordinate key almost never matches a re-read: every tile is
- * re-encoded as its own JPEG, so the same ovum lands a pixel or two away and is
- * stored a second time. Matching on overlap instead recognises it. It is
- * class-scoped, because two different parasites in the same field are two
- * findings, not one.
+ * A re-read of a slide predicts the same ovum a pixel or two off, because every
+ * tile is re-encoded as its own JPEG, so matching on exact coordinates never
+ * fires and the ovum is stored again. This shares one predicate with the
+ * detector's own suppression — `isSameOrganism` — so the question "is this the
+ * same organism?" has exactly one answer wherever it is asked.
  */
 function coversExistingFinding(candidate, existing) {
-  if (existing.class !== candidate.class) return false;
-  const width = Math.min(existing.x + existing.width / 2, candidate.x + candidate.width / 2)
-    - Math.max(existing.x - existing.width / 2, candidate.x - candidate.width / 2);
-  const height = Math.min(existing.y + existing.height / 2, candidate.y + candidate.height / 2)
-    - Math.max(existing.y - existing.height / 2, candidate.y - candidate.height / 2);
-  if (width <= 0 || height <= 0) return false;
-
-  const intersection = width * height;
-  const union = existing.width * existing.height + candidate.width * candidate.height - intersection;
-  return union > 0 && intersection / union >= RE_SCAN_OVERLAP;
+  return isSameOrganism(candidate, existing);
 }
 
 /**
@@ -128,8 +108,7 @@ function dropAlreadyFound(detections, priorDetections = []) {
  * candidates than the operator asked for, and a higher one would quietly miss
  * findings; either way the request would disagree with the configuration.
  */
-const DEFAULT_CONFIDENCE = 0.4;
-
+const DEFAULT_CONFIDENCE = 0.6;
 /**
  * Reads every tile of a slide, in parallel, and returns one merged list.
  *

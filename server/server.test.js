@@ -1754,4 +1754,62 @@ describe('de-duplicating one organism found several times', () => {
     expect(second.body.analysis.detections).toHaveLength(2);
     expect(second.body.analysis.findings[0].count).toBe(2);
   });
+
+  it('marks one small ovum once when two boxes cover it', async () => {
+    // Two 24px boxes for the same ovum, 8px apart. By IoU they score only 0.46,
+    // below the 0.55 suppression threshold, so the ovum used to be stored twice —
+    // which is exactly the "one object marked twice" the operator reported.
+    stubTiles(() => [ovum(0.86, 300, 200), ovum(0.79, 308, 201)]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(1);
+    expect(scan.body.analysis.findings[0].count).toBe(1);
+  });
+
+  it('marks one ovum once when a tight box sits inside a loose one', async () => {
+    // The same ovum found twice at different scales: a tight 16px box inside a
+    // loose 44px box. IoU calls that 0.13, which never suppressed, so one ovum
+    // appeared as two findings of very different sizes.
+    stubTiles(() => [
+      ovum(0.86, 300, 200),
+      { class: 'Hookworm egg', confidence: 0.74, x: 300, y: 200, width: 44, height: 40 }
+    ]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(1);
+  });
+
+  it('still counts two neighbouring ova that sit close together', async () => {
+    // The guard against over-merging: two 24px ova 20px apart are two ova.
+    // Their containment is only 0.17, so they must both survive.
+    stubTiles(() => [ovum(0.86, 300, 200), ovum(0.81, 320, 200)]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(2);
+    expect(scan.body.analysis.findings[0].count).toBe(2);
+  });
 });

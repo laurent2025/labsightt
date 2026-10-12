@@ -12,7 +12,7 @@ import { DEFAULT_AI_MODELS } from './constants';
 describe('DEFAULT_AI_MODELS', () => {
   it('proposes candidates at the configured confidence floor', () => {
     for (const model of DEFAULT_AI_MODELS) {
-      expect(model.confidenceThreshold).toBe(0.4);
+      expect(model.confidenceThreshold).toBe(0.6);
     }
   });
 

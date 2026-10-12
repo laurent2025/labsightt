@@ -17,7 +17,18 @@ const RETRY_BASE_DELAY_MS = 250;
  * `src/lib/constants.ts`. A default that is lower surfaces candidates the
  * operator did not ask for; one that is higher silently drops findings.
  */
-const DEFAULT_CONFIDENCE = 0.4;
+const DEFAULT_CONFIDENCE = 0.6;
+/**
+ * How far two boxes must overlap before they are read as one organism.
+ *
+ * IoU alone is not enough: two boxes for one small ovum a few pixels apart score
+ * well under the old 0.55, so the ovum was stored twice. Containment — how much
+ * of the smaller box the other covers — catches those, so the operator's rule of
+ * one mark per object holds for tight boxes, loose boxes, and boxes sitting
+ * inside one another alike. Two genuinely distinct ova stay below both.
+ */
+const SAME_ORGANISM_IOU = 0.5;
+const SAME_ORGANISM_CONTAINMENT = 0.5;
 const DEFAULT_WORKFLOW_ENDPOINT =
   'https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic';
 
@@ -191,16 +202,54 @@ export async function runInference(
  * detector's duplicate boxes for one organism collapse to the strongest one.
  */
 function iou(a, b) {
+  const intersection = boxIntersection(a, b);
+  if (intersection <= 0) return 0;
+  const union = a.width * a.height + b.width * b.height - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+/** Area shared by two centre-based boxes, in square pixels. */
+function boxIntersection(a, b) {
   const interWidth = Math.min(a.x + a.width / 2, b.x + b.width / 2)
     - Math.max(a.x - a.width / 2, b.x - b.width / 2);
   const interHeight = Math.min(a.y + a.height / 2, b.y + b.height / 2)
     - Math.max(a.y - a.height / 2, b.y - b.height / 2);
 
   if (interWidth <= 0 || interHeight <= 0) return 0;
+  return interWidth * interHeight;
+}
 
-  const intersection = interWidth * interHeight;
-  const union = a.width * a.height + b.width * b.height - intersection;
-  return union > 0 ? intersection / union : 0;
+/**
+ * Fraction of the *smaller* box that the two boxes share.
+ *
+ * IoU divides by the union, so two boxes for one small object that sit a few
+ * pixels apart score badly: two 24px boxes offset by 8px reach only 0.46, below
+ * the 0.55 suppression threshold, and the same ovum is therefore stored twice.
+ *
+ * Containment divides by the smaller box instead, and the same pair scores 0.63.
+ * It also recognises a tight box sitting inside a loose one for the same object
+ * (0.13 by IoU, 1.00 by containment). Because it looks at how much of one box
+ * the other covers, two genuinely distinct ova side by side stay low — 0.17 for
+ * two 24px ova 20px apart — so they are still counted as two.
+ */
+function containment(a, b) {
+  const intersection = boxIntersection(a, b);
+  if (intersection <= 0) return 0;
+  const smaller = Math.min(a.width * a.height, b.width * b.height);
+  return smaller > 0 ? intersection / smaller : 0;
+}
+
+/**
+ * True when two boxes describe the same organism rather than two organisms.
+ *
+ * Suppression has to be class-scoped — two different parasites in the same field
+ * are two findings — and judged by both overlap measures, because the operator's
+ * requirement is one mark per object: an ovum that a loose pass and a tight pass
+ * both find is one ovum, not two.
+ */
+function isSameOrganism(a, b) {
+  if (a.class !== b.class) return false;
+  return iou(a, b) >= SAME_ORGANISM_IOU || containment(a, b) >= SAME_ORGANISM_CONTAINMENT;
 }
 
 /**
@@ -208,9 +257,9 @@ function iou(a, b) {
  *
  * A single-celled detector emits several boxes for one organism. Without
  * suppression the report counts the same ovum three or four times and the
- * technologist adjudicates each duplicate by hand. Boxes are ranked by
- * confidence and a box is dropped when an already-kept box of the same class
- * overlaps it beyond the IoU threshold.
+ * technologist adjudicates each duplicate by hand — or worse, confirms them all
+ * and inflates the reported burden. Boxes are ranked by confidence and a box is
+ * dropped when it describes the same organism as one already kept.
  *
  * Suppression is class-scoped: two different parasites that genuinely overlap
  * in the field must both survive, because they are different findings.
@@ -220,9 +269,7 @@ function applyNMS(detections, iouThreshold) {
   const kept = [];
 
   for (const candidate of ranked) {
-    const isDuplicate = kept.some(
-      other => other.class === candidate.class && iou(other, candidate) >= iouThreshold
-    );
+    const isDuplicate = kept.some(other => isSameOrganism(other, candidate));
     if (!isDuplicate) kept.push(candidate);
   }
 
@@ -394,9 +441,11 @@ function num(value) {
 /**
  * Exports the merge primitives a whole-slide read needs.
  *
- * `applyNMS` and `iou` are exported because a slide's tiles are read
+ * `applyNMS` and `isSameOrganism` are exported because a slide's tiles are read
  * independently and their predictions merged afterwards, so the duplicate
- * suppression has to run over the merged set as well as within one tile. A
- * private copy here would let the two drift apart.
+ * suppression has to run over the merged set as well as within one tile — and
+ * because a stored finding has to be recognised the same way when a slide is
+ * re-read. A private copy here would let the two drift apart, and a drift would
+ * reintroduce the duplicates.
  */
-export { InferenceError, applyNMS, iou };
+export { InferenceError, applyNMS, isSameOrganism };

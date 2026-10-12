@@ -45,14 +45,14 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
      *
      * That is a real trade-off on a stool field, where a missed ovum means a
      * false-negative report and a false positive costs one click to reject. The
-     * operator sets the floor at 0.40 to cut noise; if specimens start
+     * operator sets the floor at 0.60 to cut noise; if specimens start
      * reporting clean while clinical suspicion persists, this number is the
      * first thing to lower.
      *
      * Everything above the floor is still a *candidate*: nothing counts in the
      * report until a person rules on each one.
      */
-    confidenceThreshold: 0.40,
+    confidenceThreshold: 0.60,
     /*
      * Non-maximum suppression is intentionally loose. Ova in a stool field sit
      * close together and their predicted boxes overlap at the edges; a tight
