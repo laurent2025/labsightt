@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NewPatient, Sample, SampleType, MicroscopeObjective, EyepieceMagnification } from '../../types';
 import { SLIDE_ASSETS } from '../../lib/constants';
-import { fileToDataUrl } from '../../services/roboflow';
+import { prepareImageForUpload } from '../../services/roboflow';
 import { X, Upload, Microscope, UserPlus, Camera, Video, RotateCcw } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
@@ -73,7 +73,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
         files.map(async file => ({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           name: file.name,
-          dataUrl: await fileToDataUrl(file)
+          dataUrl: await prepareImageForUpload(file)
         }))
       );
       setUploadedImages(prev => [...prev, ...images]);

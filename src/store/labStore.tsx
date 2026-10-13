@@ -412,7 +412,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       let tiles: ImageTile[] | null = null;
       if (model?.tiling?.enabled) {
         try {
-          tiles = await sliceImageTiles(imageUrl, model.tiling);
+          tiles = await sliceImageTiles(source.dataUrl, model.tiling);
         } catch {
           // Tiling is an enhancement. If it fails, fall back to one whole-slide
           // read rather than failing the scan.
@@ -432,7 +432,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         // can still be a full photograph, and the provider downscales it to its
         // own input anyway, so it is scaled before it is sent.
         const passes = tiles
-          ?? [{ dataUrl: await downscaleImage(source.base64), offsetX: 0, offsetY: 0, width: 0, height: 0 }];
+          ?? [{ dataUrl: await downscaleImage(source.dataUrl), offsetX: 0, offsetY: 0, width: 0, height: 0 }];
         const batches = chunkTilesByBytes(passes);
 
         let hydrated: Analysis | null = null;
@@ -782,4 +782,3 @@ function hydrateAnalysis(
     clinicalImpression: row.clinicalImpression ?? ''
   };
 }
-

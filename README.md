@@ -216,7 +216,9 @@ npm run dev      # web, proxying /api to :4000
 ### Enabling inference
 
 Analysis is **refused** with a clear error until the server has a credential.
-It never falls back to invented detections.
+It never falls back to invented detections. Synthetic demo detections can be
+enabled explicitly outside production with `ROBOFLOW_MOCK=true`; they do not
+use the specimen image and must never be used for laboratory analysis.
 
 ```bash
 # .env  (load with: node --env-file=.env server/main.js)

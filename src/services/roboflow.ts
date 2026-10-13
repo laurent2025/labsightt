@@ -161,7 +161,7 @@ export async function sliceImageTiles(
  * field — the per-request overhead was what made a scan take minutes, and a few
  * of them is a few of them.
  */
-export const SCAN_BATCH_BYTE_BUDGET = 3 * 1024 * 1024;
+export const SCAN_BATCH_BYTE_BUDGET = 3.75 * 1024 * 1024;
 
 /**
  * Packs tiles into groups whose combined base64 stays under the budget.
@@ -195,6 +195,7 @@ export function chunkTilesByBytes<T extends { dataUrl: string }>(
 
 export interface SourceImage {
   base64: string;
+  dataUrl: string;
   width: number;
   height: number;
 }
@@ -352,31 +353,24 @@ export async function loadImageSource(url: string): Promise<SourceImage> {
     );
   }
 
-  const base64 = await new Promise<string>((resolve, reject) => {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.includes(',') ? result.split(',')[1] : result);
+      resolve(reader.result as string);
     };
     reader.onerror = () => reject(new InferenceError('Failed to encode slide image.'));
     reader.readAsDataURL(blob);
   });
+  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
 
   const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const urlForDecode = URL.createObjectURL(blob);
     const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      URL.revokeObjectURL(urlForDecode);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(urlForDecode);
-      reject(new InferenceError('Slide image could not be decoded.'));
-    };
-    img.src = urlForDecode;
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new InferenceError('Slide image could not be decoded.'));
+    img.src = dataUrl;
   });
 
-  return { base64, width: dimensions.width, height: dimensions.height };
+  return { base64, dataUrl, width: dimensions.width, height: dimensions.height };
 }
 
 /**

@@ -250,14 +250,19 @@ export default function App() {
 
     const matchedModel = models.find(m => m.category === newSmp.sampleType) || models[0];
 
+    const slideResults = await Promise.allSettled(
+      additionalSlides.map(slide => samplesApi.addSlide(newSmp.id, slide))
+    );
+    const savedSlides: { id: string; name: string; imageData: string }[] = [];
     const slideErrors: string[] = [];
-    for (const slide of additionalSlides) {
-      try {
-        await samplesApi.addSlide(newSmp.id, slide);
-      } catch (err) {
-        slideErrors.push(`${slide.name}: ${err instanceof Error ? err.message : 'upload failed'}`);
+    slideResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        savedSlides.push(result.value.slide);
+      } else {
+        const slide = additionalSlides[index];
+        slideErrors.push(`${slide.name}: ${result.reason instanceof Error ? result.reason.message : 'upload failed'}`);
       }
-    }
+    });
 
     if (slideErrors.length > 0) {
       setSelectedAnalysisId(null);
@@ -281,12 +286,22 @@ export default function App() {
     setActiveTab('microscopy');
 
     try {
-      const newAna = await createAndRunAnalysis(
+      let newAna = await createAndRunAnalysis(
         newPat.id,
         newSmp.id,
         matchedModel.id,
-        newSmp.imageUrl
+        newSmp.imageUrl,
+        'primary'
       );
+      for (const slide of savedSlides) {
+        newAna = await createAndRunAnalysis(
+          newPat.id,
+          newSmp.id,
+          matchedModel.id,
+          slide.imageData,
+          slide.id
+        );
+      }
       setSelectedAnalysisId(newAna.id);
       setPendingMicroscopy(null);
     } catch (e) {

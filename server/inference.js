@@ -27,7 +27,7 @@ const DEFAULT_CONFIDENCE = 0.6;
  * one mark per object holds for tight boxes, loose boxes, and boxes sitting
  * inside one another alike. Two genuinely distinct ova stay below both.
  */
-const SAME_ORGANISM_IOU = 0.5;
+const SAME_ORGANISM_IOU = 0.55;
 const SAME_ORGANISM_CONTAINMENT = 0.5;
 const DEFAULT_WORKFLOW_ENDPOINT =
   'https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic';
@@ -136,12 +136,14 @@ export async function runInference(
 ) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
-  // Development mock mode: returns synthetic detections when explicitly
-  // enabled via ROBOFLOW_MOCK=true, or automatically in non-production
-  // environments when no API key is configured. This lets the system
-  // work without a real Roboflow API key during development and testing.
-  const mockMode = process.env.ROBOFLOW_MOCK === 'true' ||
-    (process.env.NODE_ENV !== 'production' && !apiKey);
+  if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
+    throw new InferenceError('No image was supplied for inference.', 400);
+  }
+
+  // Synthetic detections are demo-only and must never be an implicit fallback
+  // or run in production, where they could be mistaken for specimen findings.
+  const mockMode = process.env.ROBOFLOW_MOCK === 'true'
+    && process.env.NODE_ENV !== 'production';
   if (mockMode) {
     return [
       { class: 'Ascaris lumbricoides', confidence: 0.92, x: 120, y: 80, width: 40, height: 35 },
@@ -155,9 +157,6 @@ export async function runInference(
       'Inference is not configured on the server. Set ROBOFLOW_API_KEY; set ROBOFLOW_ENDPOINT only to override the default workflow.',
       503
     );
-  }
-  if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
-    throw new InferenceError('No image was supplied for inference.', 400);
   }
 
   const providerImage = imageBase64.replace(/^data:[^,]*;base64,/i, '');
@@ -178,9 +177,12 @@ export async function runInference(
     .filter(d => d.width > 0 && d.height > 0);
 
   const nmsApplied = applyNMS(candidates, iou);
-  const { detections, corrections } = reclassifyHelminthOva(nmsApplied);
+  const { detections: reclassified, corrections } = reclassifyHelminthOva(nmsApplied);
+  // Different raw labels can resolve to the same organism after morphology
+  // correction, so run suppression once more on the final class labels.
+  const detections = applyNMS(reclassified, iou);
 
-  const suppressed = candidates.length - nmsApplied.length;
+  const suppressed = candidates.length - detections.length;
   if (audit) {
     appendAudit(db, {
       actorId: actor.id,
@@ -247,9 +249,13 @@ function containment(a, b) {
  * requirement is one mark per object: an ovum that a loose pass and a tight pass
  * both find is one ovum, not two.
  */
-function isSameOrganism(a, b) {
+function isSameOrganism(a, b, iouThreshold = SAME_ORGANISM_IOU) {
   if (a.class !== b.class) return false;
-  return iou(a, b) >= SAME_ORGANISM_IOU || containment(a, b) >= SAME_ORGANISM_CONTAINMENT;
+  const threshold = Number.isFinite(iouThreshold)
+    ? Math.min(1, Math.max(0, iouThreshold))
+    : SAME_ORGANISM_IOU;
+  return iou(a, b) >= threshold
+    || containment(a, b) >= Math.max(SAME_ORGANISM_CONTAINMENT, threshold);
 }
 
 /**
@@ -269,7 +275,7 @@ function applyNMS(detections, iouThreshold) {
   const kept = [];
 
   for (const candidate of ranked) {
-    const isDuplicate = kept.some(other => isSameOrganism(other, candidate));
+    const isDuplicate = kept.some(other => isSameOrganism(other, candidate, iouThreshold));
     if (!isDuplicate) kept.push(candidate);
   }
 

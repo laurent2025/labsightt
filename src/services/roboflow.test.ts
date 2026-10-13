@@ -6,15 +6,20 @@
  * hundreds of provider calls, which is what made a scan appear to hang; and it
  * must never skip part of the slide, or a region of the specimen goes unread.
  */
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import {
   fitTileBudget,
   tileCount,
   chunkTilesByBytes,
+  loadImageSource,
   scaledDimensions,
   SCAN_BATCH_BYTE_BUDGET,
   STORED_SLIDE_MAX_EDGE
 } from './roboflow';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const TILE = 640;
 const OVERLAP = 0.3;
@@ -85,7 +90,7 @@ describe('chunkTilesByBytes', () => {
   it('splits a full field into groups under the budget', () => {
     // 63 tiles of a 3024x4032 photograph, as a real slide is cut.
     const groups = chunkTilesByBytes(Array.from({ length: 63 }, () => tile(120_000)));
-    expect(groups.length).toBeGreaterThan(1);
+    expect(groups).toHaveLength(2);
 
     for (const group of groups) {
       const bytes = group.reduce((sum, t) => sum + t.dataUrl.length, 0);
@@ -153,5 +158,44 @@ describe('scaledDimensions', () => {
     // photograph was the thing it refused.
     expect(STORED_SLIDE_MAX_EDGE).toBeLessThan(4032);
     expect(SCAN_BATCH_BYTE_BUDGET).toBeLessThan(4.5 * 1024 * 1024);
+  });
+});
+
+describe('loadImageSource', () => {
+  it('keeps the fetched data URL for tiling and resizing without fetching twice', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(['image'], { type: 'image/png' }))
+    );
+    class MockFileReader {
+      result: string | null = null;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      readAsDataURL() {
+        this.result = 'data:image/png;base64,aW1hZ2U=';
+        this.onload?.();
+      }
+    }
+    class MockImage {
+      naturalWidth = 3024;
+      naturalHeight = 4032;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      set src(_value: string) {
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('FileReader', MockFileReader);
+    vi.stubGlobal('Image', MockImage);
+
+    await expect(loadImageSource('/slide.png')).resolves.toEqual({
+      base64: 'aW1hZ2U=',
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      width: 3024,
+      height: 4032
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

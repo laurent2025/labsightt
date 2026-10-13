@@ -777,7 +777,7 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
                 </p>
               ) : pendingInferenceActive ? (
                 <p role="status" className="text-sm text-slate-600 dark:text-slate-300 mt-3">
-                  The first image is being scanned. Your saved specimen images are listed below; you can switch images now.
+                  Your specimen images are being scanned. Results will appear here as each image finishes.
                 </p>
               ) : (
                 <p className="text-sm text-slate-600 dark:text-slate-300 mt-3">
@@ -1341,6 +1341,18 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
           >
             ✓
           </button>
+        </div>
+      )}
+
+      {pendingInferenceActive && activeAnalysis && (
+        <div role="status" aria-live="polite" className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 p-3 rounded-xl text-xs text-cyan-900 dark:text-cyan-100">
+          Scanning the remaining specimen images. Results are shown as each image finishes.
+        </div>
+      )}
+
+      {pendingInferenceError && activeAnalysis && (
+        <div role="alert" className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 p-3 rounded-xl text-xs text-amber-900 dark:text-amber-100">
+          Some images could not be scanned. Results from completed images are shown. {pendingInferenceError}
         </div>
       )}
 

@@ -1069,7 +1069,9 @@ describe('inference proxy', () => {
     expect(res.body.inference.credentialSource).toBe('server environment');
   });
 
-  it('does not accept a client-supplied key', async () => {
+  it('rejects inference without a server key even when the client supplies one', async () => {
+    vi.stubEnv('ROBOFLOW_API_KEY', '');
+    vi.stubEnv('ROBOFLOW_MOCK', '');
     const client = authed(await login('tech1', 'tech-password-1234'));
     const sample = await makeSample(client);
     const res = await client.post('/api/analyses', {
@@ -1077,12 +1079,36 @@ describe('inference proxy', () => {
       imageBase64: 'AAAA',
       apiKey: 'client-injected-key'
     });
-    // The client-supplied apiKey is ignored: the server uses its own
-    // ROBOFLOW_API_KEY env var, and in development with no key configured
-    // it falls back to mock detections (HTTP 201) rather than trusting the
-    // client key.
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/ROBOFLOW_API_KEY/i);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM analyses WHERE sample_id = ?').get(sample.id).count).toBe(0);
+  });
+
+  it('allows synthetic demo detections only when explicitly enabled outside production', async () => {
+    vi.stubEnv('ROBOFLOW_API_KEY', '');
+    vi.stubEnv('ROBOFLOW_MOCK', 'true');
+    vi.stubEnv('NODE_ENV', 'test');
+    const client = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(client);
+    const res = await client.post('/api/analyses', {
+      sampleId: sample.id,
+      imageBase64: 'AAAA'
+    });
+
     expect(res.status).toBe(201);
-    expect(res.body.analysis.detections.length).toBeGreaterThan(0);
+    expect(res.body.analysis.detections).toHaveLength(3);
+  });
+
+  it('never allows synthetic detections in production, even when mock mode is requested', async () => {
+    vi.stubEnv('ROBOFLOW_API_KEY', '');
+    vi.stubEnv('ROBOFLOW_MOCK', 'true');
+    vi.stubEnv('NODE_ENV', 'production');
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+
+    await expect(runInference(db, actor, 'base64-image')).rejects.toMatchObject({
+      status: 503
+    });
   });
 
   it('sends image input with Bearer auth and parses predictions under arbitrary output keys', async () => {
@@ -1305,6 +1331,26 @@ describe('inference proxy', () => {
     expect(detections[0].reclassifiedFrom).toBe('Ascaris lumbricoides');
   });
 
+  it('suppresses a duplicate after morphology correction makes the classes match', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [
+        { class: 'Ascaris lumbricoides', confidence: 0.9, x: 100, y: 100, width: 90, height: 40 },
+        { class: 'Hookworm egg', confidence: 0.82, x: 101, y: 100, width: 90, height: 40 }
+      ]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.2 });
+
+    expect(detections).toHaveLength(1);
+    expect(detections[0].class).toBe('Hookworm egg');
+    expect(detections[0].confidence).toBeCloseTo(0.9);
+    expect(detections[0].reclassifiedFrom).toBe('Ascaris lumbricoides');
+  });
+
   it('leaves a genuinely round Ascaris ovum alone', async () => {
     vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
     vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
@@ -1360,6 +1406,26 @@ describe('inference proxy', () => {
     expect(detections[0].class).toBe('Hookworm egg');
     // The strongest box is the one that survives.
     expect(detections[0].confidence).toBeCloseTo(0.9);
+  });
+
+  it('uses the requested IoU threshold for duplicate suppression', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [
+        { class: 'Hookworm egg', confidence: 0.9, x: 100, y: 100, width: 30, height: 30 },
+        { class: 'Hookworm egg', confidence: 0.82, x: 107, y: 100, width: 30, height: 30 }
+      ]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', {
+      confidence: 0.2,
+      iou: 0.8
+    });
+
+    expect(detections).toHaveLength(2);
   });
 
   it('keeps boxes of different classes that overlap in the same field', async () => {
