@@ -4,7 +4,7 @@
  * Every request carries the session cookie; the model credential never appears
  * here because it never leaves the server.
  */
-import type { Analysis, LaboratoryReport, Patient, Sample } from '../types';
+import type { Analysis, DetectionImage, LaboratoryReport, Patient, Sample } from '../types';
 
 export class ApiError extends Error {
   status: number;
@@ -321,6 +321,12 @@ export interface ManualDetection {
   height: number;
   note?: string;
   imageRef?: string;
+  /**
+   * Crop of the slide at the box, stored with the finding so the mark can be
+   * reviewed later against the same picture. The server treats it as
+   * evidence, not as a requirement: the finding is recorded either way.
+   */
+  imageData?: string;
 }
 
 export interface SpecimenSlide {
@@ -379,10 +385,22 @@ export const analysesApi = {
 // ------------------------------------------------------------ detections ----
 
 export const detectionsApi = {
-  adjudicate: (id: string, decision: { confirmed?: boolean; rejected?: boolean }) =>
+  /**
+   * Records a ruling on a candidate.
+   *
+   * `imageData` carries the crop of the slide at the box, so what the
+   * technologist was looking at when they confirmed or rejected it is stored
+   * with the ruling. It is evidence, not a precondition: the ruling is the
+   * clinical act and is recorded whether or not a picture travels with it.
+   */
+  adjudicate: (
+    id: string,
+    decision: { confirmed?: boolean; rejected?: boolean },
+    imageData?: string
+  ) =>
     request<{ detection: Analysis['detections'][number] }>(`/detections/${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      body: JSON.stringify(decision)
+      body: JSON.stringify({ ...decision, imageData })
     }),
 
   /**
@@ -396,6 +414,26 @@ export const detectionsApi = {
       method: 'POST',
       body: JSON.stringify(detection)
     })
+};
+
+// ------------------------------------------------------ detection images ----
+
+export const detectionImagesApi = {
+  /**
+   * The evidence pictures saved against an analysis.
+   *
+   * Listed without their payloads: the review panel only needs to know which
+   * findings have a picture and what decision it recorded, and carrying every
+   * crop would make reloading an analysis carry the specimen's images again.
+   */
+  list: (analysisId: string) =>
+    request<{ images: DetectionImage[] }>(
+      `/analyses/${encodeURIComponent(analysisId)}/detection-images`
+    ),
+
+  /** One saved picture, with the crop itself. */
+  detail: (id: string) =>
+    request<{ image: DetectionImage }>(`/detection-images/${encodeURIComponent(id)}`)
 };
 
 // --------------------------------------------------------------- reports ----

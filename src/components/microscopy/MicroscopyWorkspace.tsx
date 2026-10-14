@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Patient, Sample, Analysis, AIModelConfig, Detection, LaboratoryReport } from '../../types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Patient, Sample, Analysis, AIModelConfig, Detection, DetectionImage, LaboratoryReport } from '../../types';
 import { MicroscopeViewer } from './MicroscopeViewer';
 import { TechnologistReview } from './TechnologistReview';
 import {
@@ -28,7 +28,7 @@ import {
   clearCachedSlide
 } from '../../lib/slideCache';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
-import { ApiError, samplesApi } from '../../services/api';
+import { ApiError, detectionImagesApi, samplesApi } from '../../services/api';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
 // The Roboflow workflow id ("labsight-vlabsight-3-yolo26m-t1-logic") and the
@@ -286,6 +286,74 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     samples.find(s => s.id === activeAnalysis?.sampleId) ||
     samples.find(s => s.id === pendingSampleId) ||
     (pendingSampleId ? undefined : firstUnanalyzedSample);
+
+  /**
+   * The pictures saved with this analysis's decisions.
+   *
+   * Listed without their payloads, so the panel can show which findings have
+   * one without carrying every crop. Refreshed when the analysis changes and
+   * after any ruling, since a ruling is what creates the picture.
+   */
+  const [evidenceImages, setEvidenceImages] = useState<DetectionImage[]>([]);
+  const [evidenceVersion, setEvidenceVersion] = useState(0);
+
+  useEffect(() => {
+    const analysisId = activeAnalysis?.id;
+    if (!analysisId) {
+      setEvidenceImages([]);
+      return;
+    }
+
+    let current = true;
+    detectionImagesApi
+      .list(analysisId)
+      .then(({ images }) => {
+        if (current) setEvidenceImages(images);
+      })
+      .catch(() => {
+        // The panel is the evidence, not the review: a read failure leaves the
+        // findings list intact and the operator can still rule on them.
+        if (current) setEvidenceImages([]);
+      });
+
+    return () => {
+      current = false;
+    };
+  }, [activeAnalysis?.id, evidenceVersion]);
+
+  /** Runs a ruling, then refreshes the saved pictures it produced. */
+  const runDecision = useCallback(async (work: () => void | Promise<void>) => {
+    try {
+      await work();
+    } finally {
+      // Refreshed whether or not the ruling landed, so a failure cannot leave a
+      // picture on screen that the database does not hold.
+      setEvidenceVersion(version => version + 1);
+    }
+  }, []);
+
+  const handleToggleConfirm = useCallback(
+    (id: string) => runDecision(() => onToggleConfirmDetection(activeAnalysis!.id, id)),
+    [runDecision, onToggleConfirmDetection, activeAnalysis]
+  );
+
+  const handleRejectDetection = useCallback(
+    (id: string) => runDecision(() => onRejectDetection(activeAnalysis!.id, id)),
+    [runDecision, onRejectDetection, activeAnalysis]
+  );
+
+  const handleConfirmAll = useCallback(
+    () => runDecision(() => onConfirmAllDetections(activeAnalysis!.id)),
+    [runDecision, onConfirmAllDetections, activeAnalysis]
+  );
+
+  const handleAddManualDetection = useCallback(
+    (det: Omit<Detection, 'id'>) =>
+      runDecision(() =>
+        onAddManualDetection(activeAnalysis!.id, { ...det, imageRef: activeSlideRef })
+      ),
+    [runDecision, onAddManualDetection, activeAnalysis, activeSlideRef]
+  );
 
   useEffect(() => {
     const sampleId = activeSample?.id;
@@ -1418,9 +1486,9 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             detections={activeAnalysis.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef)}
             selectedDetectionId={selectedDetectionId}
             onSelectDetection={id => setSelectedDetectionId(id)}
-            onToggleConfirm={id => onToggleConfirmDetection(activeAnalysis.id, id)}
-            onRejectDetection={id => onRejectDetection(activeAnalysis.id, id)}
-            onAddManualDetection={det => onAddManualDetection(activeAnalysis.id, { ...det, imageRef: activeSlideRef })}
+            onToggleConfirm={handleToggleConfirm}
+            onRejectDetection={handleRejectDetection}
+            onAddManualDetection={handleAddManualDetection}
             objective={activeSample.objective}
             totalMagnification={activeSample.totalMagnification}
             slideLabel={activeSample.slideLabel}
@@ -1449,11 +1517,12 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
             sample={activeSample}
             slideNames={Object.fromEntries(slideChoices.map(slide => [slide.id, slide.name]))}
             activeSlideRef={activeSlideRef}
-            onConfirmAll={() => onConfirmAllDetections(activeAnalysis.id)}
+            evidenceImages={evidenceImages}
+            onConfirmAll={handleConfirmAll}
             onSelectDetection={id => setSelectedDetectionId(id)}
             selectedDetectionId={selectedDetectionId}
-            onToggleConfirmDetection={id => onToggleConfirmDetection(activeAnalysis.id, id)}
-            onRejectDetection={id => onRejectDetection(activeAnalysis.id, id)}
+            onToggleConfirmDetection={handleToggleConfirm}
+            onRejectDetection={handleRejectDetection}
             onSaveNotes={(notes, impression) =>
               onSaveAnalysisNotes(activeAnalysis.id, notes, impression)
             }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Analysis, Patient, Sample } from '../../types';
+import { Analysis, Detection, DetectionImage, Patient, Sample } from '../../types';
 import {
   orderImageRefs,
   imageRefLabel,
@@ -7,6 +7,7 @@ import {
   targetsHeading,
   allSourcesOptionLabel
 } from '../../lib/slideSources';
+import { detectionImagesApi } from '../../services/api';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -17,8 +18,19 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ChevronUp,
-  Layers
+  Layers,
+  Image as ImageIcon,
+  X,
+  Loader2
 } from 'lucide-react';
+
+/** How a saved decision is described, so the panel never shows a bare enum. */
+const SOURCE_LABELS: Record<DetectionImage['source'], string> = {
+  manual_label: 'Marked by hand',
+  confirmed: 'Confirmed',
+  rejected: 'Rejected',
+  reset: 'Confirmation released'
+};
 
 interface TechnologistReviewProps {
   analysis: Analysis;
@@ -28,6 +40,8 @@ interface TechnologistReviewProps {
   slideNames?: Record<string, string>;
   /** Image ref currently shown in the viewer, used by the "current image" filter. */
   activeSlideRef?: string;
+  /** Pictures saved with this analysis's decisions, without their payloads. */
+  evidenceImages?: DetectionImage[];
   onConfirmAll: () => void;
   onSelectDetection: (id: string | null) => void;
   selectedDetectionId?: string | null;
@@ -43,6 +57,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
   sample,
   slideNames = {},
   activeSlideRef,
+  evidenceImages = [],
   onConfirmAll,
   onSelectDetection,
   selectedDetectionId,
@@ -61,6 +76,34 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
   // one slide while working through a multi-image scan.
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [criticalCalloutLogged, setCriticalCalloutLogged] = useState<string | null>(null);
+
+  // The saved picture being reviewed, and what it shows. The list carries no
+  // payloads, so the crop itself is fetched when a finding's picture is opened.
+  const [viewingImageId, setViewingImageId] = useState<string | null>(null);
+  const [viewingImage, setViewingImage] = useState<DetectionImage | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  const openEvidenceImage = async (imageId: string) => {
+    setViewingImageId(imageId);
+    setViewingImage(null);
+    setImageError(null);
+    try {
+      const { image } = await detectionImagesApi.detail(imageId);
+      setViewingImage(image);
+    } catch {
+      setImageError('This saved image could not be opened. It may have been removed.');
+    }
+  };
+
+  const closeEvidenceImage = () => {
+    setViewingImageId(null);
+    setViewingImage(null);
+    setImageError(null);
+  };
+
+  /** Every saved picture of one finding, in the order the decisions were made. */
+  const evidenceFor = (detection: Detection) =>
+    evidenceImages.filter(image => image.detectionId === detection.id);
 
   const hasCriticalFindings = analysis.findings.some(f => f.clinicalSignificance === 'critical');
 
@@ -375,6 +418,7 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
             ) : (
               filteredDetections.map(det => {
                 const isSelected = det.id === selectedDetectionId;
+                const evidence = evidenceFor(det);
 
                 return (
                   <div
@@ -443,6 +487,24 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5">
+                      {evidence.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            void openEvidenceImage(evidence[evidence.length - 1].id);
+                          }}
+                          className="p-1 rounded-md text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/60 cursor-pointer"
+                          title={
+                            evidence.length === 1
+                              ? `View the image saved with this finding (${SOURCE_LABELS[evidence[0].source].toLowerCase()})`
+                              : `View the ${evidence.length} images saved with this finding`
+                          }
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={e => {
@@ -548,6 +610,82 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
           <span>Release Diagnostic Report</span>
         </button>
       </div>
+
+      {/* The picture a decision was made on. Stored with the finding so the
+          ruling can be reviewed against the same evidence rather than a
+          description of it. */}
+      {viewingImageId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Saved image for this finding"
+          onClick={closeEvidenceImage}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+              <span className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
+                <ImageIcon className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                Saved Image
+              </span>
+              <button
+                type="button"
+                onClick={closeEvidenceImage}
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {viewingImage ? (
+                <>
+                  <div className="flex items-center justify-center rounded-lg bg-slate-950 p-2">
+                    {viewingImage.imageData ? (
+                      <img
+                        src={viewingImage.imageData}
+                        alt={`${viewingImage.className} as ${SOURCE_LABELS[viewingImage.source].toLowerCase()} on this specimen`}
+                        className="max-h-72 max-w-full object-contain"
+                      />
+                    ) : (
+                      <p className="p-6 text-xs italic text-slate-400">
+                        This image is stored without its crop.
+                      </p>
+                    )}
+                  </div>
+                  <dl className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-400 dark:text-slate-500">Decision</dt>
+                      <dd className="font-semibold">{SOURCE_LABELS[viewingImage.source]}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-400 dark:text-slate-500">Class at the time</dt>
+                      <dd className="font-semibold italic">{viewingImage.className}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-400 dark:text-slate-500">Saved</dt>
+                      <dd className="font-semibold">
+                        {new Date(viewingImage.createdAt).toLocaleString()}
+                      </dd>
+                    </div>
+                  </dl>
+                </>
+              ) : imageError ? (
+                <p className="p-6 text-center text-xs text-rose-600 dark:text-rose-400">{imageError}</p>
+              ) : (
+                <p className="flex items-center justify-center gap-2 p-6 text-xs text-slate-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Opening saved image...
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

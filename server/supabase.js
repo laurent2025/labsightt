@@ -914,6 +914,109 @@ export async function adjudicateSupabaseDetection(supabase, id, { confirmed, rej
   return mapSupabaseDetection(data);
 }
 
+// ------------------------------------------------------ detection images ----
+
+/**
+ * The crop a technologist was looking at when they made a decision.
+ *
+ * A finding records a class and a box; it does not record what was inside the
+ * box. Every mark made by hand and every confirm/reject therefore stores the
+ * picture it was made on, so the decision can be reviewed later against the
+ * same evidence and the confirmed crops can be re-read as labelled examples.
+ *
+ * Append-only: a changed decision adds a row rather than rewriting one, so the
+ * sequence of decisions on one finding survives.
+ */
+export async function createSupabaseDetectionImage(
+  supabase,
+  {
+    id,
+    detectionId,
+    analysisId,
+    imageRef,
+    className,
+    source,
+    imageData,
+    createdAt,
+    createdBy
+  }
+) {
+  const row = {
+    id,
+    detection_id: detectionId,
+    analysis_id: analysisId,
+    image_ref: imageRef ?? 'primary',
+    class_name: className,
+    source,
+    // A crop of a specimen is PHI in its own right, so it is stored as
+    // ciphertext exactly like the slide it was taken from.
+    image_data: encryptPHI(imageData),
+    created_at: createdAt,
+    created_by: createdBy ?? null
+  };
+
+  let { data, error } = await supabase
+    .from('detection_images')
+    .insert(row)
+    .select('id, detection_id, analysis_id, image_ref, class_name, source, created_at')
+    .single();
+
+  // The table is added by the same schema.sql as the rest, but a database whose
+  // columns PostgREST has not reloaded yet still rejects the row by name. The
+  // evidence is what the decision was made on, so it is kept whenever the
+  // database allows any form of the write rather than losing the decision.
+  const optional = ['image_ref'];
+  for (let attempt = 0; error && attempt < optional.length; attempt += 1) {
+    const missing = missingColumnFromError(error);
+    if (!missing || !optional.includes(missing)) break;
+    delete row[missing];
+    ({ data, error } = await supabase
+      .from('detection_images')
+      .insert(row)
+      .select('id, detection_id, analysis_id, image_ref, class_name, source, created_at')
+      .single());
+  }
+
+  if (error) throw error;
+  return mapSupabaseDetectionImage(data);
+}
+
+/** Every evidence image of an analysis, oldest first, without the payload. */
+export async function listSupabaseDetectionImages(supabase, analysisId) {
+  const { data, error } = await supabase
+    .from('detection_images')
+    .select('id, detection_id, analysis_id, image_ref, class_name, source, created_at')
+    .eq('analysis_id', analysisId)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapSupabaseDetectionImage);
+}
+
+/** One evidence image with its payload, or null when it does not exist. */
+export async function getSupabaseDetectionImage(supabase, id) {
+  const { data, error } = await supabase
+    .from('detection_images')
+    .select('id, detection_id, analysis_id, image_ref, class_name, source, image_data, created_at')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapSupabaseDetectionImage(data) : null;
+}
+
+function mapSupabaseDetectionImage(row) {
+  return {
+    id: row.id,
+    detectionId: row.detection_id,
+    analysisId: row.analysis_id,
+    imageRef: row.image_ref ?? 'primary',
+    className: row.class_name,
+    source: row.source,
+    imageData: row.image_data ? decryptPHI(row.image_data) : undefined,
+    createdAt: row.created_at
+  };
+}
+
 /**
  * Stores a finding a technologist marked by hand, alongside the model's own.
  *

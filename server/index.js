@@ -52,6 +52,9 @@ import {
   finalizeSupabaseAnalysis,
   adjudicateSupabaseDetection,
   createSupabaseDetection,
+  createSupabaseDetectionImage,
+  listSupabaseDetectionImages,
+  getSupabaseDetectionImage,
   setSupabaseUserApproval,
   listSupabaseReports,
   getSupabaseReport,
@@ -267,6 +270,68 @@ function missingColumnFromMessage(error) {
   return match ? match[1] : null;
 }
 
+/** Data URLs the evidence endpoints accept, and the largest one, in characters. */
+const EVIDENCE_IMAGE_PATTERN = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=\s]+$/;
+const EVIDENCE_IMAGE_MAX_CHARS = 4 * 1024 * 1024;
+
+/**
+ * What decision an evidence picture is being stored for.
+ *
+ * The three decisions that matter are a mark made by hand, a candidate the
+ * technologist agreed with, and one they rejected — the rejected crops are as
+ * valuable as the confirmed ones, because they are what a future detector has
+ * to learn to stop predicting. Releasing a confirmation is recorded too, since
+ * undoing a decision is itself a decision someone may later have to explain.
+ */
+function adjudicationSource({ manual, confirmed, rejected }) {
+  if (manual) return 'manual_label';
+  if (rejected) return 'rejected';
+  if (confirmed) return 'confirmed';
+  return 'reset';
+}
+
+/**
+ * Stores the picture a decision was made on.
+ *
+ * Everything here is best-effort by design: the decision itself has already
+ * been written, and a clinical record that loses a ruling because its thumbnail
+ * failed to save would be the wrong trade. A failure is logged by the caller's
+ * audit trail rather than surfaced to the technologist, who cannot act on it.
+ *
+ * Returns the stored row, or null when there was no picture to store.
+ */
+async function storeDetectionEvidence(db, supabase, {
+  detectionId,
+  analysisId,
+  imageRef,
+  className,
+  source,
+  imageData,
+  user
+}) {
+  // The client crops the box before sending it, so a missing or malformed
+  // payload means there is nothing to store rather than something to reject.
+  if (typeof imageData !== 'string' || !EVIDENCE_IMAGE_PATTERN.test(imageData)) {
+    return null;
+  }
+
+  const record = {
+    id: newId('dimg'),
+    detectionId,
+    analysisId,
+    imageRef,
+    className,
+    source,
+    imageData: imageData.slice(0, EVIDENCE_IMAGE_MAX_CHARS),
+    createdAt: new Date().toISOString(),
+    createdBy: supabaseActorId(user)
+  };
+
+  return supabase
+    ? createSupabaseDetectionImage(supabase, record)
+    : repo.createDetectionImage(db, record);
+}
+
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   const db = openDatabase(dbPath);
   installImmutabilityGuards(db);
@@ -391,7 +456,53 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       JOIN patients p ON p.id = s.patient_id
       WHERE s.id = ?
     `).get(sampleId);
+
     return Boolean(sample && (sample.created_by === req.user.id || sample.patient_created_by === req.user.id));
+  }
+
+  /**
+   * Whether the signed-in user may read anything derived from this analysis.
+   *
+   * The same rule the analysis endpoints apply: an administrator may read
+   * everything, and anyone else may read what they initiated or what belongs to
+   * a patient they registered. Saved evidence pictures are as sensitive as the
+   * specimen they were cropped from, so they get the same gate.
+   */
+  async function canAccessAnalysis(req, analysisId, supabase) {
+    if (req.user.role === 'admin') return true;
+
+    if (supabase) {
+      const { data: analysis, error } = await supabase
+        .from('analyses')
+        .select('initiated_by, sample_id')
+        .eq('id', analysisId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!analysis) return false;
+      if (analysis.initiated_by === req.user.id) return true;
+
+      const { data: sample, error: sampleError } = await supabase
+        .from('samples')
+        .select('patient_id')
+        .eq('id', analysis.sample_id)
+        .maybeSingle();
+      if (sampleError) throw sampleError;
+      if (!sample?.patient_id) return false;
+      return assertSupabaseOwnership(supabase, 'patients', 'id', sample.patient_id, 'created_by', req.user.id);
+    }
+
+    const analysis = db.prepare(`
+      SELECT a.initiated_by, p.created_by AS patient_created_by
+      FROM analyses a
+      JOIN samples s ON s.id = a.sample_id
+      JOIN patients p ON p.id = s.patient_id
+      WHERE a.id = ?
+    `).get(analysisId);
+
+    return Boolean(
+      analysis &&
+        (analysis.initiated_by === req.user.id || analysis.patient_created_by === req.user.id)
+    );
   }
 
   healthRoutes(app, db);
@@ -1708,10 +1819,13 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
    * written as a real detection the server holds — confirmed and attributed —
    * rather than living only in the browser tab that created it. A finding that
    * disappears on reload is a lost clinical observation, not a lost convenience.
+   *
+   * The crop the mark was drawn on is stored with it, so the mark can be
+   * reviewed later against the same picture and read back as a labelled example.
    */
   app.post('/api/detections', auth, async (req, res, next) => {
     try {
-      const { analysisId, className, confidence, x, y, width, height, note, imageRef } = req.body ?? {};
+      const { analysisId, className, confidence, x, y, width, height, note, imageRef, imageData } = req.body ?? {};
 
       if (typeof analysisId !== 'string' || !analysisId.trim()) {
         return res.status(400).json({ error: 'An analysis is required to record a manual finding.' });
@@ -1777,6 +1891,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           .update({ total_detections: (Number(analysisRow.total_detections) || 0) + 1 })
           .eq('id', analysisId);
 
+        await storeDetectionEvidence(db, supabase, {
+          detectionId: detection.id,
+          analysisId,
+          imageRef: detection.imageRef,
+          className: detection.class,
+          source: adjudicationSource({ manual: true }),
+          imageData,
+          user: req.user
+        });
+
         appendAudit(db, {
           actorId: req.user.id,
           actorName: req.user.display_name,
@@ -1821,6 +1945,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       db.prepare('UPDATE analyses SET total_detections = COALESCE(total_detections, 0) + 1 WHERE id = ?')
         .run(analysisId);
 
+      await storeDetectionEvidence(db, null, {
+        detectionId: id,
+        analysisId,
+        imageRef: imageRef ?? 'primary',
+        className: className.trim(),
+        source: adjudicationSource({ manual: true }),
+        imageData,
+        user: req.user
+      });
+
       appendAudit(db, {
         actorId: req.user.id,
         actorName: req.user.display_name,
@@ -1842,6 +1976,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     try {
       const confirmed = req.body?.confirmed;
       const rejected = req.body?.rejected;
+      const imageData = req.body?.imageData;
       if (typeof confirmed !== 'boolean' && typeof rejected !== 'boolean') {
         return res.status(400).json({ error: 'Please provide confirmed: true or rejected: true to record your decision.' });
       }
@@ -1883,6 +2018,20 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           rejected: nextRejected,
           userId: supabaseActorId(req.user)
         });
+
+        // The picture the ruling was made on is kept with it, so the ruling can
+        // be reviewed against the same evidence and the crop — confirmed or
+        // rejected alike — can be read back later as a labelled example.
+        await storeDetectionEvidence(db, supabase, {
+          detectionId: req.params.id,
+          analysisId: detRow.analysis_id,
+          imageRef: result.imageRef,
+          className: result.class,
+          source: adjudicationSource({ manual: result.manual, confirmed: nextConfirmed, rejected: nextRejected }),
+          imageData,
+          user: req.user
+        });
+
         appendAudit(db, {
           actorId: req.user.id,
           actorName: req.user.display_name,
@@ -1912,6 +2061,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         WHERE id = ?
       `).run(nextConfirmed ? 1 : 0, nextRejected ? 1 : 0, req.user.id, new Date().toISOString(), req.params.id);
 
+      await storeDetectionEvidence(db, null, {
+        detectionId: req.params.id,
+        analysisId: detection.analysis_id,
+        imageRef: detection.image_ref ?? 'primary',
+        className: detection.class_name,
+        source: adjudicationSource({ manual: Boolean(detection.manual), confirmed: nextConfirmed, rejected: nextRejected }),
+        imageData,
+        user: req.user
+      });
+
       appendAudit(db, {
         actorId: req.user.id,
         actorName: req.user.display_name,
@@ -1926,6 +2085,82 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           db.prepare('SELECT * FROM detections WHERE id = ?').get(req.params.id)
         )
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * The evidence pictures saved against an analysis.
+   *
+   * Listed without their payload: the review panel only needs to know which
+   * findings have a picture and what decision it recorded, and sending every
+   * crop with the list would make reloading an analysis carry the whole
+   * specimen's images again. The picture itself is fetched by id.
+   */
+  app.get('/api/analyses/:id/detection-images', auth, async (req, res, next) => {
+    try {
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+
+      if (supabase) {
+        const { data: analysisRow, error: analysisError } = await supabase
+          .from('analyses')
+          .select('id, sample_id, initiated_by')
+          .eq('id', req.params.id)
+          .maybeSingle();
+        if (analysisError) throw analysisError;
+        if (!analysisRow) {
+          return res.status(404).json({ error: 'This analysis could not be found. It may have been removed.' });
+        }
+        if (!(await canAccessAnalysis(req, req.params.id, supabase))) {
+          return res.status(403).json({ error: 'You can only view saved images for specimens you have registered or analysed.' });
+        }
+
+        const images = await listSupabaseDetectionImages(supabase, req.params.id);
+        return res.json({ images });
+      }
+
+      const analysis = db
+        .prepare('SELECT status, initiated_by, sample_id FROM analyses WHERE id = ?')
+        .get(req.params.id);
+      if (!analysis) {
+        return res.status(404).json({ error: 'This analysis could not be found. It may have been removed.' });
+      }
+      if (!(await canAccessAnalysis(req, req.params.id, null))) {
+        return res.status(403).json({ error: 'You can only view saved images for specimens you have registered or analysed.' });
+      }
+
+      return res.json({ images: repo.listDetectionImages(db, req.params.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /** One saved evidence picture, with the crop itself. */
+  app.get('/api/detection-images/:id', auth, async (req, res, next) => {
+    try {
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+
+      if (supabase) {
+        const image = await getSupabaseDetectionImage(supabase, req.params.id);
+        if (!image) {
+          return res.status(404).json({ error: 'This saved image could not be found. It may have been removed.' });
+        }
+        if (!(await canAccessAnalysis(req, image.analysisId, supabase))) {
+          return res.status(403).json({ error: 'You can only view saved images for specimens you have registered or analysed.' });
+        }
+        return res.json({ image });
+      }
+
+      const image = repo.getDetectionImage(db, req.params.id);
+      if (!image) {
+        return res.status(404).json({ error: 'This saved image could not be found. It may have been removed.' });
+      }
+      if (!(await canAccessAnalysis(req, image.analysisId, null))) {
+        return res.status(403).json({ error: 'You can only view saved images for specimens you have registered or analysed.' });
+      }
+
+      return res.json({ image });
     } catch (err) {
       next(err);
     }

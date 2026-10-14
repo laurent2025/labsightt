@@ -284,23 +284,54 @@ const MIGRATIONS = [
        ALTER TABLE detections ADD COLUMN reclassified_from TEXT;
      `,
    },
-   {
-     version: 9,
-     name: 'sample-slide-images',
-     up: `
-       CREATE TABLE IF NOT EXISTS sample_slides (
-         id          TEXT PRIMARY KEY,
-         sample_id   TEXT NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
-         name        TEXT NOT NULL,
-         image_data  TEXT NOT NULL,
-         created_at  TEXT NOT NULL,
-         created_by  TEXT REFERENCES users(id)
-       );
-       CREATE INDEX IF NOT EXISTS idx_sample_slides_sample
-         ON sample_slides(sample_id, created_at);
-     `,
-   },
- ];
+    {
+      version: 9,
+      name: 'sample-slide-images',
+      up: `
+        CREATE TABLE IF NOT EXISTS sample_slides (
+          id          TEXT PRIMARY KEY,
+          sample_id   TEXT NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+          name        TEXT NOT NULL,
+          image_data  TEXT NOT NULL,
+          created_at  TEXT NOT NULL,
+          created_by  TEXT REFERENCES users(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_sample_slides_sample
+          ON sample_slides(sample_id, created_at);
+      `,
+    },
+    {
+      version: 11,
+      name: 'detection-images',
+      up: `
+        -- The picture a technologist was looking at when they made a decision.
+        --
+        -- A finding records a class and a box; it does not record what the box
+        -- was drawn around. Every mark made by hand and every confirm/reject
+        -- therefore stores the crop it was made on, so the decision can be
+        -- reviewed later against the same evidence and the confirmed crops can
+        -- be re-read by a detector as labelled examples.
+        --
+        -- Append-only: a decision that is changed adds a row rather than
+        -- rewriting one, so the sequence of decisions on a finding survives.
+        CREATE TABLE IF NOT EXISTS detection_images (
+          id           TEXT PRIMARY KEY,
+          detection_id TEXT NOT NULL REFERENCES detections(id) ON DELETE CASCADE,
+          analysis_id  TEXT NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,
+          image_ref    TEXT,
+          class_name   TEXT NOT NULL,
+          source       TEXT NOT NULL CHECK (source IN ('manual_label','confirmed','rejected','reset')),
+          image_data   TEXT NOT NULL,
+          created_at   TEXT NOT NULL,
+          created_by   TEXT REFERENCES users(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_detection_images_analysis
+          ON detection_images(analysis_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_detection_images_detection
+          ON detection_images(detection_id, created_at);
+      `,
+    },
+  ];
 
 export function openDatabase(path) {
   if (path !== ':memory:') {

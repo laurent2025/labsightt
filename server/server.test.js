@@ -2117,3 +2117,255 @@ describe('manual detection', () => {
     expect(res.body.error).toMatch(/verified/i);
   });
 });
+
+/**
+ * The picture a decision was made on.
+ *
+ * A finding records a class and a box; it does not record what was inside the
+ * box. These rows hold the crop itself, so a ruling can be reviewed against the
+ * same evidence and read back later as a labelled example. The decision is the
+ * clinical act, so the tests here check that the picture never stands in its
+ * way: a missing or malformed crop costs the picture, never the finding.
+ */
+describe('detection images', () => {
+  // A real, tiny JPEG: the endpoint checks the payload is a decodable image
+  // shape, and a placeholder string would test the rejection path instead.
+  const CROP = `data:image/jpeg;base64,${Buffer.from(
+    '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q=='
+  ).toString('base64')}`;
+
+  it('stores the crop a manual mark was drawn on', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const created = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Ascaris lumbricoides',
+      confidence: 1.0,
+      x: 300,
+      y: 200,
+      width: 40,
+      height: 36,
+      imageRef: 'primary',
+      imageData: CROP
+    });
+    expect(created.status).toBe(201);
+
+    const listed = await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.status).toBe(200);
+    expect(listed.body.images).toHaveLength(1);
+    // The list carries no payloads; it says what the picture evidences and
+    // which finding it belongs to.
+    expect(listed.body.images[0]).toMatchObject({
+      detectionId: created.body.detection.id,
+      analysisId: analysis,
+      className: 'Ascaris lumbricoides',
+      source: 'manual_label',
+      imageRef: 'primary'
+    });
+    expect(listed.body.images[0].imageData).toBeUndefined();
+
+    const fetched = await tech.get(`/api/detection-images/${encodeURIComponent(listed.body.images[0].id)}`);
+    expect(fetched.status).toBe(200);
+    expect(fetched.body.image.imageData).toBe(CROP);
+  });
+
+  it('stores the crop at rest as ciphertext, like the slide it came from', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const created = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 120,
+      y: 90,
+      width: 30,
+      height: 26,
+      imageData: CROP
+    });
+    expect(created.status).toBe(201);
+
+    const stored = db.prepare('SELECT image_data FROM detection_images WHERE detection_id = ?')
+      .get(created.body.detection.id);
+    expect(stored).toBeDefined();
+    expect(stored.image_data).not.toBe(CROP);
+    expect(decryptPHI(stored.image_data)).toBe(CROP);
+  });
+
+  it('records the crop a confirmation was made on', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+    insertDetection('det-confirm', analysis);
+
+    const res = await tech.patch('/api/detections/det-confirm', { confirmed: true, imageData: CROP });
+    expect(res.status).toBe(200);
+
+    const listed = await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.body.images).toHaveLength(1);
+    expect(listed.body.images[0]).toMatchObject({
+      detectionId: 'det-confirm',
+      source: 'confirmed'
+    });
+  });
+
+  it('records the crop a rejection was made on', async () => {
+    // A rejected crop is as valuable as a confirmed one: it is what a future
+    // detector has to learn not to predict.
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+    insertDetection('det-reject', analysis);
+
+    const res = await tech.patch('/api/detections/det-reject', { rejected: true, imageData: CROP });
+    expect(res.status).toBe(200);
+
+    const listed = await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.body.images).toHaveLength(1);
+    expect(listed.body.images[0]).toMatchObject({ detectionId: 'det-reject', source: 'rejected' });
+
+    const fetched = await tech.get(`/api/detection-images/${encodeURIComponent(listed.body.images[0].id)}`);
+    expect(fetched.body.image.imageData).toBe(CROP);
+  });
+
+  it('keeps every ruling when a decision is changed, so the sequence survives', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+    insertDetection('det-reversed', analysis);
+
+    await tech.patch('/api/detections/det-reversed', { confirmed: true, imageData: CROP });
+    await tech.patch('/api/detections/det-reversed', { rejected: true, imageData: CROP });
+
+    const listed = await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.body.images.map(image => image.source)).toEqual(['confirmed', 'rejected']);
+  });
+
+  it('records a ruling with no crop rather than failing on a missing one', async () => {
+    // The ruling is the clinical act; the picture is evidence. A client that
+    // cannot crop still gets its decision recorded.
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+    insertDetection('det-nocrop', analysis);
+
+    const res = await tech.patch('/api/detections/det-nocrop', { confirmed: true });
+    expect(res.status).toBe(200);
+    expect(res.body.detection.confirmed).toBe(true);
+
+    const listed = await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.body.images).toHaveLength(0);
+  });
+
+  it('records a manual finding made without a crop', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const created = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 20
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.detection).toMatchObject({ class: 'Hookworm egg', manual: true });
+
+    const listed = await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.body.images).toHaveLength(0);
+  });
+
+  it('ignores a payload that is not an image instead of storing it', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const created = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 20,
+      imageData: 'not-an-image'
+    });
+    expect(created.status).toBe(201);
+
+    const listed = await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.body.images).toHaveLength(0);
+  });
+
+  it('drops saved images with the finding they belong to', async () => {
+    // A crop is evidence about one finding; an orphan would outlive the
+    // decision it explained. Operators never hard-delete a specimen, so the
+    // cascade is exercised the way the schema guarantees it.
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const created = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 20,
+      imageData: CROP
+    });
+    expect(created.status).toBe(201);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM detection_images').get().n).toBe(1);
+
+    // Removing the analysis removes the findings it holds, and with them every
+    // crop stored against those findings.
+    db.prepare('DELETE FROM analyses WHERE id = ?').run(analysis);
+
+    expect(db.prepare('SELECT COUNT(*) AS n FROM detections WHERE analysis_id = ?').get(analysis).n).toBe(0);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM detection_images').get().n).toBe(0);
+  });
+
+  it('refuses a saved image belonging to another operator', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const other = authed(await login('super1', 'super-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const created = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 20,
+      imageData: CROP
+    });
+    const imageId = (
+      await tech.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`)
+    ).body.images[0].id;
+
+    const listed = await other.get(`/api/analyses/${encodeURIComponent(analysis)}/detection-images`);
+    expect(listed.status).toBe(403);
+
+    const fetched = await other.get(`/api/detection-images/${encodeURIComponent(imageId)}`);
+    expect(fetched.status).toBe(403);
+
+    expect(created.status).toBe(201);
+  });
+
+  it('reports an unknown analysis without inventing an empty list', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+
+    const res = await tech.get('/api/analyses/ana-missing/detection-images');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/analysis/i);
+  });
+});

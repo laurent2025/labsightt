@@ -87,6 +87,28 @@ export interface Detection {
   reclassifiedFrom?: string;
 }
 
+/**
+ * A picture saved against a finding, of what its decision was made on.
+ *
+ * Cropped from the slide at the box when the finding was marked by hand or
+ * adjudicated, so the ruling can be reviewed later against the same evidence
+ * and the confirmed crops can be re-read as labelled examples.
+ */
+export interface DetectionImage {
+  id: string;
+  detectionId: string;
+  analysisId: string;
+  /** Which uploaded image of the specimen the crop came from. */
+  imageRef: string;
+  /** The class the finding carried when the decision was made. */
+  className: string;
+  /** What decision the crop evidences. */
+  source: 'manual_label' | 'confirmed' | 'rejected' | 'reset';
+  /** The crop itself. Read per image, not with the list. */
+  imageData?: string;
+  createdAt: string;
+}
+
 export interface QuantifiedFinding {
   id: string;
   name: string;

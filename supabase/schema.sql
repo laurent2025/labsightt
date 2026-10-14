@@ -576,6 +576,68 @@ on public.detections(analysis_id, image_ref);
 
 
 -- ============================================================
+-- DETECTION IMAGES
+-- ============================================================
+-- The picture a technologist was looking at when they made a
+-- decision: the crop taken when a finding was marked by hand, and
+-- the crop taken when a candidate was confirmed or rejected.
+--
+-- A finding records a class and a box; it does not record what was
+-- inside the box. These rows hold the picture itself, so a decision
+-- can be reviewed later against the same evidence the technologist
+-- saw, and the confirmed crops can be re-read as labelled examples.
+--
+-- Append-only: a changed decision adds a row rather than rewriting
+-- one, so the sequence of decisions on one finding survives.
+-- ============================================================
+
+create table if not exists public.detection_images (
+
+    id text primary key,
+
+    detection_id text not null
+        references public.detections(id)
+        on delete cascade,
+
+    analysis_id text not null
+        references public.analyses(id)
+        on delete cascade,
+
+    -- Which uploaded image of the specimen the crop came from.
+    image_ref text,
+
+    -- The class the finding carried when the decision was made.
+    class_name text not null,
+
+    -- What decision this picture evidences.
+    source text not null default 'confirmed'
+
+        check (
+            source in (
+                'manual_label',
+                'confirmed',
+                'rejected',
+                'reset'
+            )
+        ),
+
+    image_data text not null,
+
+    created_at timestamptz not null default now(),
+
+    created_by uuid references auth.users(id)
+);
+
+create index if not exists
+idx_detection_images_analysis
+on public.detection_images(analysis_id, created_at);
+
+create index if not exists
+idx_detection_images_detection
+on public.detection_images(detection_id, created_at);
+
+
+-- ============================================================
 -- REPORTS
 -- ============================================================
 
@@ -892,6 +954,8 @@ alter table public.analyses enable row level security;
 
 alter table public.detections enable row level security;
 
+alter table public.detection_images enable row level security;
+
 alter table public.reports enable row level security;
 
 alter table public.audit_log enable row level security;
@@ -1053,6 +1117,29 @@ create policy
 "Approved users can access detections"
 
 on public.detections
+
+for all
+
+to authenticated
+
+using (
+    public.is_lab_user_approved()
+)
+
+with check (
+    public.is_lab_user_approved()
+);
+
+
+drop policy if exists
+"Approved users can access detection images"
+on public.detection_images;
+
+
+create policy
+"Approved users can access detection images"
+
+on public.detection_images
 
 for all
 

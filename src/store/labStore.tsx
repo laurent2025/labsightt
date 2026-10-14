@@ -4,6 +4,7 @@
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from 'react';
@@ -38,6 +39,7 @@ import {
   onSessionExpired,
   type SessionUser
 } from '../services/api';
+import { captureDetectionImage } from '../lib/detectionImages';
 
 export interface UserSession {
   id: string;
@@ -129,6 +131,11 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
   const [storageIssue, setStorageIssue] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  // Stored slide images resolved for cropping evidence, keyed by specimen and
+  // image ref. A cache rather than a fetch per decision: reviewing one analysis
+  // crops from the same slide many times.
+  const slideImagesRef = useRef<Map<string, string>>(new Map());
 
   // Patient list paging and search, held here so the query is server-side and
   // survives navigation away from the list.
@@ -476,6 +483,74 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     [samples]
   );
 
+  /**
+   * The stored image a finding was drawn on, as a data URL.
+   *
+   * `primary` is the specimen's own photograph; anything else is one of its
+   * uploaded slides. The list response carries the photograph but not the rest,
+   * so each is read from where it lives rather than assumed. Resolved images
+   * are remembered for the session, because reviewing one analysis means
+   * cropping from the same slide a dozen times.
+   */
+  const resolveSlideImage = useCallback(
+    async (sampleId: string, imageRef: string): Promise<string | null> => {
+      if (!sampleId) return null;
+      const key = `${sampleId}:${imageRef}`;
+      const cached = slideImagesRef.current.get(key);
+      if (cached) return cached;
+
+      let dataUrl: string | null = null;
+      try {
+        if (!imageRef || imageRef === 'primary') {
+          const stored = samples.find(s => s.id === sampleId)?.imageUrl;
+          if (stored) {
+            dataUrl = stored;
+          } else {
+            const { sample } = await samplesApi.detail(sampleId);
+            dataUrl = sample?.imageUrl ?? null;
+          }
+        } else {
+          const { slides } = await samplesApi.slides(sampleId);
+          dataUrl = slides.find(slide => slide.id === imageRef)?.imageData ?? null;
+        }
+      } catch {
+        // The picture is evidence, not the finding; an unreadable slide costs
+        // the crop, never the decision.
+        return null;
+      }
+
+      if (dataUrl) slideImagesRef.current.set(key, dataUrl);
+      return dataUrl;
+    },
+    [samples]
+  );
+
+  /**
+   * Crops the slide at a finding's box for storing with the decision made on it.
+   *
+   * Always resolves: null means no picture travels, which is a loss of
+   * evidence and never a reason to lose the finding or the ruling itself.
+   */
+  const captureEvidence = useCallback(
+    async (analysisId: string, detection: Pick<Detection, 'x' | 'y' | 'width' | 'height'>, imageRef: string) => {
+      try {
+        const analysis = analyses.find(ana => ana.id === analysisId);
+        if (!analysis) return null;
+        const source = await resolveSlideImage(analysis.sampleId, imageRef);
+        if (!source) return null;
+        return await captureDetectionImage(source, {
+          x: detection.x,
+          y: detection.y,
+          width: detection.width,
+          height: detection.height
+        });
+      } catch {
+        return null;
+      }
+    },
+    [analyses, resolveSlideImage]
+  );
+
   const applyDetection = useCallback(
     async (analysisId: string, detectionId: string, decision: { confirmed?: boolean; rejected?: boolean }) => {
       // Guard against a double submit writing two adjudications for one click.
@@ -500,7 +575,17 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          await detectionsApi.adjudicate(detectionId, decision);
+          // The crop the ruling was made on travels with it, so the ruling can
+          // be reviewed later against the same evidence. A failure costs the
+          // picture, never the ruling: the decision is the clinical act.
+          const finding = analyses
+            .find(ana => ana.id === analysisId)
+            ?.detections.find(det => det.id === detectionId);
+          const imageData = finding
+            ? await captureEvidence(analysisId, finding, finding.imageRef ?? 'primary')
+            : null;
+
+          await detectionsApi.adjudicate(detectionId, decision, imageData ?? undefined);
           setAnalyses(prev =>
             prev.map(ana => {
               if (ana.id !== analysisId) return ana;
@@ -517,7 +602,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         }
       });
     },
-    [requantify, handleError, pendingIds, track]
+    [requantify, handleError, pendingIds, track, analyses, captureEvidence]
   );
 
   const toggleDetectionConfirmation = useCallback(
@@ -556,6 +641,11 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       // proposal, so it is confirmed on arrival and cannot be added to an
       // analysis the server has already locked.
       const imageRef = det.imageRef ?? 'primary';
+      // The crop the mark was drawn on is stored with it, so the mark can be
+      // reviewed later against the same picture and read back as a labelled
+      // example. A failure here costs the picture, never the finding: the
+      // mark is an observation and outlives its own evidence.
+      const imageData = await captureEvidence(analysisId, det, imageRef);
       // The box is written to the server first so the finding survives a
       // reload; a finding that vanished on reload would be a lost clinical
       // observation. Only on success is it added to the local analysis, so a
@@ -571,7 +661,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
           width: det.width,
           height: det.height,
           note: det.note,
-          imageRef
+          imageRef,
+          imageData: imageData ?? undefined
         });
         saved = detection;
       } catch (err) {
@@ -594,7 +685,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         })
       );
     },
-    [requantify, handleError]
+    [requantify, handleError, captureEvidence]
   );
 
   const updateAnalysisNotes = useCallback(

@@ -343,6 +343,86 @@ export function pendingAdjudicationCounts(db, analysisIds) {
   return counts;
 }
 
+// ------------------------------------------------------ detection images ----
+
+/**
+ * The crop a technologist was looking at when they made a decision.
+ *
+ * A finding records a class and a box; it does not record what was inside the
+ * box. These rows hold the picture itself, written when a finding is marked by
+ * hand or adjudicated, so the decision can be reviewed later against the same
+ * evidence the technologist saw and the confirmed crops can be re-read as
+ * labelled examples.
+ *
+ * Append-only: changing a decision adds a row rather than rewriting one, so the
+ * sequence of decisions on one finding survives.
+ */
+export function createDetectionImage(db, {
+  id,
+  detectionId,
+  analysisId,
+  imageRef,
+  className,
+  source,
+  imageData,
+  createdAt,
+  createdBy
+}) {
+  db.prepare(`
+    INSERT INTO detection_images
+      (id, detection_id, analysis_id, image_ref, class_name, source, image_data, created_at, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    detectionId,
+    analysisId,
+    imageRef ?? null,
+    className,
+    source,
+    // A crop of a specimen is PHI in its own right, so it is stored as
+    // ciphertext exactly like the slide it was taken from.
+    encryptPHI(imageData),
+    createdAt,
+    createdBy ?? null
+  );
+  return mapDetectionImage(db.prepare(`
+    SELECT id, detection_id, analysis_id, image_ref, class_name, source, created_at
+    FROM detection_images WHERE id = ?
+  `).get(id));
+}
+
+/** Every evidence image of an analysis, newest last, without the image payload. */
+export function listDetectionImages(db, analysisId) {
+  return db.prepare(`
+    SELECT id, detection_id, analysis_id, image_ref, class_name, source, created_at
+    FROM detection_images
+    WHERE analysis_id = ?
+    ORDER BY created_at, id
+  `).all(analysisId).map(mapDetectionImage);
+}
+
+/** One evidence image with its payload, or null when it does not exist. */
+export function getDetectionImage(db, id) {
+  const row = db.prepare(`
+    SELECT id, detection_id, analysis_id, image_ref, class_name, source, image_data, created_at
+    FROM detection_images WHERE id = ?
+  `).get(id);
+  return row ? mapDetectionImage(row) : null;
+}
+
+function mapDetectionImage(row) {
+  return {
+    id: row.id,
+    detectionId: row.detection_id,
+    analysisId: row.analysis_id,
+    imageRef: row.image_ref ?? 'primary',
+    className: row.class_name,
+    source: row.source,
+    imageData: row.image_data ? decryptPHI(row.image_data) : undefined,
+    createdAt: row.created_at
+  };
+}
+
 // -------------------------------------------------------------- reports ----
 
 export function listReports(db, { limit, offset, status, createdBy } = {}) {
