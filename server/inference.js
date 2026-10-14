@@ -43,7 +43,7 @@ const SAME_OBJECT_IOU = 0.5;
  */
 const SAME_OBJECT_CONTAINMENT = 0.35;
 const DEFAULT_WORKFLOW_ENDPOINT =
-  'https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic';
+  'https://serverless.roboflow.com/laurents-workspace-5cub2/workflows/lenziai-vlenziai-qatyd-1-yolo26s-t1-logic';
 
 /**
  * Reads the inference configuration from environment variables, falling back
