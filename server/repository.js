@@ -401,6 +401,15 @@ export function listDetectionImages(db, analysisId) {
   `).all(analysisId).map(mapDetectionImage);
 }
 
+/** Every evidence image in the system, oldest first, without the payload. */
+export function listAllDetectionImages(db) {
+  return db.prepare(`
+    SELECT id, detection_id, analysis_id, image_ref, class_name, source, created_at
+    FROM detection_images
+    ORDER BY created_at, id
+  `).all().map(mapDetectionImage);
+}
+
 /** One evidence image with its payload, or null when it does not exist. */
 export function getDetectionImage(db, id) {
   const row = db.prepare(`
@@ -567,3 +576,79 @@ function mapReport(row) {
 
 export { mapPatient, mapSample, mapDetection, mapReport };
 export { MAX_LIMIT, DEFAULT_LIMIT };
+
+/** Every uploaded slide in the system, for the scanned-image export. */
+export function listAllSampleSlides(db) {
+  return db.prepare(`
+    SELECT id, sample_id, name, image_data, created_at
+    FROM sample_slides
+    ORDER BY created_at, id
+  `).all().map(mapSampleSlide);
+}
+
+/** Every specimen in the system, oldest first, for the scanned-image export. */
+export function listAllSamples(db) {
+  return db.prepare(`
+    SELECT id, patient_id, sample_type, slide_label, collection_datetime, created_at, image_path
+    FROM samples
+    ORDER BY created_at, id
+  `).all().map(row => ({
+    id: row.id,
+    patientId: row.patient_id,
+    sampleType: row.sample_type,
+    slideLabel: row.slide_label,
+    collectionDatetime: row.collection_datetime,
+    createdAt: row.created_at,
+    imageData: decryptPHI(row.image_path)
+  }));
+}
+
+/** Every analysis in the system, for the scanned-image export. */
+export function listAllAnalyses(db) {
+  return db.prepare(`
+    SELECT id, sample_id
+    FROM analyses
+    ORDER BY started_at, id
+  `).all().map(row => ({ id: row.id, sampleId: row.sample_id }));
+}
+
+/**
+ * Every evidence image in the system with its crop, for the scanned-image
+ * export. The list view omits crops because carrying all of them is what makes
+ * a refresh heavy; the export is the one caller that wants them.
+ */
+export function listAllDetectionImagesWithPayload(db) {
+  return db.prepare(`
+    SELECT id, detection_id, analysis_id, image_ref, class_name, source, image_data, created_at
+    FROM detection_images
+    ORDER BY created_at, id
+  `).all().map(row => ({
+    id: row.id,
+    detectionId: row.detection_id,
+    analysisId: row.analysis_id,
+    imageRef: row.image_ref ?? 'primary',
+    className: row.class_name,
+    source: row.source,
+    imageData: decryptPHI(row.image_data),
+    createdAt: row.created_at
+  }));
+}
+
+/** One uploaded slide with its specimen's label, for the download endpoints. */
+export function getSampleSlide(db, slideId) {
+  const row = db.prepare(`
+    SELECT sl.id, sl.sample_id, sl.name, sl.image_data, sl.created_at, s.slide_label
+    FROM sample_slides sl
+    JOIN samples s ON s.id = sl.sample_id
+    WHERE sl.id = ?
+  `).get(slideId);
+  if (!row) return null;
+  return {
+    id: row.id,
+    sampleId: row.sample_id,
+    name: row.name,
+    imageData: decryptPHI(row.image_data),
+    createdAt: row.created_at,
+    slideLabel: row.slide_label
+  };
+}

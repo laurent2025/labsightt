@@ -54,6 +54,12 @@ import {
   createSupabaseDetection,
   createSupabaseDetectionImage,
   listSupabaseDetectionImages,
+  listAllSupabaseDetectionImages,
+  listAllSupabaseSamplesForExport,
+  listAllSupabaseSampleSlidesForExport,
+  listAllSupabaseAnalysesForExport,
+  listAllSupabaseDetectionImagesWithPayload,
+  getSupabaseSampleSlide,
   getSupabaseDetectionImage,
   setSupabaseUserApproval,
   listSupabaseReports,
@@ -187,6 +193,18 @@ async function readSlide(db, actor, passes, confidence) {
 }
 
 export { readSlide };
+
+export {
+  collectScannedImages,
+  resolveScannedImage,
+  buildScannedImagesZip,
+  encodeZip,
+  zipSafeName,
+  dataUrlToBytes,
+  dataUrlSize,
+  dataUrlExtension,
+  imageContentType
+};
 
 /**
  * True when a stored owner id proves the request came from someone else.
@@ -330,6 +348,358 @@ async function storeDetectionEvidence(db, supabase, {
   return supabase
     ? createSupabaseDetectionImage(supabase, record)
     : repo.createDetectionImage(db, record);
+}
+
+
+/**
+ * How each kind of saved image is described, so a raw enum is never shown.
+ *
+ * These are values an operator reads on a case export, so they read as a
+ * sentence rather than as a column value.
+ */
+const EVIDENCE_SOURCE_LABELS = {
+  manual_label: 'marked by hand',
+  confirmed: 'confirmed',
+  rejected: 'rejected',
+  reset: 'confirmation released'
+};
+
+/**
+ * Every scanned image in the system, as one navigable list.
+ *
+ * A scan is the photograph a specimen was read on and the crops saved against
+ * the findings that read produced. Those live in three different tables, but
+ * for an operator they are one thing — a picture with a name — so they are
+ * flattened into one list of "saved images" the admin views, downloads singly,
+ * or downloads together.
+ *
+ * A specimen with no stored image is skipped rather than listed with nothing
+ * behind it.
+ */
+async function collectScannedImages(db, supabase) {
+  const [samples, slides, evidence, analyses] = supabase
+    ? await Promise.all([
+        listAllSupabaseSamplesForExport(supabase),
+        listAllSupabaseSampleSlidesForExport(supabase),
+        listAllSupabaseDetectionImagesWithPayload(supabase),
+        listAllSupabaseAnalysesForExport(supabase)
+      ])
+    : [
+        repo.listAllSamples(db),
+        repo.listAllSampleSlides(db),
+        repo.listAllDetectionImagesWithPayload(db),
+        repo.listAllAnalyses(db)
+      ];
+
+  const slidesBySample = new Map();
+  for (const slide of slides) {
+    if (!slidesBySample.has(slide.sampleId)) slidesBySample.set(slide.sampleId, []);
+    slidesBySample.get(slide.sampleId).push(slide);
+  }
+
+  const analysesBySample = new Map();
+  for (const analysis of analyses) {
+    if (!analysesBySample.has(analysis.sampleId)) analysesBySample.set(analysis.sampleId, []);
+    analysesBySample.get(analysis.sampleId).push(analysis.id);
+  }
+
+  // Evidence rows belong to an analysis, not to a specimen, so the mapping
+  // through the analysis is what puts a crop in the right specimen's folder.
+  const evidenceByAnalysis = new Map();
+  for (const image of evidence) {
+    if (!evidenceByAnalysis.has(image.analysisId)) evidenceByAnalysis.set(image.analysisId, []);
+    evidenceByAnalysis.get(image.analysisId).push(image);
+  }
+
+  const images = [];
+  for (const sample of samples) {
+    const specimenLabel = sample.slideLabel || sample.id;
+    const specimenImage = sample.imageData
+      ? [
+          {
+            kind: 'specimen',
+            id: sample.id,
+            sampleId: sample.id,
+            specimenLabel,
+            label: 'Specimen image',
+            sampleType: sample.sampleType,
+            createdAt: sample.createdAt,
+            sizeBytes: dataUrlSize(sample.imageData),
+            imageData: sample.imageData
+          }
+        ]
+      : [];
+
+    const slideImages = (slidesBySample.get(sample.id) ?? []).map(slide => ({
+      kind: 'slide',
+      id: slide.id,
+      sampleId: sample.id,
+      specimenLabel,
+      label: slide.name || 'Uploaded slide',
+      sampleType: sample.sampleType,
+      createdAt: slide.createdAt,
+      sizeBytes: dataUrlSize(slide.imageData),
+      imageData: slide.imageData
+    }));
+
+    const evidenceImages = [];
+    for (const analysisId of analysesBySample.get(sample.id) ?? []) {
+      for (const image of evidenceByAnalysis.get(analysisId) ?? []) {
+        evidenceImages.push({
+          kind: 'evidence',
+          id: image.id,
+          sampleId: sample.id,
+          specimenLabel,
+          label: `${image.className || 'Finding'} — ${EVIDENCE_SOURCE_LABELS[image.source] ?? image.source}`,
+          sampleType: sample.sampleType,
+          createdAt: image.createdAt,
+          sizeBytes: dataUrlSize(image.imageData),
+          imageData: image.imageData
+        });
+      }
+    }
+
+    images.push(...specimenImage, ...slideImages, ...evidenceImages);
+  }
+
+  const counts = {
+    specimens: new Set(images.map(image => image.sampleId)).size,
+    specimen: images.filter(image => image.kind === 'specimen').length,
+    slide: images.filter(image => image.kind === 'slide').length,
+    evidence: images.filter(image => image.kind === 'evidence').length
+  };
+
+  return { images, counts };
+}
+
+/**
+ * One saved image, addressed by what it is held as and which row it is.
+ *
+ * A specimen's own photograph, a slide uploaded against it, and a crop saved
+ * against a finding are three different tables with three different id
+ * spaces. Naming the kind resolves the ambiguity without asking the caller to
+ * know which table an id belongs to.
+ */
+async function resolveScannedImage(db, supabase, kind, id) {
+  if (!['specimen', 'slide', 'evidence'].includes(kind)) return null;
+  if (typeof id !== 'string' || !id.trim()) return null;
+
+  if (kind === 'specimen') {
+    const sample = supabase ? await getSupabaseSample(supabase, id) : repo.getSample(db, id);
+    if (!sample?.imageUrl) return null;
+    return {
+      kind,
+      id,
+      sampleId: sample.id,
+      specimenLabel: sample.slideLabel || sample.id,
+      label: 'Specimen image',
+      imageData: sample.imageUrl
+    };
+  }
+
+  if (kind === 'slide') {
+    const slide = supabase
+      ? await getSupabaseSampleSlide(supabase, id)
+      : repo.getSampleSlide(db, id);
+    if (!slide?.imageData) return null;
+    return {
+      kind,
+      id,
+      sampleId: slide.sampleId,
+      specimenLabel: slide.slideLabel || slide.sampleId || 'Specimen',
+      label: slide.name || 'Uploaded slide',
+      imageData: slide.imageData
+    };
+  }
+
+  const image = supabase
+    ? await getSupabaseDetectionImage(supabase, id)
+    : repo.getDetectionImage(db, id);
+  if (!image?.imageData) return null;
+  return {
+    kind,
+    id,
+    sampleId: null,
+    specimenLabel: EVIDENCE_SOURCE_LABELS[image.source] ? image.className || 'Finding' : image.className,
+    label: `${image.className || 'Finding'} — ${EVIDENCE_SOURCE_LABELS[image.source] ?? image.source}`,
+    imageData: image.imageData
+  };
+}
+
+/** A single saved image, with the name it should download under. */
+function scannedImageFile(image) {
+  const bytes = dataUrlToBytes(image.imageData);
+  if (!bytes) return null;
+  const folder = zipSafeName(image.specimenLabel || image.sampleId || 'saved images');
+  const label = zipSafeName(image.label || image.id);
+  return { name: `${folder}/${label}${dataUrlExtension(image.imageData)}`, data: bytes };
+}
+
+/** A zip of the chosen saved images, one folder per specimen. */
+function buildScannedImagesZip(images) {
+  const files = [];
+
+  for (let index = 0; index < images.length; index += 1) {
+    const file = scannedImageFile(images[index]);
+    if (file) files.push({ ...file, name: `${index + 1}_${file.name}` });
+  }
+
+  return encodeZip(files);
+}
+
+/**
+ * The bytes a data URL carries.
+ *
+ * Base64 is four characters for every three bytes, and the trailing padding
+ * is the only part that does not decode, so the size is read off the encoded
+ * length rather than by decoding the whole slide just to count bytes.
+ */
+function dataUrlSize(dataUrl) {
+  if (typeof dataUrl !== 'string') return 0;
+  const comma = dataUrl.indexOf(',');
+  const base64 = comma < 0 ? '' : dataUrl.slice(comma + 1);
+  if (!base64) return 0;
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
+/** Bytes of a data URL, or null when the value is not one. */
+function dataUrlToBytes(dataUrl) {
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) return null;
+  const comma = dataUrl.indexOf(',');
+  if (comma < 0) return null;
+  if (!/;base64$/i.test(dataUrl.slice(0, comma))) return null;
+  try {
+    return Buffer.from(dataUrl.slice(comma + 1), 'base64');
+  } catch {
+    return null;
+  }
+}
+
+/** The extension a data URL's image type calls for. */
+function dataUrlExtension(dataUrl) {
+  const match = /^data:([^;,]+)/i.exec(String(dataUrl ?? ''));
+  if (!match) return '.jpg';
+  const type = match[1].toLowerCase();
+  if (type.includes('png')) return '.png';
+  if (type.includes('webp')) return '.webp';
+  if (type.includes('gif')) return '.gif';
+  return '.jpg';
+}
+
+/** The media type a data URL declares, for the download's content type. */
+function imageContentType(dataUrl) {
+  const match = /^data:([^;,]+)/i.exec(String(dataUrl ?? ''));
+  const type = match ? match[1].toLowerCase() : '';
+  if (type.startsWith('image/')) return type;
+  return 'image/jpeg';
+}
+
+/**
+ * A fragment that is safe inside a zip entry path.
+ *
+ * A slide name is operator input, so it may contain path separators or
+ * characters a filesystem refuses. Keeping letters, digits and a few
+ * separators is enough to stay recognisable, and the length cap keeps the
+ * entry path inside what common unzip tools accept.
+ */
+function zipSafeName(value) {
+  const cleaned = String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80);
+  return cleaned || 'untitled';
+}
+
+/**
+ * A zip file, stored without compression.
+ *
+ * The images are JPEG and the deployment carries no zip library, so
+ * compressing them would cost CPU and save nothing. The format is written
+ * directly: each entry is a local header and its bytes, followed by a central
+ * directory and its end record, which is the shape every unzip tool reads.
+ */
+function encodeZip(files) {
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = Buffer.from(file.name, 'utf8');
+    const crc = crc32(file.data);
+
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); // signature
+    local.writeUInt16LE(20, 4); // version needed
+    local.writeUInt16LE(0, 6); // general purpose flags
+    local.writeUInt16LE(0, 8); // compression: stored
+    local.writeUInt16LE(0, 10); // mod time
+    local.writeUInt16LE(0, 12); // mod date
+    local.writeUInt32LE(crc, 14); // crc-32
+    local.writeUInt32LE(file.data.length, 18); // compressed size
+    local.writeUInt32LE(file.data.length, 22); // uncompressed size
+    local.writeUInt16LE(nameBytes.length, 26); // file name length
+    local.writeUInt16LE(0, 28); // extra field length
+    locals.push(local, nameBytes, file.data);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0); // signature
+    central.writeUInt16LE(20, 4); // version made by
+    central.writeUInt16LE(20, 6); // version needed
+    central.writeUInt16LE(0, 8); // general purpose flags
+    central.writeUInt16LE(0, 10); // compression: stored
+    central.writeUInt16LE(0, 12); // mod time
+    central.writeUInt16LE(0, 14); // mod date
+    central.writeUInt32LE(crc, 16); // crc-32
+    central.writeUInt32LE(file.data.length, 20); // compressed size
+    central.writeUInt32LE(file.data.length, 24); // uncompressed size
+    central.writeUInt16LE(nameBytes.length, 28); // file name length
+    central.writeUInt16LE(0, 30); // extra field length
+    central.writeUInt16LE(0, 32); // comment length
+    central.writeUInt16LE(0, 34); // disk number start
+    central.writeUInt16LE(0, 36); // internal attributes
+    central.writeUInt32LE(0, 38); // external attributes
+    central.writeUInt32LE(offset, 42); // local header offset
+    centrals.push(central, nameBytes);
+
+    offset += 30 + nameBytes.length + file.data.length;
+  }
+
+  const centralDirectory = Buffer.concat(centrals);
+
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); // signature
+  end.writeUInt16LE(0, 4); // this disk
+  end.writeUInt16LE(0, 6); // disk with central directory
+  end.writeUInt16LE(files.length, 8); // entries on this disk
+  end.writeUInt16LE(files.length, 10); // total entries
+  end.writeUInt32LE(centralDirectory.length, 12); // directory size
+  end.writeUInt32LE(offset, 16); // directory offset
+  end.writeUInt16LE(0, 20); // comment length
+
+  return Buffer.concat([...locals, centralDirectory, end]);
+}
+
+/** CRC-32, the checksum every zip local and central header carries. */
+const ZIP_CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) {
+      c = (c & 1) === 1 ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i += 1) {
+    crc = (crc >>> 8) ^ ZIP_CRC32_TABLE[(crc ^ data[i]) & 0xff];
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
@@ -2975,6 +3345,125 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         };
       });
       return res.json({ items, total: totalRow.n, limit, offset });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * Every saved scanned image, as a list an operator can choose from.
+   *
+   * Lists without the images: the admin panel needs the names to offer a
+   * download, and carrying every crop with the list would make opening it as
+   * heavy as downloading the lot. The image itself is fetched by choice.
+   */
+  app.get('/api/admin/scans/images', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+      const { images, counts } = await collectScannedImages(db, supabase);
+
+      res.json({
+        images: images.map(image => ({
+          kind: image.kind,
+          id: image.id,
+          sampleId: image.sampleId,
+          specimenLabel: image.specimenLabel,
+          label: image.label,
+          sampleType: image.sampleType,
+          createdAt: image.createdAt,
+          sizeBytes: image.sizeBytes
+        })),
+        counts
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * Downloads saved scanned images.
+   *
+   * One image as itself, or several as a zip: a handful of pictures are what
+   * an operator takes away for a case review, and a download that only works
+   * for the whole system at once covers none of that. Each image is addressed
+   * by what it is held as and which row it is, because a specimen photograph,
+   * an uploaded slide and a saved crop are three different tables with three
+   * different id spaces.
+   */
+  app.post('/api/admin/scans/images/download', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const requested = Array.isArray(req.body?.images) ? req.body.images : [];
+      if (requested.length === 0) {
+        return res
+          .status(400)
+          .json({ error: 'Please choose at least one saved image to download.' });
+      }
+
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+      const chosen = [];
+      for (const item of requested.slice(0, 500)) {
+        const image = await resolveScannedImage(db, supabase, item?.kind, item?.id);
+        if (image) chosen.push(image);
+      }
+
+      if (chosen.length === 0) {
+        return res
+          .status(404)
+          .json({ error: 'None of the chosen images could be found. They may have been removed.' });
+      }
+
+      if (chosen.length === 1) {
+        // One image downloads as the image, not as a zip holding one file.
+        const only = chosen[0];
+        const bytes = dataUrlToBytes(only.imageData);
+        if (!bytes) {
+          return res
+            .status(404)
+            .json({ error: 'That saved image has nothing to download. It may have been removed.' });
+        }
+        res.setHeader('Content-Type', imageContentType(only.imageData));
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${zipSafeName(only.label)}${dataUrlExtension(only.imageData)}"`
+        );
+        return res.send(bytes);
+      }
+
+      const zip = buildScannedImagesZip(chosen);
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="saved-images_${new Date().toISOString().slice(0, 10)}.zip"`
+      );
+      return res.send(zip);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * Every scanned image in the system, as a downloadable archive.
+   *
+   * Same images as the list above, all of them at once: what an operator takes
+   * away when they want the whole system rather than one case.
+   */
+  app.get('/api/admin/scans/export', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+      const { images, counts } = await collectScannedImages(db, supabase);
+
+      if (images.length === 0) {
+        return res.status(404).json({
+          error: 'No scanned images are stored in this system yet. Scan a specimen first.'
+        });
+      }
+
+      const zip = buildScannedImagesZip(images);
+      const filename = `scanned-images_${new Date().toISOString().slice(0, 10)}.zip`;
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('X-Export-Counts', JSON.stringify(counts));
+      return res.send(zip);
     } catch (err) {
       next(err);
     }

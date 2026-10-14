@@ -26,6 +26,7 @@ const MicroscopyWorkspace = lazy(() => import('./components/microscopy/Microscop
 const ReportsListView = lazy(() => import('./components/reports/ReportsListView').then(m => ({ default: m.ReportsListView })));
 const AuditLogView = lazy(() => import('./components/admin/AuditLogView').then(m => ({ default: m.AuditLogView })));
 const UsersAdminView = lazy(() => import('./components/admin/UsersAdminView').then(m => ({ default: m.UsersAdminView })));
+const SavedScansView = lazy(() => import('./components/admin/SavedScansView').then(m => ({ default: m.SavedScansView })));
 
 /** Lazy-loaded: only needed when an operator opens a report. */
 const LaboratoryReportModal = lazy(() =>
@@ -111,13 +112,13 @@ export default function App() {
   } = useLabStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users'
+    'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans'
   >('dashboard');
 
   const [microscopyBrowseFilter, setMicroscopyBrowseFilter] = useState<string | null>(null);
   const [reportsBrowseFilter, setReportsBrowseFilter] = useState<'all' | 'verified' | 'pending_verification'>('all');
 
-  const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users', filter?: string | null) => {
+  const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans', filter?: string | null) => {
     setActiveTab(tab);
     setMicroscopyBrowseFilter(filter ?? null);
     setReportsBrowseFilter(
@@ -131,7 +132,7 @@ export default function App() {
   // Administrative tabs exist in state for both roles; a non-admin who lands
   // on one (stale state, back button) is redirected to the dashboard.
   const effectiveTab =
-    (activeTab === 'audit' || activeTab === 'users') && !user?.isAdmin
+    (activeTab === 'audit' || activeTab === 'users' || activeTab === 'scans') && !user?.isAdmin
       ? 'dashboard'
       : activeTab;
 
@@ -144,7 +145,8 @@ export default function App() {
       microscopy: '#microscopy',
       reports: '#reports',
       audit: '#audit',
-      users: '#users'
+      users: '#users',
+      scans: '#scans'
     };
     const hash = tabToHash[effectiveTab];
     if (typeof window !== 'undefined' && window.location.hash !== hash) {
@@ -154,13 +156,14 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const hashToTab: Record<string, 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users'> = {
+    const hashToTab: Record<string, 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans'> = {
       '#dashboard': 'dashboard',
       '#patients': 'patients',
       '#microscopy': 'microscopy',
       '#reports': 'reports',
       '#audit': 'audit',
-      '#users': 'users'
+      '#users': 'users',
+      '#scans': 'scans'
     };
     const handleHashChange = () => {
       const hash = window.location.hash;
@@ -526,6 +529,14 @@ export default function App() {
           <ErrorBoundary resetKey="users">
             <Suspense fallback={<TabSkeleton label="user administration" />}>
               <UsersAdminView currentUserId={user.id} />
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {effectiveTab === 'scans' && user.isAdmin && (
+          <ErrorBoundary resetKey="scans">
+            <Suspense fallback={<TabSkeleton label="saved images" />}>
+              <SavedScansView />
             </Suspense>
           </ErrorBoundary>
         )}

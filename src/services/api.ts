@@ -106,6 +106,65 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return promise;
 }
 
+/**
+ * Fetches a file rather than JSON.
+ *
+ * The generic `request` reader decodes every response as text, which corrupts
+ * a picture, so a download reads the body as a blob and hands back the
+ * filename the server offered it under.
+ */
+async function requestFile(
+  path: string,
+  init: RequestInit = {}
+): Promise<{ blob: Blob; filename: string }> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE}${path}`, {
+      credentials: 'include',
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) }
+    });
+  } catch {
+    throw new ApiError(0, 'Cannot reach the LenziAI server. Confirm the API is running and try again.');
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      for (const listener of sessionListeners) listener(true);
+      throw new SessionExpiredError();
+    }
+    const text = await response.text();
+    let message = text;
+    try {
+      message = String(JSON.parse(text).error ?? text);
+    } catch {
+      // A non-JSON body is already the message.
+    }
+    throw new ApiError(response.status, message || `Request failed (${response.status})`);
+  }
+
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const match = /filename="?([^"]+)"?/i.exec(disposition);
+  return {
+    blob: await response.blob(),
+    filename: match ? match[1] : `download-${Date.now()}`
+  };
+}
+
+/** Saves a fetched file to the operator's machine. */
+export function saveFile({ blob, filename }: { blob: Blob; filename: string }): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoked on the next tick: revoking synchronously can cancel the download
+  // in some browsers before it has read the blob.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 /** Builds a query string, dropping undefined values so the URL stays clean. */
 function query(params: Record<string, string | number | undefined>): string {
   const parts = Object.entries(params)
@@ -196,6 +255,48 @@ export const adminApi = {
 
   deleteAnalysis: (id: string) =>
     request<void>(`/admin/analyses/${encodeURIComponent(id)}`, { method: 'DELETE' })
+};
+
+/** What a saved scanned image is held as, and where it is addressed from. */
+export type ScannedImageKind = 'specimen' | 'slide' | 'evidence';
+
+export interface SavedScanImage {
+  kind: ScannedImageKind;
+  id: string;
+  sampleId: string | null;
+  specimenLabel: string;
+  label: string;
+  sampleType: string | null;
+  createdAt: string | null;
+  sizeBytes: number;
+}
+
+export interface SavedScanCounts {
+  specimens: number;
+  specimen: number;
+  slide: number;
+  evidence: number;
+}
+
+export const scanImagesApi = {
+  /** Every saved scanned image, for choosing from. Carries no image data. */
+  list: () =>
+    request<{ images: SavedScanImage[]; counts: SavedScanCounts }>('/admin/scans/images'),
+
+  /**
+   * Downloads the chosen saved images.
+   *
+   * One image downloads as the image itself; several download as a zip, which
+   * is what a case review takes away.
+   */
+  download: (images: { kind: ScannedImageKind; id: string }[]) =>
+    requestFile('/admin/scans/images/download', {
+      method: 'POST',
+      body: JSON.stringify({ images })
+    }),
+
+  /** Every saved scanned image in the system, as one archive. */
+  downloadAll: () => requestFile('/admin/scans/export')
 };
 
 export const authApi = {

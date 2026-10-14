@@ -981,6 +981,17 @@ export async function createSupabaseDetectionImage(
   return mapSupabaseDetectionImage(data);
 }
 
+/** Every evidence image in the system, oldest first, without the payload. */
+export async function listAllSupabaseDetectionImages(supabase) {
+  const { data, error } = await supabase
+    .from('detection_images')
+    .select('id, detection_id, analysis_id, image_ref, class_name, source, created_at')
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapSupabaseDetectionImage);
+}
+
 /** Every evidence image of an analysis, oldest first, without the payload. */
 export async function listSupabaseDetectionImages(supabase, analysisId) {
   const { data, error } = await supabase
@@ -1079,4 +1090,104 @@ export async function createSupabaseDetection(
 
   if (error) throw error;
   return mapSupabaseDetection(data);
+}
+
+/**
+ * Every specimen in the system with its stored slide, for the scanned-image
+ * export.
+ *
+ * The ordinary list deliberately omits the slide: a handful of samples is
+ * megabytes of base64 that every other caller would pay for. The export is the
+ * one caller that wants exactly that, so it has its own read.
+ */
+export async function listAllSupabaseSamplesForExport(supabase) {
+  const { data, error } = await supabase
+    .from('samples')
+    .select(
+      'id, patient_id, sample_type, slide_label, collection_datetime, created_at, image_path'
+    )
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => ({
+    id: row.id,
+    patientId: row.patient_id,
+    sampleType: row.sample_type,
+    slideLabel: row.slide_label,
+    collectionDatetime: row.collection_datetime,
+    createdAt: row.created_at,
+    imageData: row.image_path ? decryptPHI(row.image_path) : null
+  }));
+}
+
+/** Every uploaded slide in the system, for the scanned-image export. */
+export async function listAllSupabaseSampleSlidesForExport(supabase) {
+  const { data, error } = await supabase
+    .from('sample_slides')
+    .select('id, sample_id, name, image_data, created_at')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => ({
+    id: row.id,
+    sampleId: row.sample_id,
+    name: row.name,
+    imageData: decryptPHI(row.image_data),
+    createdAt: row.created_at
+  }));
+}
+
+/** Every analysis in the system, for the scanned-image export. */
+export async function listAllSupabaseAnalysesForExport(supabase) {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('id, sample_id')
+    .order('started_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => ({ id: row.id, sampleId: row.sample_id }));
+}
+
+/**
+ * Every evidence image in the system with its crop, for the scanned-image
+ * export.
+ *
+ * The list view deliberately omits the crops: carrying every one of them with
+ * a list is what makes a refresh heavy. The export is the caller that wants
+ * them all, so it has its own read.
+ */
+export async function listAllSupabaseDetectionImagesWithPayload(supabase) {
+  const { data, error } = await supabase
+    .from('detection_images')
+    .select(
+      'id, detection_id, analysis_id, image_ref, class_name, source, image_data, created_at'
+    )
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => ({
+    id: row.id,
+    detectionId: row.detection_id,
+    analysisId: row.analysis_id,
+    imageRef: row.image_ref ?? 'primary',
+    className: row.class_name,
+    source: row.source,
+    imageData: decryptPHI(row.image_data),
+    createdAt: row.created_at
+  }));
+}
+
+/** One uploaded slide with its specimen's label, for the download endpoints. */
+export async function getSupabaseSampleSlide(supabase, slideId) {
+  const { data, error } = await supabase
+    .from('sample_slides')
+    .select('id, sample_id, name, image_data, created_at, samples(slide_label)')
+    .eq('id', slideId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id,
+    sampleId: data.sample_id,
+    name: data.name,
+    imageData: decryptPHI(data.image_data),
+    createdAt: data.created_at,
+    slideLabel: data.samples?.slide_label ?? null
+  };
 }

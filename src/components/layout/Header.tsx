@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-type HeaderTab = 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users';
+type HeaderTab = 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans';
 
 interface HeaderProps {
   activeTab: HeaderTab;
@@ -76,7 +76,8 @@ export const Header: React.FC<HeaderProps> = ({
     { tab: 'microscopy', label: 'Microscopy' },
     { tab: 'reports', label: 'Reports' },
     { tab: 'audit', label: 'Audit Log', adminOnly: true },
-    { tab: 'users', label: 'Users', adminOnly: true }
+    { tab: 'users', label: 'Users', adminOnly: true },
+    { tab: 'scans', label: 'Saved Images', adminOnly: true }
   ];
 
   const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
