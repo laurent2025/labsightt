@@ -10,8 +10,8 @@ const KIND_LABELS: Record<SavedScanImage['kind'], string> = {
   evidence: 'Saved crop'
 };
 
-function formatSize(bytes: number) {
-  if (!bytes) return '—';
+function formatSize(bytes: number | null) {
+  if (bytes === null || !bytes) return '—';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ensureSupabaseProfile, saveSupabaseDetections } from './supabase.js';
+import {
+  ensureSupabaseProfile,
+  listAllSupabaseAnalysesForListing,
+  listAllSupabaseDetectionImages,
+  listAllSupabaseSampleSlidesForListing,
+  listAllSupabaseSamplesWithImages,
+  saveSupabaseDetections
+} from './supabase.js';
 
 /**
  * Builds a stand-in Supabase client whose `detections` insert rejects the named
@@ -120,5 +127,94 @@ describe('saveSupabaseDetections', () => {
     await expect(saveSupabaseDetections(client, 'ana_1', FINDINGS, 'primary'))
       .rejects.toMatchObject({ code: '42501' });
     expect(client.attempts).toHaveLength(1);
+  });
+});
+
+describe('saved image listing queries', () => {
+  function listingClient(table, rows) {
+    const selected = [];
+    const filters = [];
+    const query = {
+      select(columns) {
+        selected.push(columns);
+        return query;
+      },
+      not(...args) {
+        filters.push(args);
+        return Promise.resolve({ data: rows, error: null });
+      },
+      then(resolve, reject) {
+        return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
+      }
+    };
+
+    return {
+      selected,
+      filters,
+      from: vi.fn(name => {
+        expect(name).toBe(table);
+        return query;
+      })
+    };
+  }
+
+  it('lists only specimen metadata and filters out specimens without images', async () => {
+    const client = listingClient('samples', [{
+      id: 'sample-1',
+      patient_id: 'patient-1',
+      sample_type: 'stool',
+      slide_label: 'Slide 1',
+      created_at: '2026-10-14T12:00:00.000Z'
+    }]);
+
+    const samples = await listAllSupabaseSamplesWithImages(client);
+
+    expect(client.selected[0]).not.toMatch(/image_path|image_data/);
+    expect(client.filters).toEqual([['image_path', 'is', null]]);
+    expect(samples).toEqual([{
+      id: 'sample-1',
+      patientId: 'patient-1',
+      sampleType: 'stool',
+      slideLabel: 'Slide 1',
+      createdAt: '2026-10-14T12:00:00.000Z',
+      hasImage: true
+    }]);
+  });
+
+  it('lists slide and analysis metadata without requesting image payloads', async () => {
+    const slidesClient = listingClient('sample_slides', [{
+      id: 'slide-1',
+      sample_id: 'sample-1',
+      name: 'Field 1',
+      created_at: '2026-10-14T12:00:00.000Z'
+    }]);
+    const analysesClient = listingClient('analyses', [{
+      id: 'analysis-1',
+      sample_id: 'sample-1'
+    }]);
+
+    await listAllSupabaseSampleSlidesForListing(slidesClient);
+    await listAllSupabaseAnalysesForListing(analysesClient);
+
+    expect(slidesClient.selected[0]).not.toMatch(/image_data|image_path/);
+    expect(analysesClient.selected[0]).not.toMatch(/image_data|image_path/);
+  });
+
+  it('lists saved evidence metadata without requesting the crop payload', async () => {
+    const evidenceClient = listingClient('detection_images', [{
+      id: 'image-1',
+      detection_id: 'detection-1',
+      analysis_id: 'analysis-1',
+      image_ref: 'primary',
+      class_name: 'Hookworm egg',
+      source: 'confirmed',
+      created_at: '2026-10-14T12:00:00.000Z'
+    }]);
+
+    const evidence = await listAllSupabaseDetectionImages(evidenceClient);
+
+    expect(evidenceClient.selected[0]).not.toMatch(/image_data|image_path/);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0].imageData).toBeUndefined();
   });
 });

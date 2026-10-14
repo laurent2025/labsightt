@@ -268,7 +268,8 @@ export interface SavedScanImage {
   label: string;
   sampleType: string | null;
   createdAt: string | null;
-  sizeBytes: number;
+  /** Unavailable in metadata-only Supabase listings; the image is loaded on demand. */
+  sizeBytes: number | null;
 }
 
 export interface SavedScanCounts {

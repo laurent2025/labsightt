@@ -56,8 +56,11 @@ import {
   listSupabaseDetectionImages,
   listAllSupabaseDetectionImages,
   listAllSupabaseSamplesForExport,
+  listAllSupabaseSamplesWithImages,
   listAllSupabaseSampleSlidesForExport,
+  listAllSupabaseSampleSlidesForListing,
   listAllSupabaseAnalysesForExport,
+  listAllSupabaseAnalysesForListing,
   listAllSupabaseDetectionImagesWithPayload,
   getSupabaseSampleSlide,
   getSupabaseDetectionImage,
@@ -376,14 +379,22 @@ const EVIDENCE_SOURCE_LABELS = {
  * A specimen with no stored image is skipped rather than listed with nothing
  * behind it.
  */
-async function collectScannedImages(db, supabase) {
+async function collectScannedImages(db, supabase, { includePayload = true } = {}) {
+  const hasPayload = includePayload || !supabase;
   const [samples, slides, evidence, analyses] = supabase
-    ? await Promise.all([
-        listAllSupabaseSamplesForExport(supabase),
-        listAllSupabaseSampleSlidesForExport(supabase),
-        listAllSupabaseDetectionImagesWithPayload(supabase),
-        listAllSupabaseAnalysesForExport(supabase)
-      ])
+    ? await Promise.all(includePayload
+      ? [
+          listAllSupabaseSamplesForExport(supabase),
+          listAllSupabaseSampleSlidesForExport(supabase),
+          listAllSupabaseDetectionImagesWithPayload(supabase),
+          listAllSupabaseAnalysesForExport(supabase)
+        ]
+      : [
+          listAllSupabaseSamplesWithImages(supabase),
+          listAllSupabaseSampleSlidesForListing(supabase),
+          listAllSupabaseDetectionImages(supabase),
+          listAllSupabaseAnalysesForListing(supabase)
+        ])
     : [
         repo.listAllSamples(db),
         repo.listAllSampleSlides(db),
@@ -414,7 +425,8 @@ async function collectScannedImages(db, supabase) {
   const images = [];
   for (const sample of samples) {
     const specimenLabel = sample.slideLabel || sample.id;
-    const specimenImage = sample.imageData
+    const specimenHasImage = hasPayload ? Boolean(sample.imageData) : sample.hasImage;
+    const specimenImage = specimenHasImage
       ? [
           {
             kind: 'specimen',
@@ -424,8 +436,8 @@ async function collectScannedImages(db, supabase) {
             label: 'Specimen image',
             sampleType: sample.sampleType,
             createdAt: sample.createdAt,
-            sizeBytes: dataUrlSize(sample.imageData),
-            imageData: sample.imageData
+            sizeBytes: hasPayload ? dataUrlSize(sample.imageData) : null,
+            ...(hasPayload ? { imageData: sample.imageData } : {})
           }
         ]
       : [];
@@ -438,8 +450,8 @@ async function collectScannedImages(db, supabase) {
       label: slide.name || 'Uploaded slide',
       sampleType: sample.sampleType,
       createdAt: slide.createdAt,
-      sizeBytes: dataUrlSize(slide.imageData),
-      imageData: slide.imageData
+      sizeBytes: hasPayload ? dataUrlSize(slide.imageData) : null,
+      ...(hasPayload ? { imageData: slide.imageData } : {})
     }));
 
     const evidenceImages = [];
@@ -453,8 +465,8 @@ async function collectScannedImages(db, supabase) {
           label: `${image.className || 'Finding'} — ${EVIDENCE_SOURCE_LABELS[image.source] ?? image.source}`,
           sampleType: sample.sampleType,
           createdAt: image.createdAt,
-          sizeBytes: dataUrlSize(image.imageData),
-          imageData: image.imageData
+          sizeBytes: hasPayload ? dataUrlSize(image.imageData) : null,
+          ...(hasPayload ? { imageData: image.imageData } : {})
         });
       }
     }
@@ -3360,7 +3372,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.get('/api/admin/scans/images', auth, requireAdmin, async (req, res, next) => {
     try {
       const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
-      const { images, counts } = await collectScannedImages(db, supabase);
+      const { images, counts } = await collectScannedImages(db, supabase, { includePayload: false });
 
       res.json({
         images: images.map(image => ({

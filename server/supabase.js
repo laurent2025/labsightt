@@ -981,13 +981,11 @@ export async function createSupabaseDetectionImage(
   return mapSupabaseDetectionImage(data);
 }
 
-/** Every evidence image in the system, oldest first, without the payload. */
+/** Every evidence image in the system without its payload. */
 export async function listAllSupabaseDetectionImages(supabase) {
   const { data, error } = await supabase
     .from('detection_images')
-    .select('id, detection_id, analysis_id, image_ref, class_name, source, created_at')
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
+    .select('id, detection_id, analysis_id, image_ref, class_name, source, created_at');
   if (error) throw error;
   return (data ?? []).map(mapSupabaseDetectionImage);
 }
@@ -1119,6 +1117,23 @@ export async function listAllSupabaseSamplesForExport(supabase) {
   }));
 }
 
+/** Specimens with saved images, without retrieving their image payloads. */
+export async function listAllSupabaseSamplesWithImages(supabase) {
+  const { data, error } = await supabase
+    .from('samples')
+    .select('id, patient_id, sample_type, slide_label, created_at')
+    .not('image_path', 'is', null);
+  if (error) throw error;
+  return (data ?? []).map(row => ({
+    id: row.id,
+    patientId: row.patient_id,
+    sampleType: row.sample_type,
+    slideLabel: row.slide_label,
+    createdAt: row.created_at,
+    hasImage: true
+  }));
+}
+
 /** Every uploaded slide in the system, for the scanned-image export. */
 export async function listAllSupabaseSampleSlidesForExport(supabase) {
   const { data, error } = await supabase
@@ -1135,12 +1150,35 @@ export async function listAllSupabaseSampleSlidesForExport(supabase) {
   }));
 }
 
+/** Every uploaded slide, without retrieving its image payload. */
+export async function listAllSupabaseSampleSlidesForListing(supabase) {
+  const { data, error } = await supabase
+    .from('sample_slides')
+    .select('id, sample_id, name, created_at');
+  if (error) throw error;
+  return (data ?? []).map(row => ({
+    id: row.id,
+    sampleId: row.sample_id,
+    name: row.name,
+    createdAt: row.created_at
+  }));
+}
+
 /** Every analysis in the system, for the scanned-image export. */
 export async function listAllSupabaseAnalysesForExport(supabase) {
   const { data, error } = await supabase
     .from('analyses')
     .select('id, sample_id')
     .order('started_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => ({ id: row.id, sampleId: row.sample_id }));
+}
+
+/** Every analysis id and specimen id, without ordering or large payloads. */
+export async function listAllSupabaseAnalysesForListing(supabase) {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('id, sample_id');
   if (error) throw error;
   return (data ?? []).map(row => ({ id: row.id, sampleId: row.sample_id }));
 }

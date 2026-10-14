@@ -2134,6 +2134,60 @@ describe('detection images', () => {
     '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q=='
   ).toString('base64')}`;
 
+  it('lets an admin download one saved scan or multiple selected scans', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const firstSample = await makeSample(tech);
+    const secondPatient = await tech.post('/api/patients', {
+      patientNumber: 'PT-2',
+      fullName: 'Second Test Patient',
+      age: 40,
+      gender: 'Female'
+    });
+    expect(secondPatient.status).toBe(201);
+    const secondSampleResponse = await tech.post('/api/samples', {
+      patientId: secondPatient.body.patient.id,
+      sampleType: 'stool',
+      slideLabel: 'SLD-2',
+      fieldsExamined: 10,
+      fieldAreaMm2: 0.1963
+    });
+    expect(secondSampleResponse.status).toBe(201);
+    const secondSample = secondSampleResponse.body.sample;
+    db.prepare('UPDATE samples SET image_path = ? WHERE id = ?')
+      .run(CROP, firstSample.id);
+    db.prepare('UPDATE samples SET image_path = ? WHERE id = ?')
+      .run(CROP, secondSample.id);
+
+    const listed = await admin.get('/api/admin/scans/images');
+    expect(listed.status).toBe(200);
+    const savedImages = listed.body.images.filter(image => image.kind === 'specimen');
+    expect(savedImages.map(image => image.id)).toEqual(
+      expect.arrayContaining([firstSample.id, secondSample.id])
+    );
+
+    const single = await admin.post('/api/admin/scans/images/download', {
+      images: [{ kind: 'specimen', id: firstSample.id }]
+    });
+    expect(single.status).toBe(200);
+    expect(single.headers['content-type']).toMatch(/image\/jpeg/);
+    expect(single.body).toEqual(Buffer.from(CROP.split(',')[1], 'base64'));
+
+    const multiple = await admin.post('/api/admin/scans/images/download', {
+      images: [
+        { kind: 'specimen', id: firstSample.id },
+        { kind: 'specimen', id: secondSample.id }
+      ]
+    }).buffer().parse((response, callback) => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => callback(null, Buffer.concat(chunks)));
+    });
+    expect(multiple.status).toBe(200);
+    expect(multiple.headers['content-type']).toMatch(/application\/zip/);
+    expect(multiple.body.subarray(0, 2).toString()).toBe('PK');
+  });
+
   it('stores the crop a manual mark was drawn on', async () => {
     const tech = authed(await login('tech1', 'tech-password-1234'));
     const sample = await makeSample(tech);
