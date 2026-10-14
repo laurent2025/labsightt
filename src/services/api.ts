@@ -304,6 +304,25 @@ export const samplesApi = {
     })
 };
 
+/**
+ * A finding a technologist marked by hand.
+ *
+ * Written as a real detection so it survives a reload rather than existing only
+ * in the browser tab that made it. The server stores it confirmed and attributed
+ * to whoever made it, because it is an observation and not a model proposal.
+ */
+export interface ManualDetection {
+  analysisId: string;
+  className: string;
+  confidence: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  note?: string;
+  imageRef?: string;
+}
+
 export interface SpecimenSlide {
   id: string;
   sampleId: string;
@@ -364,6 +383,18 @@ export const detectionsApi = {
     request<{ detection: Analysis['detections'][number] }>(`/detections/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(decision)
+    }),
+
+  /**
+   * Records a finding a technologist marked by hand.
+   *
+   * The server stores it as a real detection, confirmed and attributed, so it
+   * survives a reload rather than living only in this browser tab.
+   */
+  create: (detection: ManualDetection) =>
+    request<{ detection: Analysis['detections'][number] }>('/detections', {
+      method: 'POST',
+      body: JSON.stringify(detection)
     })
 };
 

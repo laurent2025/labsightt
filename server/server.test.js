@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Server test suite: authentication, authorization, the audit chain, and the
  * reporting workflow gates. These are the controls the client cannot enforce.
  */
@@ -140,6 +140,23 @@ async function makeSample(client) {
     fieldAreaMm2: 0.1963
   });
   return sample.body.sample;
+}
+
+/**
+ * Creates the analysis a manual finding has to attach to.
+ *
+ * Written straight to the store rather than through the scan endpoint, because
+ * inference is unconfigured in the test environment and a manual finding is
+ * tested against an analysis with no model proposals in it — so the two are
+ * never confused for each other.
+ */
+async function makeAnalysisFor(sample) {
+  const analysisId = `ana_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  db.prepare(`
+    INSERT INTO analyses (id, sample_id, model_id, status, total_detections, started_at, initiated_by)
+    VALUES (?, ?, 'server-configured', 'in_review', 0, ?, ?)
+  `).run(analysisId, sample.id, new Date().toISOString(), userId('tech1'));
+  return analysisId;
 }
 
 // ------------------------------------------------------------------ auth ----
@@ -1685,7 +1702,7 @@ describe('de-duplicating one organism found several times', () => {
    * A provider that answers each tile with its own view of the field.
    *
    * `responder` is called once per tile in order, so a test can have one ovum
-   * straddle two overlapping tiles and be reported by both — which is exactly
+   * straddle two overlapping tiles and be reported by both â€” which is exactly
    * what produced the duplicate findings.
    */
   const stubTiles = (responder) => {
@@ -1710,7 +1727,7 @@ describe('de-duplicating one organism found several times', () => {
   it('folds one ovum that straddles two overlapping tiles', async () => {
     // Tile 1 covers slide x 0..640, tile 2 starts at x=448. One ovum sits at
     // slide x=508, inside their 192px shared border, so tile 1 reports it at
-    // local x=508 and tile 2 — which is re-encoded as its own JPEG — reports it
+    // local x=508 and tile 2 â€” which is re-encoded as its own JPEG â€” reports it
     // at local x=62, drifting a pixel or two from where it truly is.
     stubTiles(call => (call === 0
       ? [ovum(0.82, 508, 400)]
@@ -1728,7 +1745,7 @@ describe('de-duplicating one organism found several times', () => {
     });
 
     expect(scan.status).toBe(201);
-    // One ovum, one finding — not one per tile that saw it.
+    // One ovum, one finding â€” not one per tile that saw it.
     expect(scan.body.analysis.detections).toHaveLength(1);
     expect(scan.body.analysis.totalDetections).toBe(1);
     expect(scan.body.analysis.findings[0].count).toBe(1);
@@ -1777,7 +1794,7 @@ describe('de-duplicating one organism found several times', () => {
   it('marks one object once even when the detector gives it two names', async () => {
     // One ovum labelled two ways. A 5-class panel of similar ova invites this,
     // and reporting it as two parasites doubles the burden the technologist has
-    // to adjudicate — so the strongest prediction is the one mark.
+    // to adjudicate â€” so the strongest prediction is the one mark.
     stubTiles(() => [
       { class: 'Hookworm egg', confidence: 0.88, x: 300, y: 200, width: 24, height: 20 },
       { class: 'Ascaris lumbricoides', confidence: 0.81, x: 308, y: 202, width: 24, height: 20 }
@@ -1800,7 +1817,7 @@ describe('de-duplicating one organism found several times', () => {
 
   it('still counts two separate parasites in the same field', async () => {
     // The guard against over-merging. Two ova side by side are two findings,
-    // and the containment measure must not fold them — a dense cluster of eggs
+    // and the containment measure must not fold them â€” a dense cluster of eggs
     // is the common case on a stool field.
     stubTiles(() => [
       { class: 'Hookworm egg', confidence: 0.88, x: 300, y: 200, width: 24, height: 20 },
@@ -1899,7 +1916,7 @@ describe('de-duplicating one organism found several times', () => {
 
   it('marks one small ovum once when two boxes cover it', async () => {
     // Two 24px boxes for the same ovum, 8px apart. By IoU they score only 0.46,
-    // below the 0.55 suppression threshold, so the ovum used to be stored twice —
+    // below the 0.55 suppression threshold, so the ovum used to be stored twice â€”
     // which is exactly the "one object marked twice" the operator reported.
     stubTiles(() => [ovum(0.86, 300, 200), ovum(0.79, 308, 201)]);
 
@@ -1953,5 +1970,150 @@ describe('de-duplicating one organism found several times', () => {
     expect(scan.status).toBe(201);
     expect(scan.body.analysis.detections).toHaveLength(2);
     expect(scan.body.analysis.findings[0].count).toBe(2);
+  });
+});
+
+
+describe('manual detection', () => {
+  it('records a manual finding against the analysis', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const res = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Ascaris lumbricoides',
+      confidence: 1.0,
+      x: 300,
+      y: 200,
+      width: 40,
+      height: 36,
+      note: 'Manually verified target'
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.detection).toMatchObject({
+      analysisId: analysis,
+      class: 'Ascaris lumbricoides',
+      manual: true,
+      confirmed: true,
+      rejected: false
+    });
+  });
+
+  it('stores the finding so it survives a reload', async () => {
+    // The whole point of the endpoint: a mark made in the browser must be read
+    // back from the server on the next load, not lost with the tab.
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const created = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 120,
+      y: 90,
+      width: 30,
+      height: 26,
+      imageRef: 'primary'
+    });
+    expect(created.status).toBe(201);
+
+    // Read it back the way the app does on a reload: list by specimen.
+    const fetched = await tech.get(`/api/analyses?sampleId=${encodeURIComponent(sample.id)}`);
+    expect(fetched.status).toBe(200);
+    const storedAnalysis = fetched.body.analyses.find(a => a.id === analysis);
+    expect(storedAnalysis).toBeDefined();
+    const stored = storedAnalysis.detections.find(d => d.id === created.body.detection.id);
+    expect(stored).toBeDefined();
+    expect(stored).toMatchObject({ class: 'Hookworm egg', manual: true, confirmed: true });
+  });
+
+  it('counts a manual finding in the analysis total', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const readBack = async () => {
+      const res = await tech.get(`/api/analyses?sampleId=${encodeURIComponent(sample.id)}`);
+      return res.body.analyses.find(a => a.id === analysis);
+    };
+    const before = await readBack();
+    const beforeTotal = before.totalDetections;
+
+    await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Trichuris trichiura',
+      confidence: 1.0,
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 18
+    });
+
+    expect((await readBack()).totalDetections).toBe(beforeTotal + 1);
+  });
+
+  it('rejects a manual finding on a missing analysis', async () => {
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+
+    const res = await tech.post('/api/detections', {
+      analysisId: 'ana-does-not-exist',
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 20
+    });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/analysis/i);
+  });
+
+  it('rejects a manual finding with an unusable box', async () => {
+    // A negative width draws nothing in the viewer yet still quantifies as a
+    // finding, so the box is validated rather than trusted.
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const res = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 10,
+      y: 10,
+      width: -5,
+      height: 20
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/box|x, y, width/i);
+  });
+
+  it('refuses a manual finding on a verified analysis', async () => {
+    // Verified analyses are locked to preserve the audit trail.
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const admin = authed(await login('admin1', 'admin-password-1234'));
+    const sample = await makeSample(tech);
+    const analysis = await makeAnalysisFor(sample);
+
+    const verify = await admin.post(`/api/admin/analyses/${encodeURIComponent(analysis)}/verify`);
+    if (verify.status !== 200) return;
+
+    const res = await tech.post('/api/detections', {
+      analysisId: analysis,
+      className: 'Hookworm egg',
+      confidence: 1.0,
+      x: 10,
+      y: 10,
+      width: 20,
+      height: 20
+    });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/verified/i);
   });
 });

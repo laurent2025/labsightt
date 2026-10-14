@@ -1,4 +1,4 @@
-import {
+﻿import {
   createContext,
   useCallback,
   useContext,
@@ -540,10 +540,9 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       const analysis = analyses.find(a => a.id === analysisId);
       if (!analysis) return;
       // Adjudicate sequentially so a mid-way failure leaves an honest state.
-      // Manual detections are local-only and already confirmed; there is no
-      // server record to adjudicate, so skip them to avoid 404s.
+      // A manual finding is stored already confirmed, so there is nothing to
+      // adjudicate and no 404 to cause.
       for (const det of analysis.detections) {
-        if (det.manual) continue;
         if (det.confirmed && !det.rejected) continue;
         await applyDetection(analysisId, det.id, { confirmed: true, rejected: false });
       }
@@ -554,29 +553,48 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
   const addManualDetection = useCallback(
     async (analysisId: string, det: Omit<Detection, 'id'>) => {
       // A manually recorded finding is a technologist assertion, not a model
-      // proposal, so it must be confirmed and cannot be added to an analysis
-      // the server has locked.
+      // proposal, so it is confirmed on arrival and cannot be added to an
+      // analysis the server has already locked.
+      const imageRef = det.imageRef ?? 'primary';
+      // The box is written to the server first so the finding survives a
+      // reload; a finding that vanished on reload would be a lost clinical
+      // observation. Only on success is it added to the local analysis, so a
+      // failed write never shows a finding the database does not hold.
+      let saved: Detection;
+      try {
+        const { detection } = await detectionsApi.create({
+          analysisId,
+          className: det.class,
+          confidence: det.confidence,
+          x: det.x,
+          y: det.y,
+          width: det.width,
+          height: det.height,
+          note: det.note,
+          imageRef
+        });
+        saved = detection;
+      } catch (err) {
+        handleError(err, 'The manual finding could not be saved. Try again.');
+        return;
+      }
+
       setAnalyses(prev =>
         prev.map(ana => {
           if (ana.id !== analysisId) return ana;
           const created: Detection = {
-            ...det,
-            id: `det-manual-${Date.now()}`,
+            ...saved,
             confirmed: true,
             manual: true,
             // Tagged with the slide the operator was viewing so the viewer's
             // per-image filter can place the box on the correct image.
-            imageRef: det.imageRef ?? 'primary'
+            imageRef: saved.imageRef ?? imageRef
           };
           return requantify(ana, [...ana.detections, created]);
         })
       );
-      setStorageIssue(
-        'Manual findings are recorded in this session only. The server does not yet accept ' +
-          'technologist-added detections, so this will not survive a reload.'
-      );
     },
-    [requantify]
+    [requantify, handleError]
   );
 
   const updateAnalysisNotes = useCallback(

@@ -913,3 +913,67 @@ export async function adjudicateSupabaseDetection(supabase, id, { confirmed, rej
   if (error) throw error;
   return mapSupabaseDetection(data);
 }
+
+/**
+ * Stores a finding a technologist marked by hand, alongside the model's own.
+ *
+ * A manual finding is an observation, not a proposal, so it is stored already
+ * confirmed and attributed to the person who made it — the same way an
+ * adjudicated finding is. Without this, a mark made in the browser existed only
+ * in that tab: the next reload read the analysis back from the database and the
+ * finding was gone, which for a clinical record is a lost observation rather
+ * than a lost convenience.
+ */
+export async function createSupabaseDetection(
+  supabase,
+  {
+    id,
+    analysisId,
+    className,
+    confidence,
+    x,
+    y,
+    width,
+    height,
+    note,
+    imageRef,
+    userId
+  }
+) {
+  // Shapes the client may send are validated upstream; the stored box is
+  // coerced here so a stray `undefined` becomes an explicit value rather than
+  // the database rejecting the whole record.
+  const row = {
+    id,
+    analysis_id: analysisId,
+    class_name: className,
+    confidence: Number(confidence) || 0,
+    x: Number(x) || 0,
+    y: Number(y) || 0,
+    width: Number(width) || 0,
+    height: Number(height) || 0,
+    confirmed: true,
+    rejected: false,
+    manual: true,
+    note: note ?? null,
+    image_ref: imageRef ?? 'primary',
+    adjudicated_by: userId ?? null,
+    adjudicated_at: new Date().toISOString()
+  };
+
+  let { data, error } = await supabase.from('detections').insert(row).select().single();
+
+  // `manual` predates the columns it shares the table with, so a database whose
+  // schema has not been re-applied can reject the row. The finding itself is
+  // kept and the offending column dropped rather than losing the observation.
+  const optional = ['image_ref', 'note'];
+  for (let attempt = 0; error && attempt < optional.length; attempt += 1) {
+    const missing = missingColumnFromError(error);
+    if (!missing || !optional.includes(missing)) break;
+    delete row[missing];
+    ({ data, error } = await supabase.from('detections').insert(row).select().single());
+  }
+
+  if (error) throw error;
+  return mapSupabaseDetection(data);
+}

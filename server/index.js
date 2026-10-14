@@ -51,6 +51,7 @@ import {
   saveSupabaseDetections,
   finalizeSupabaseAnalysis,
   adjudicateSupabaseDetection,
+  createSupabaseDetection,
   setSupabaseUserApproval,
   listSupabaseReports,
   getSupabaseReport,
@@ -1699,6 +1700,143 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   });
 
   // --------------------------------------------------------- detections ----
+
+  /**
+   * Stores a finding a technologist marked by hand.
+   *
+   * A manual mark is the technologist's own observation of the slide, so it is
+   * written as a real detection the server holds — confirmed and attributed —
+   * rather than living only in the browser tab that created it. A finding that
+   * disappears on reload is a lost clinical observation, not a lost convenience.
+   */
+  app.post('/api/detections', auth, async (req, res, next) => {
+    try {
+      const { analysisId, className, confidence, x, y, width, height, note, imageRef } = req.body ?? {};
+
+      if (typeof analysisId !== 'string' || !analysisId.trim()) {
+        return res.status(400).json({ error: 'An analysis is required to record a manual finding.' });
+      }
+      if (typeof className !== 'string' || !className.trim() || className.trim().length > 120) {
+        return res.status(400).json({ error: 'Please give the organism or structure a name no longer than 120 characters.' });
+      }
+      // A negative or non-finite box would draw nothing and, worse, quantify as
+      // a real finding in the report.
+      const box = ['x', 'y', 'width', 'height'].map(field => Number(req.body?.[field]));
+      if (box.some(value => !Number.isFinite(value) || value < 0)) {
+        return res.status(400).json({ error: 'A manual finding needs a box on the slide: x, y, width and height must all be zero or more.' });
+      }
+
+      if (hasSupabaseDatabaseConfig()) {
+        const supabase = getSupabaseClient({ admin: true });
+
+        const { data: analysisRow, error: analysisError } = await supabase
+          .from('analyses')
+          .select('id, status, sample_id, initiated_by, total_detections')
+          .eq('id', analysisId)
+          .maybeSingle();
+        if (analysisError) throw analysisError;
+        if (!analysisRow) {
+          return res.status(404).json({ error: 'This analysis could not be found. It may have been removed.' });
+        }
+        if (analysisRow.status === 'verified') {
+          return res.status(409).json({ error: 'This analysis has already been verified. Verified analyses are locked to preserve the audit trail.' });
+        }
+
+        // A technologist may annotate a specimen they can reach: their own, or
+        // one administrator-style access opens up.
+        const sampleRow = await getSupabaseSample(supabase, analysisRow.sample_id);
+        if (sampleRow?.patientId && req.user.role !== 'admin') {
+          const { data: patientRow } = await supabase
+            .from('patients')
+            .select('created_by')
+            .eq('id', sampleRow.patientId)
+            .maybeSingle();
+          if (!patientRow || isOtherUsersRecord(patientRow.created_by, req.user.id)) {
+            return res.status(403).json({ error: 'You do not have permission to annotate this specimen.' });
+          }
+        }
+
+        const detection = await createSupabaseDetection(supabase, {
+          id: newId('det'),
+          analysisId,
+          className: className.trim(),
+          confidence,
+          x: box[0],
+          y: box[1],
+          width: box[2],
+          height: box[3],
+          note,
+          imageRef,
+          userId: supabaseActorId(req.user)
+        });
+
+        // The count the analysis reports has to move with the row, so the review
+        // panel's "verified" figures stay honest about what is there.
+        await supabase
+          .from('analyses')
+          .update({ total_detections: (Number(analysisRow.total_detections) || 0) + 1 })
+          .eq('id', analysisId);
+
+        appendAudit(db, {
+          actorId: req.user.id,
+          actorName: req.user.display_name,
+          action: 'DETECTION_ADDED',
+          entity: 'detection',
+          entityId: detection.id,
+          details: `${detection.class} marked by hand on this specimen`
+        });
+        return res.status(201).json({ detection });
+      }
+
+      const analysis = db
+        .prepare('SELECT status, initiated_by FROM analyses WHERE id = ?')
+        .get(analysisId);
+      if (!analysis) {
+        return res.status(404).json({ error: 'This analysis could not be found. It may have been removed.' });
+      }
+      if (analysis.status === 'verified') {
+        return res.status(409).json({ error: 'This analysis has already been verified. Verified analyses are locked to preserve the audit trail.' });
+      }
+      if (req.user.role !== 'admin' && analysis.initiated_by !== req.user.id) {
+        const patientOwner = db
+          .prepare('SELECT created_by FROM patients WHERE id = (SELECT patient_id FROM samples WHERE id = (SELECT sample_id FROM analyses WHERE id = ?))')
+          .get(analysisId);
+        if (!patientOwner || patientOwner.created_by !== req.user.id) {
+          return res.status(403).json({ error: 'You do not have permission to annotate this specimen.' });
+        }
+      }
+
+      const id = newId('det');
+      const createdAt = new Date().toISOString();
+      db.prepare(`
+        INSERT INTO detections
+          (id, analysis_id, class_name, confidence, x, y, width, height, confirmed, rejected, manual, note, image_ref, reclassified_from, adjudicated_by, adjudicated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 1, ?, ?, NULL, ?, ?)
+      `).run(
+        id, analysisId, className.trim(), Number(confidence) || 0,
+        box[0], box[1], box[2], box[3],
+        note ?? null, imageRef ?? 'primary', req.user.id, createdAt
+      );
+
+      db.prepare('UPDATE analyses SET total_detections = COALESCE(total_detections, 0) + 1 WHERE id = ?')
+        .run(analysisId);
+
+      appendAudit(db, {
+        actorId: req.user.id,
+        actorName: req.user.display_name,
+        action: 'DETECTION_ADDED',
+        entity: 'detection',
+        entityId: id,
+        details: `${className.trim()} marked by hand on this specimen`
+      });
+      const detection = repo.mapDetection(
+        db.prepare('SELECT * FROM detections WHERE id = ?').get(id)
+      );
+      return res.status(201).json({ detection });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   app.patch('/api/detections/:id', auth, async (req, res, next) => {
     try {
