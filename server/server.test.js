@@ -1408,7 +1408,11 @@ describe('inference proxy', () => {
     expect(detections[0].confidence).toBeCloseTo(0.9);
   });
 
-  it('uses the requested IoU threshold for duplicate suppression', async () => {
+  it('folds one ovum whatever IoU threshold the caller asks for', async () => {
+    // Suppression used to be governed by the caller's IoU threshold, which meant
+    // a pair of boxes the model produced for one ovum could stay apart simply
+    // because the requested threshold was tight. Whether two boxes describe one
+    // object is now a property of the boxes, not of the request.
     vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
     vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
     const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
@@ -1425,10 +1429,10 @@ describe('inference proxy', () => {
       iou: 0.8
     });
 
-    expect(detections).toHaveLength(2);
+    expect(detections).toHaveLength(1);
   });
 
-  it('keeps boxes of different classes that overlap in the same field', async () => {
+  it('keeps only the strongest class when different labels overlap the same organism', async () => {
     vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
     vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
     const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
@@ -1442,7 +1446,25 @@ describe('inference proxy', () => {
     const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
     const detections = await runInference(db, actor, 'base64-image', { confidence: 0.3 });
 
-    // Suppression is class-scoped: two different organisms are two findings.
+    expect(detections).toHaveLength(1);
+    expect(detections[0].class).toBe('Ascaris lumbricoides');
+    expect(detections[0].confidence).toBeCloseTo(0.9);
+  });
+
+  it('keeps differently labelled organisms when their boxes are separate', async () => {
+    vi.stubEnv('ROBOFLOW_ENDPOINT', 'https://serverless.roboflow.com/workflow');
+    vi.stubEnv('ROBOFLOW_API_KEY', 'test-only-provider-key');
+    const providerFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      predictions: [
+        { class: 'Ascaris lumbricoides', confidence: 0.9, x: 40, y: 40, width: 20, height: 20 },
+        { class: 'Trichuris trichiura', confidence: 0.8, x: 140, y: 140, width: 20, height: 20 }
+      ]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', providerFetch);
+
+    const actor = db.prepare('SELECT id, display_name FROM users WHERE username = ?').get('tech1');
+    const detections = await runInference(db, actor, 'base64-image', { confidence: 0.3 });
+
     expect(detections.map(d => d.class).sort()).toEqual([
       'Ascaris lumbricoides',
       'Trichuris trichiura'
@@ -1752,12 +1774,37 @@ describe('de-duplicating one organism found several times', () => {
     expect(scan.body.analysis.findings[0].count).toBe(2);
   });
 
-  it('keeps two different parasites that overlap in the field', async () => {
-    // Overlapping boxes of *different* classes are two findings, not one:
-    // suppression is class-scoped.
+  it('marks one object once even when the detector gives it two names', async () => {
+    // One ovum labelled two ways. A 5-class panel of similar ova invites this,
+    // and reporting it as two parasites doubles the burden the technologist has
+    // to adjudicate — so the strongest prediction is the one mark.
     stubTiles(() => [
-      { class: 'Hookworm egg', confidence: 0.88, x: 200, y: 200, width: 24, height: 20 },
-      { class: 'Ascaris lumbricoides', confidence: 0.8, x: 202, y: 201, width: 22, height: 19 }
+      { class: 'Hookworm egg', confidence: 0.88, x: 300, y: 200, width: 24, height: 20 },
+      { class: 'Ascaris lumbricoides', confidence: 0.81, x: 308, y: 202, width: 24, height: 20 }
+    ]);
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [{ imageBase64: 'tile-1', offsetX: 0, offsetY: 0 }]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(1);
+    // The higher-confidence label is the one kept.
+    expect(scan.body.analysis.detections[0].class).toBe('Hookworm egg');
+    expect(scan.body.analysis.findings).toHaveLength(1);
+  });
+
+  it('still counts two separate parasites in the same field', async () => {
+    // The guard against over-merging. Two ova side by side are two findings,
+    // and the containment measure must not fold them — a dense cluster of eggs
+    // is the common case on a stool field.
+    stubTiles(() => [
+      { class: 'Hookworm egg', confidence: 0.88, x: 300, y: 200, width: 24, height: 20 },
+      { class: 'Hookworm egg', confidence: 0.81, x: 336, y: 200, width: 24, height: 20 }
     ]);
 
     const tech = authed(await login('tech1', 'tech-password-1234'));
@@ -1770,7 +1817,36 @@ describe('de-duplicating one organism found several times', () => {
 
     expect(scan.status).toBe(201);
     expect(scan.body.analysis.detections).toHaveLength(2);
-    expect(scan.body.analysis.findings).toHaveLength(2);
+    expect(scan.body.analysis.findings[0].count).toBe(2);
+  });
+
+  it('does not name two species for the same object across two tiles', async () => {
+    // The same ovum, read by two overlapping tiles, and each tile named it
+    // differently. This is the shape the multiple-names report actually takes:
+    // the duplicate never meets the other in one detector pass, so it has to be
+    // folded when the whole slide is merged.
+    // Tile 1 covers slide x 0..640 and tile 2 starts at x=448, so their shared
+    // border is 448..640. One ovum at slide x=508 is local x=508 in the first
+    // tile and local x=60 in the second, and each tile names it differently.
+    stubTiles(call => (call === 0
+      ? [{ class: 'Hookworm egg', confidence: 0.86, x: 508, y: 100, width: 24, height: 20 }]
+      : [{ class: 'Ascaris lumbricoides', confidence: 0.79, x: 62, y: 102, width: 24, height: 20 }]));
+
+    const tech = authed(await login('tech1', 'tech-password-1234'));
+    const sample = await makeSample(tech);
+
+    const scan = await tech.post('/api/analyses', {
+      sampleId: sample.id,
+      images: [
+        { imageBase64: 'tile-1', offsetX: 0, offsetY: 0 },
+        { imageBase64: 'tile-2', offsetX: 448, offsetY: 0 }
+      ]
+    });
+
+    expect(scan.status).toBe(201);
+    expect(scan.body.analysis.detections).toHaveLength(1);
+    expect(scan.body.analysis.detections[0].class).toBe('Hookworm egg');
+    expect(scan.body.analysis.findings).toHaveLength(1);
   });
 
   it('does not double a finding when the same image is scanned again', async () => {

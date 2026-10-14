@@ -54,10 +54,13 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
      */
     confidenceThreshold: 0.60,
     /*
-     * Non-maximum suppression is intentionally loose. Ova in a stool field sit
-     * close together and their predicted boxes overlap at the edges; a tight
-     * threshold folds two neighbouring ova into one and under-counts the
-     * specimen, so only a genuine double-box on the same ovum is suppressed.
+     * Non-maximum suppression setting, reported in the audit trail.
+     *
+     * It is no longer what decides whether two boxes are one organism. That is
+     * decided by how much of the smaller box the other covers (`server/inference.js`),
+     * because a caller-supplied threshold could re-open the duplicates this
+     * removes: one ovum reported twice was only ever kept apart when the
+     * requested IoU was high enough to look like two separate targets.
      */
     iouThreshold: 0.55,
     active: true,

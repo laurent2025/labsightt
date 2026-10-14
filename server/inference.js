@@ -19,16 +19,29 @@ const RETRY_BASE_DELAY_MS = 250;
  */
 const DEFAULT_CONFIDENCE = 0.6;
 /**
- * How far two boxes must overlap before they are read as one organism.
+ * When two boxes are read as one physical object rather than two.
  *
- * IoU alone is not enough: two boxes for one small ovum a few pixels apart score
- * well under the old 0.55, so the ovum was stored twice. Containment — how much
- * of the smaller box the other covers — catches those, so the operator's rule of
- * one mark per object holds for tight boxes, loose boxes, and boxes sitting
- * inside one another alike. Two genuinely distinct ova stay below both.
+ * Both measures are judged independently, and neither is clamped by the other,
+ * because clamping is what hid the bug: the containment threshold was being
+ * forced up to the configured IoU threshold, so a pair of boxes the model had
+ * produced for one ovum 8px apart — containment 0.53 — fell below the resulting
+ * floor of 0.55 and were stored twice.
+ *
+ * Containment is the measure that actually decides it. It asks how much of one
+ * box the other covers, so it survives the drift between two readings of the
+ * same object, and it reads a tight box sitting inside a loose one as the same
+ * object. Two genuinely separate organisms have little to share — touching ova
+ * score 0.00, and a 4px overlap scores 0.17 — so they stay two.
  */
-const SAME_ORGANISM_IOU = 0.55;
-const SAME_ORGANISM_CONTAINMENT = 0.5;
+const SAME_OBJECT_IOU = 0.5;
+/**
+ * One box must cover at least this much of the other.
+ *
+ * 0.35 absorbs the realistic drift between two readings of one ovum while
+ * staying well clear of two separate ova that merely touch. Lowering it further
+ * starts merging objects that a technologist can see are two.
+ */
+const SAME_OBJECT_CONTAINMENT = 0.35;
 const DEFAULT_WORKFLOW_ENDPOINT =
   'https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic';
 
@@ -176,11 +189,11 @@ export async function runInference(
     // viewer but still counts as a detection in the report.
     .filter(d => d.width > 0 && d.height > 0);
 
-  const nmsApplied = applyNMS(candidates, iou);
+  const nmsApplied = applyNMS(candidates);
   const { detections: reclassified, corrections } = reclassifyHelminthOva(nmsApplied);
   // Different raw labels can resolve to the same organism after morphology
   // correction, so run suppression once more on the final class labels.
-  const detections = applyNMS(reclassified, iou);
+  const detections = applyNMS(reclassified);
 
   const suppressed = candidates.length - detections.length;
   if (audit) {
@@ -242,40 +255,36 @@ function containment(a, b) {
 }
 
 /**
- * True when two boxes describe the same organism rather than two organisms.
+ * True when two boxes describe one physical object rather than two organisms.
  *
- * Suppression has to be class-scoped — two different parasites in the same field
- * are two findings — and judged by both overlap measures, because the operator's
- * requirement is one mark per object: an ovum that a loose pass and a tight pass
- * both find is one ovum, not two.
+ * Class labels are deliberately ignored. One organism can receive several
+ * labels — a 5-class panel of ova that look alike invites it — and the operator
+ * asked for one mark per object, so the strongest prediction is the one kept and
+ * the rest are folded into it. The price is that two *genuinely different*
+ * parasites occupying almost the same patch of field are reported as one; on a
+ * stool microscopy field that is far rarer than one ovum carrying two labels.
  */
-function isSameOrganism(a, b, iouThreshold = SAME_ORGANISM_IOU) {
-  if (a.class !== b.class) return false;
-  const threshold = Number.isFinite(iouThreshold)
-    ? Math.min(1, Math.max(0, iouThreshold))
-    : SAME_ORGANISM_IOU;
-  return iou(a, b) >= threshold
-    || containment(a, b) >= Math.max(SAME_ORGANISM_CONTAINMENT, threshold);
+function isSameOrganism(a, b) {
+  return iou(a, b) >= SAME_OBJECT_IOU
+    || containment(a, b) >= SAME_OBJECT_CONTAINMENT;
 }
 
 /**
- * Non-maximum suppression, per class.
+ * Non-maximum suppression across all classes.
  *
  * A single-celled detector emits several boxes for one organism. Without
- * suppression the report counts the same ovum three or four times and the
+ * suppression the report counts the same ovum three or four times, and the
  * technologist adjudicates each duplicate by hand — or worse, confirms them all
  * and inflates the reported burden. Boxes are ranked by confidence and a box is
- * dropped when it describes the same organism as one already kept.
- *
- * Suppression is class-scoped: two different parasites that genuinely overlap
- * in the field must both survive, because they are different findings.
+ * dropped when it describes the same object as one already kept, even if the
+ * detector assigned it a different class.
  */
-function applyNMS(detections, iouThreshold) {
+function applyNMS(detections) {
   const ranked = [...detections].sort((a, b) => b.confidence - a.confidence);
   const kept = [];
 
   for (const candidate of ranked) {
-    const isDuplicate = kept.some(other => isSameOrganism(other, candidate, iouThreshold));
+    const isDuplicate = kept.some(other => isSameOrganism(other, candidate));
     if (!isDuplicate) kept.push(candidate);
   }
 

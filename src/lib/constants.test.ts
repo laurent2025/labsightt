@@ -32,11 +32,12 @@ describe('DEFAULT_AI_MODELS', () => {
     }
   });
 
-  it('suppresses duplicate boxes loosely enough to keep neighbouring ova', () => {
-    // NMS folds two overlapping boxes of the same class into one. A tight
-    // threshold merges neighbouring ova and under-counts the specimen.
+  it('reports the suppression setting the audit trail names', () => {
+    // It no longer decides whether two boxes are one organism — containment
+    // does — but it is still the number the audit entry names.
     for (const model of DEFAULT_AI_MODELS) {
-      expect(model.iouThreshold).toBeGreaterThanOrEqual(0.5);
+      expect(model.iouThreshold).toBeGreaterThan(0);
+      expect(model.iouThreshold).toBeLessThan(1);
     }
   });
 

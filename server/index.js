@@ -166,8 +166,7 @@ async function readSlide(db, actor, passes, confidence) {
    * near each other still both survive: only the same organism found twice is
    * folded, which is why the threshold is the detector's own IoU setting.
    */
-  const iou = Number(process.env.ROBOFLOW_IOU) || 0.55;
-  const detections = applyNMS(collected.flat(), iou);
+  const detections = applyNMS(collected.flat());
 
   const suppressed = collected.flat().length - detections.length;
   appendAudit(db, {
