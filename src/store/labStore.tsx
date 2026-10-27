@@ -104,7 +104,8 @@ export interface LabStoreValue {
     sampleId: string,
     modelId: string,
     imageUrlOverride?: string,
-    imageRef?: string
+    imageRef?: string,
+    scanToken?: string
   ) => Promise<Analysis>;
   toggleDetectionConfirmation: (analysisId: string, detectionId: string) => Promise<void>;
   rejectDetection: (analysisId: string, detectionId: string) => Promise<void>;
@@ -384,6 +385,11 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
   /**
    * Runs inference on the server. The image is uploaded to the API, which holds
    * the model credential, so the browser never sees or needs a key.
+   *
+   * `scanToken` is chosen by the caller before the request is issued, so a
+   * progress poll can watch the scan while it is still in flight rather than
+   * waiting for the analysis id the server assigns. It is optional: callers
+   * that do not care about progress can omit it and the scan still runs.
    */
   const createAndRunAnalysis = useCallback(
     async (
@@ -391,7 +397,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       sampleId: string,
       modelId: string,
       imageUrlOverride?: string,
-      imageRef?: string
+      imageRef?: string,
+      scanToken?: string
     ): Promise<Analysis> => {
       const sample = samples.find(s => s.id === sampleId);
       const model = models.find(m => m.id === modelId) || models[0];
@@ -452,7 +459,8 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
               offsetY: tile.offsetY
             })),
             confidence,
-            imageRef
+            imageRef,
+            scanToken
           );
           // Every response is the analysis as accumulated so far, so the last
           // one is authoritative for the whole slide.

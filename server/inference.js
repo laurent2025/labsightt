@@ -17,7 +17,7 @@ const RETRY_BASE_DELAY_MS = 250;
  * `src/lib/constants.ts`. A default that is lower surfaces candidates the
  * operator did not ask for; one that is higher silently drops findings.
  */
-const DEFAULT_CONFIDENCE = 0.6;
+export const DEFAULT_CONFIDENCE = 0.6;
 /**
  * When two boxes are read as one physical object rather than two.
  *
@@ -131,7 +131,10 @@ function reclassifyHelminthOva(detections) {
  * Runs a workflow inference and returns normalized bounding boxes.
  *
  * The request is given an AbortSignal so a hung provider cannot pin a server
- * thread indefinitely.
+ * thread indefinitely. `scanSignal` is the same signal for the whole scan: when
+ * the scan-level deadline fires it aborts every in-flight tile at once, so a
+ * slide whose tiles keep timing out cannot pin the request for as long as the
+ * slowest of them.
  *
  * `audit` is false when the caller is reading a slide as several tiles and will
  * write one summary entry for the whole slide: a 3024x4032 field is 63 tiles,
@@ -145,7 +148,7 @@ export async function runInference(
   db,
   actor,
   imageBase64,
-  { confidence = DEFAULT_CONFIDENCE, iou = 0.55, offsetX = 0, offsetY = 0, audit = true } = {}
+  { confidence = DEFAULT_CONFIDENCE, iou = 0.55, offsetX = 0, offsetY = 0, audit = true, scanSignal } = {}
 ) {
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
@@ -173,7 +176,7 @@ export async function runInference(
   }
 
   const providerImage = imageBase64.replace(/^data:[^,]*;base64,/i, '');
-  const payload = await requestWorkflow(endpoint, apiKey, providerImage, timeoutMs);
+  const payload = await requestWorkflow(endpoint, apiKey, providerImage, timeoutMs, scanSignal);
 
   const predictions = extractPredictions(payload);
 
@@ -295,12 +298,25 @@ function applyNMS(detections) {
  * Sends the workflow request to the provider with retry logic for transient
  * failures (408, 429, 5xx). Hung requests are aborted after the configured
  * timeout so server threads are not pinned indefinitely.
+ *
+ * `scanSignal` is the whole-scan abort signal. When it fires the request is
+ * aborted immediately rather than waiting for the per-tile timeout, so a slide
+ * whose tiles keep timing out cannot pin the request for as long as the
+ * slowest of them. A signal that is already aborted when this is called fails
+ * fast instead of spending a round-trip on a request that will be refused.
  */
-async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs) {
+async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSignal) {
+  if (scanSignal?.aborted) {
+    throw new InferenceError('Scan aborted.', 504, true);
+  }
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let failure;
+
+    const onScanAbort = () => controller.abort();
+    if (scanSignal) scanSignal.addEventListener('abort', onScanAbort, { once: true });
 
     try {
       const response = await fetch(endpoint, {
@@ -336,12 +352,19 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs) {
       if (err instanceof InferenceError) {
         failure = err;
       } else if (err?.name === 'AbortError') {
-        failure = new InferenceError(`Inference timed out after ${timeoutMs}ms.`, 504, true);
+        // Distinguish a per-tile timeout from a scan-level abort: only the
+        // latter is fatal to the whole pass.
+        if (scanSignal?.aborted) {
+          failure = new InferenceError('Scan aborted.', 504, true);
+        } else {
+          failure = new InferenceError(`Inference timed out after ${timeoutMs}ms.`, 504, true);
+        }
       } else {
         failure = new InferenceError('Could not reach the inference provider.', 502, true);
       }
     } finally {
       clearTimeout(timer);
+      if (scanSignal) scanSignal.removeEventListener('abort', onScanAbort);
     }
 
     if (!failure.retryable || attempt === MAX_RETRIES) throw failure;

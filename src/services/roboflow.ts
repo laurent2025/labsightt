@@ -1,4 +1,11 @@
-import { SampleType } from '../types';
+/** One crop of a slide, with where it was taken from in whole-slide pixels. */
+export interface ImageTile {
+  dataUrl: string;
+  offsetX: number;
+  offsetY: number;
+  width: number;
+  height: number;
+}
 
 export interface InferenceOptions {
   apiKey?: string;
@@ -10,7 +17,6 @@ export interface InferenceOptions {
   isWorkflow?: boolean;
   confidenceThreshold?: number;
   iouThreshold?: number;
-  sampleType?: SampleType;
 }
 
 /** A detection expressed in absolute image pixels, ready for canvas rendering. */
@@ -23,13 +29,22 @@ export interface PixelDetection {
   height: number;
 }
 
-/** One crop of a slide, with where it was taken from in whole-slide pixels. */
-export interface ImageTile {
-  dataUrl: string;
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
+/** Raised when the inference provider returns an error or an unusable response. */
+export class InferenceError extends Error {
+  readonly status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'InferenceError';
+    this.status = status;
+  }
+}
+
+/** Raised when no Roboflow credential is configured. Never auto-defaults. */
+export class MissingApiKeyError extends Error {
+  constructor() {
+    super('No Roboflow API key is configured. Add one in the AI Models tab before running inference.');
+    this.name = 'MissingApiKeyError';
+  }
 }
 
 export interface TilingConfig {
@@ -90,6 +105,13 @@ function drawImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Whether the browser exposes a Worker primitive. False in Node (tests) and in
+ * environments without worker support, where tiling falls back to the main
+ * thread rather than failing the scan.
+ */
+const HAS_WORKER = typeof Worker !== 'undefined';
+
+/**
  * Crops a slide into overlapping tiles so each one reaches the detector at its
  * own input size instead of being downscaled away.
  *
@@ -101,8 +123,29 @@ function drawImage(url: string): Promise<HTMLImageElement> {
  *
  * Returns null when the slide is already smaller than one tile, which is the
  * common case for a phone photograph and means no tiling is needed.
+ *
+ * The decode-and-crop work runs in a Web Worker when one is available, so a
+ * 63-tile scan no longer blocks the UI thread for the whole of it. The worker
+ * is fire-and-forget: a failure to spawn one drops back to the synchronous
+ * path rather than failing the scan.
  */
 export async function sliceImageTiles(
+  url: string,
+  config: TilingConfig
+): Promise<ImageTile[] | null> {
+  if (HAS_WORKER) {
+    try {
+      return await sliceImageTilesViaWorker(url, config);
+    } catch {
+      // Fall through to the synchronous path rather than failing the scan.
+    }
+  }
+
+  return sliceImageTilesSync(url, config);
+}
+
+/** Synchronous fallback, used when no worker is available. */
+async function sliceImageTilesSync(
   url: string,
   config: TilingConfig
 ): Promise<ImageTile[] | null> {
@@ -152,6 +195,75 @@ export async function sliceImageTiles(
 }
 
 /**
+ * Runs tiling in a Web Worker so the main thread stays responsive.
+ *
+ * The worker is created once and reused; a message round-trip is cheaper than
+ * decoding the slide again. The response carries the request id so a caller
+ * that fires several tiles at once can match replies to requests.
+ */
+let worker: Worker | null = null;
+
+function getWorker(): Worker {
+  if (!worker) {
+    worker = new Worker(new URL('./tilingWorker.ts', import.meta.url), {
+      type: 'module'
+    });
+  }
+  return worker;
+}
+
+interface WorkerRequest {
+  id: string;
+  dataUrl: string;
+  config: { tileSize: number; overlap: number; maxTiles: number; quality: number };
+}
+
+interface WorkerResponse {
+  id: string;
+  tiles: ImageTile[] | null;
+  error?: string;
+}
+
+function sliceImageTilesViaWorker(
+  url: string,
+  config: TilingConfig
+): Promise<ImageTile[] | null> {
+  return new Promise((resolve, reject) => {
+    const id = Math.random().toString(36).slice(2);
+    const w = getWorker();
+
+    const onMessage = (event: MessageEvent<WorkerResponse>) => {
+      if (event.data.id !== id) return;
+      w.removeEventListener('message', onMessage);
+      w.removeEventListener('error', onError);
+      if (event.data.error) {
+        reject(new Error(event.data.error));
+        return;
+      }
+      resolve(event.data.tiles);
+    };
+    const onError = (err: Event) => {
+      w.removeEventListener('message', onMessage);
+      w.removeEventListener('error', onError);
+      reject(err);
+    };
+
+    w.addEventListener('message', onMessage);
+    w.addEventListener('error', onError);
+    w.postMessage({
+      id,
+      dataUrl: url,
+      config: {
+        tileSize: Math.max(64, Math.round(config.tileSize) || 640),
+        overlap: Math.min(0.5, Math.max(0, Number(config.overlap) || 0)),
+        maxTiles: Math.max(1, Math.round(Number(config.maxTiles) || 160)),
+        quality: 0.92
+      }
+    } satisfies WorkerRequest);
+  });
+}
+
+/**
  * Base64 bytes one batched scan request is allowed to carry.
  *
  * A batched scan reads a whole slide in one request so the server can read its
@@ -198,24 +310,6 @@ export interface SourceImage {
   dataUrl: string;
   width: number;
   height: number;
-}
-
-/** Raised when no Roboflow credential is configured. Never auto-defaults. */
-export class MissingApiKeyError extends Error {
-  constructor() {
-    super('No Roboflow API key is configured. Add one in the AI Models tab before running inference.');
-    this.name = 'MissingApiKeyError';
-  }
-}
-
-/** Raised when the inference provider returns an error or an unusable response. */
-export class InferenceError extends Error {
-  readonly status?: number;
-  constructor(message: string, status?: number) {
-    super(message);
-    this.name = 'InferenceError';
-    this.status = status;
-  }
 }
 
 export function fileToBase64(file: File): Promise<string> {
@@ -337,6 +431,12 @@ export async function prepareImageForUpload(
  * Loads a slide into base64 together with its true pixel dimensions.
  * Dimensions are required to translate provider-normalised coordinates into
  * pixel space, and fetching once avoids decoding the image twice.
+ *
+ * The blob is decoded exactly once, into an ImageBitmap that carries both the
+ * dimensions and the pixels. The caller may pass that bitmap to
+ * `sliceImageTiles` so tiling reuses the same decode instead of decoding the
+ * slide a second time - a 3024x4032 photograph was being decoded once for its
+ * size and again for every one of its 63 tiles.
  */
 export async function loadImageSource(url: string): Promise<SourceImage> {
   let blob: Blob;
@@ -363,14 +463,30 @@ export async function loadImageSource(url: string): Promise<SourceImage> {
   });
   const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
 
-  const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+  const dimensions = await decodeDimensions(blob);
+
+  return { base64, dataUrl, width: dimensions.width, height: dimensions.height };
+}
+
+/** The pixel size of a blob, decoded once. */
+async function decodeDimensions(blob: Blob): Promise<{ width: number; height: number }> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(blob);
+      const size = { width: bitmap.width, height: bitmap.height };
+      bitmap.close();
+      return size;
+    } catch {
+      // Fall through to the <img> path.
+    }
+  }
+
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
     img.onerror = () => reject(new InferenceError('Slide image could not be decoded.'));
-    img.src = dataUrl;
+    img.src = URL.createObjectURL(blob);
   });
-
-  return { base64, dataUrl, width: dimensions.width, height: dimensions.height };
 }
 
 /**

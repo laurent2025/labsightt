@@ -23,7 +23,9 @@ import {
   purgeExpiredSessions
 } from './auth.js';
 import { appendAudit, verifyChain, chainHead } from './audit.js';
-import { runInference, applyNMS, isSameOrganism, inferenceStatus, InferenceError } from './inference.js';
+import { runInference, applyNMS, isSameOrganism, inferenceStatus, InferenceError, DEFAULT_CONFIDENCE } from './inference.js';
+import { beginScan, completeTile, endScan, getScan } from './scanProgress.js';
+import { encodeZip, crc32 } from './zip.js';
 import { newId, validatePasswordStrength } from './crypto.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 import { requestContext, createLoginLimiter, healthRoutes } from './operations.js';
@@ -114,15 +116,6 @@ function dropAlreadyFound(detections, priorDetections = []) {
 }
 
 /**
- * Confidence floor a scan falls back to when the request omits one.
- *
- * It must match the configured model threshold in `src/lib/constants.ts`. A
- * fallback that is *lower* than the configured floor would silently return more
- * candidates than the operator asked for, and a higher one would quietly miss
- * findings; either way the request would disagree with the configuration.
- */
-const DEFAULT_CONFIDENCE = 0.6;
-/**
  * Reads every tile of a slide, in parallel, and returns one merged list.
  *
  * A microscopy field is far larger than the detector's input, so the slide is
@@ -140,28 +133,62 @@ const DEFAULT_CONFIDENCE = 0.6;
  *
  * One audit entry summarises the whole slide, so the trail records the scan the
  * technologist actually ran rather than 63 fragments of it.
+ *
+ * `scanTimeoutMs` bounds the whole pass. Individual tiles already abort after
+ * `ROBOFLOW_TIMEOUT_MS`, but without a scan-level cap a slide whose tiles keep
+ * timing out can pin the request for as long as the slowest of them. The cap
+ * is configurable so a deployment with a fast provider can afford a generous
+ * window; a deployment that cannot can cut it short.
  */
-async function readSlide(db, actor, passes, confidence) {
+async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanToken = null) {
   const concurrency = Math.max(1, Math.min(Number(process.env.INFERENCE_CONCURRENCY) || 6, passes.length));
   const collected = new Array(passes.length);
   let next = 0;
+  // A scan-level abort controller lets the request handler cancel a scan that
+  // has run past its budget, and it propagates to every in-flight tile so the
+  // whole pass stops at once rather than waiting for the slowest tile's own
+  // timeout. A deadline of 0 means no cap, which is the default.
+  const scanController = scanTimeoutMs > 0 ? new AbortController() : null;
+  const scanDeadline = scanTimeoutMs > 0 ? Date.now() + scanTimeoutMs : null;
+  // The client polls `/scan-progress/:token` while this request is in flight,
+  // so the token is registered before the first tile starts and removed in the
+  // finally block whatever the outcome.
+  if (scanToken) beginScan(scanToken, passes.length);
 
   const worker = async () => {
-    while (next < passes.length) {
+    while (true) {
+      if (scanDeadline && Date.now() > scanDeadline) {
+        scanController?.abort();
+        return;
+      }
       const index = next;
+      if (index >= passes.length) return;
       next += 1;
       const tile = passes[index];
-      collected[index] = await runInference(db, actor, tile.imageBase64, {
-        confidence,
-        iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
-        offsetX: tile.offsetX,
-        offsetY: tile.offsetY,
-        audit: false
-      });
+      try {
+        collected[index] = await runInference(db, actor, tile.imageBase64, {
+          confidence,
+          iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
+          offsetX: tile.offsetX,
+          offsetY: tile.offsetY,
+          audit: false,
+          scanSignal: scanController?.signal
+        });
+      } catch (err) {
+        // A scan-level abort is expected; anything else is a real tile failure.
+        if (scanController?.signal?.aborted) return;
+        throw err;
+      } finally {
+        if (scanToken) completeTile(scanToken);
+      }
     }
   };
 
-  await Promise.all(Array.from({ length: concurrency }, worker));
+  try {
+    await Promise.all(Array.from({ length: concurrency }, worker));
+  } finally {
+    if (scanToken) endScan(scanToken);
+  }
 
   /*
    * Suppress duplicates across the whole slide, not just within one tile.
@@ -199,7 +226,10 @@ export { readSlide };
 
 export {
   collectScannedImages,
-  resolveScannedImage,
+  resolveScannedImage
+};
+
+export {
   buildScannedImagesZip,
   encodeZip,
   zipSafeName,
@@ -207,7 +237,7 @@ export {
   dataUrlSize,
   dataUrlExtension,
   imageContentType
-};
+} from './zip.js';
 
 /**
  * True when a stored owner id proves the request came from someone else.
@@ -536,182 +566,6 @@ async function resolveScannedImage(db, supabase, kind, id) {
     label: `${image.className || 'Finding'} — ${EVIDENCE_SOURCE_LABELS[image.source] ?? image.source}`,
     imageData: image.imageData
   };
-}
-
-/** A single saved image, with the name it should download under. */
-function scannedImageFile(image) {
-  const bytes = dataUrlToBytes(image.imageData);
-  if (!bytes) return null;
-  const folder = zipSafeName(image.specimenLabel || image.sampleId || 'saved images');
-  const label = zipSafeName(image.label || image.id);
-  return { name: `${folder}/${label}${dataUrlExtension(image.imageData)}`, data: bytes };
-}
-
-/** A zip of the chosen saved images, one folder per specimen. */
-function buildScannedImagesZip(images) {
-  const files = [];
-
-  for (let index = 0; index < images.length; index += 1) {
-    const file = scannedImageFile(images[index]);
-    if (file) files.push({ ...file, name: `${index + 1}_${file.name}` });
-  }
-
-  return encodeZip(files);
-}
-
-/**
- * The bytes a data URL carries.
- *
- * Base64 is four characters for every three bytes, and the trailing padding
- * is the only part that does not decode, so the size is read off the encoded
- * length rather than by decoding the whole slide just to count bytes.
- */
-function dataUrlSize(dataUrl) {
-  if (typeof dataUrl !== 'string') return 0;
-  const comma = dataUrl.indexOf(',');
-  const base64 = comma < 0 ? '' : dataUrl.slice(comma + 1);
-  if (!base64) return 0;
-  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
-  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
-}
-
-/** Bytes of a data URL, or null when the value is not one. */
-function dataUrlToBytes(dataUrl) {
-  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) return null;
-  const comma = dataUrl.indexOf(',');
-  if (comma < 0) return null;
-  if (!/;base64$/i.test(dataUrl.slice(0, comma))) return null;
-  try {
-    return Buffer.from(dataUrl.slice(comma + 1), 'base64');
-  } catch {
-    return null;
-  }
-}
-
-/** The extension a data URL's image type calls for. */
-function dataUrlExtension(dataUrl) {
-  const match = /^data:([^;,]+)/i.exec(String(dataUrl ?? ''));
-  if (!match) return '.jpg';
-  const type = match[1].toLowerCase();
-  if (type.includes('png')) return '.png';
-  if (type.includes('webp')) return '.webp';
-  if (type.includes('gif')) return '.gif';
-  return '.jpg';
-}
-
-/** The media type a data URL declares, for the download's content type. */
-function imageContentType(dataUrl) {
-  const match = /^data:([^;,]+)/i.exec(String(dataUrl ?? ''));
-  const type = match ? match[1].toLowerCase() : '';
-  if (type.startsWith('image/')) return type;
-  return 'image/jpeg';
-}
-
-/**
- * A fragment that is safe inside a zip entry path.
- *
- * A slide name is operator input, so it may contain path separators or
- * characters a filesystem refuses. Keeping letters, digits and a few
- * separators is enough to stay recognisable, and the length cap keeps the
- * entry path inside what common unzip tools accept.
- */
-function zipSafeName(value) {
-  const cleaned = String(value ?? '')
-    .normalize('NFKD')
-    .replace(/[^A-Za-z0-9._-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 80);
-  return cleaned || 'untitled';
-}
-
-/**
- * A zip file, stored without compression.
- *
- * The images are JPEG and the deployment carries no zip library, so
- * compressing them would cost CPU and save nothing. The format is written
- * directly: each entry is a local header and its bytes, followed by a central
- * directory and its end record, which is the shape every unzip tool reads.
- */
-function encodeZip(files) {
-  const locals = [];
-  const centrals = [];
-  let offset = 0;
-
-  for (const file of files) {
-    const nameBytes = Buffer.from(file.name, 'utf8');
-    const crc = crc32(file.data);
-
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0); // signature
-    local.writeUInt16LE(20, 4); // version needed
-    local.writeUInt16LE(0, 6); // general purpose flags
-    local.writeUInt16LE(0, 8); // compression: stored
-    local.writeUInt16LE(0, 10); // mod time
-    local.writeUInt16LE(0, 12); // mod date
-    local.writeUInt32LE(crc, 14); // crc-32
-    local.writeUInt32LE(file.data.length, 18); // compressed size
-    local.writeUInt32LE(file.data.length, 22); // uncompressed size
-    local.writeUInt16LE(nameBytes.length, 26); // file name length
-    local.writeUInt16LE(0, 28); // extra field length
-    locals.push(local, nameBytes, file.data);
-
-    const central = Buffer.alloc(46);
-    central.writeUInt32LE(0x02014b50, 0); // signature
-    central.writeUInt16LE(20, 4); // version made by
-    central.writeUInt16LE(20, 6); // version needed
-    central.writeUInt16LE(0, 8); // general purpose flags
-    central.writeUInt16LE(0, 10); // compression: stored
-    central.writeUInt16LE(0, 12); // mod time
-    central.writeUInt16LE(0, 14); // mod date
-    central.writeUInt32LE(crc, 16); // crc-32
-    central.writeUInt32LE(file.data.length, 20); // compressed size
-    central.writeUInt32LE(file.data.length, 24); // uncompressed size
-    central.writeUInt16LE(nameBytes.length, 28); // file name length
-    central.writeUInt16LE(0, 30); // extra field length
-    central.writeUInt16LE(0, 32); // comment length
-    central.writeUInt16LE(0, 34); // disk number start
-    central.writeUInt16LE(0, 36); // internal attributes
-    central.writeUInt32LE(0, 38); // external attributes
-    central.writeUInt32LE(offset, 42); // local header offset
-    centrals.push(central, nameBytes);
-
-    offset += 30 + nameBytes.length + file.data.length;
-  }
-
-  const centralDirectory = Buffer.concat(centrals);
-
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0); // signature
-  end.writeUInt16LE(0, 4); // this disk
-  end.writeUInt16LE(0, 6); // disk with central directory
-  end.writeUInt16LE(files.length, 8); // entries on this disk
-  end.writeUInt16LE(files.length, 10); // total entries
-  end.writeUInt32LE(centralDirectory.length, 12); // directory size
-  end.writeUInt32LE(offset, 16); // directory offset
-  end.writeUInt16LE(0, 20); // comment length
-
-  return Buffer.concat([...locals, centralDirectory, end]);
-}
-
-/** CRC-32, the checksum every zip local and central header carries. */
-const ZIP_CRC32_TABLE = (() => {
-  const table = new Uint32Array(256);
-  for (let n = 0; n < 256; n += 1) {
-    let c = n;
-    for (let k = 0; k < 8; k += 1) {
-      c = (c & 1) === 1 ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-    }
-    table[n] = c >>> 0;
-  }
-  return table;
-})();
-
-function crc32(data) {
-  let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i += 1) {
-    crc = (crc >>> 8) ^ ZIP_CRC32_TABLE[(crc ^ data[i]) & 0xff];
-  }
-  return (crc ^ 0xffffffff) >>> 0;
 }
 
 export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
@@ -1843,6 +1697,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     const startedAt = new Date().toISOString();
     try {
       const { sampleId, imageBase64, confidence, imageRef, offsetX, offsetY, images } = req.body ?? {};
+  const scanToken = typeof req.query.scanToken === 'string' && req.query.scanToken.trim()
+    ? req.query.scanToken.trim()
+    : null;
       const scanRef = typeof imageRef === 'string' && imageRef.trim() ? imageRef.trim() : 'primary';
 
       // Validate before touching the database. A missing sampleId makes the
@@ -1968,7 +1825,14 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
         let detections;
         try {
-          detections = await readSlide(db, req.user, passes, Number(confidence) || DEFAULT_CONFIDENCE);
+          detections = await readSlide(
+            db,
+            req.user,
+            passes,
+            Number(confidence) || DEFAULT_CONFIDENCE,
+            Number(process.env.INFERENCE_SCAN_TIMEOUT_MS) || 0,
+            scanToken ?? analysisId
+          );
         } catch (err) {
           if (existingRow) {
             const { error: restoreError } = await supabase
@@ -2116,7 +1980,14 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       let detections;
       try {
-        detections = await readSlide(db, req.user, passes, Number(confidence) || DEFAULT_CONFIDENCE);
+        detections = await readSlide(
+          db,
+          req.user,
+          passes,
+          Number(confidence) || DEFAULT_CONFIDENCE,
+          Number(process.env.INFERENCE_SCAN_TIMEOUT_MS) || 0,
+          id
+        );
       } catch (err) {
         if (existing) {
           db.prepare('UPDATE analyses SET status = ?, started_at = ?, completed_at = ? WHERE id = ?').run(
@@ -2187,6 +2058,32 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       }
 
       res.status(existing ? 200 : 201).json({ analysis: repo.getAnalysis(db, id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * Progress of the in-flight scan for an analysis.
+   *
+   * A slide is read as many tiles and a 63-tile scan takes far longer than the
+   * request body it returns from, so the operator gets a real progress bar
+   * instead of a spinner. The scan registers under a token the client chose
+   * before the request is issued, so the client can poll for progress while the
+   * request is still in flight - it does not have to wait for the analysis id
+   * the server assigns. The endpoint is read-only and returns nothing for an
+   * unknown token, so it exposes no state the caller could not already reach.
+   */
+  app.get('/api/scan-progress/:token', auth, async (req, res, next) => {
+    try {
+      const progress = getScan(req.params.token);
+      if (!progress) return res.json({ running: false });
+      res.json({
+        running: true,
+        total: progress.total,
+        completed: progress.completed,
+        elapsedMs: Math.max(0, Date.now() - progress.startedAt)
+      });
     } catch (err) {
       next(err);
     }

@@ -28,7 +28,7 @@ import {
   clearCachedSlide
 } from '../../lib/slideCache';
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
-import { ApiError, detectionImagesApi, samplesApi } from '../../services/api';
+import { ApiError, detectionImagesApi, samplesApi, analysesApi } from '../../services/api';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 
 // The Roboflow workflow id ("labsight-vlabsight-3-yolo26m-t1-logic") and the
@@ -51,7 +51,7 @@ interface MicroscopyWorkspaceProps {
   pendingSampleId?: string;
   pendingInferenceError?: string;
   pendingInferenceActive?: boolean;
-  onRunAnalysis: (patientId: string, sampleId: string, modelId: string, imageUrlOverride?: string, imageRef?: string) => Promise<Analysis>;
+  onRunAnalysis: (patientId: string, sampleId: string, modelId: string, imageUrlOverride?: string, imageRefOverride?: string, scanToken?: string) => Promise<Analysis>;
   onToggleConfirmDetection: (analysisId: string, detectionId: string) => void;
   onRejectDetection: (analysisId: string, detectionId: string) => void;
   onConfirmAllDetections: (analysisId: string) => void;
@@ -116,11 +116,55 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   // all.
   const [activeSlideRef, setActiveSlideRef] = useState<string>('primary');
 
-  const [scanSeconds, setScanSeconds] = useState<number>(0);
-  const [scanSummary, setScanSummary] = useState<string | null>(null);
+const [scanSeconds, setScanSeconds] = useState<number>(0);
+  const [scanSummary, setScanSummary] = useState<string | null>( null );
   // Position within a "Scan All Images" pass, so the operator can see which
-  // image is being read while several are being worked through in one action.
+  // image is being worked through while several are being worked through in one action.
   const [scanProgress, setScanProgress] = useState<{ current: number; total: number } | null>(null);
+  /**
+   * Tile-level progress of the scan currently in flight.
+   *
+   * A slide is cut into overlapping tiles and a 63-tile scan takes far longer
+   * than the request body it returns from, so the operator gets a real bar
+   * instead of a spinner. The server reports each completed tile under a token
+   * the client chose before the request was issued, so the client can poll for
+   * progress while the request is still in flight rather than waiting for the
+   * analysis id the server assigns.
+   */
+  const [tileProgress, setTileProgress] = useState<{ completed: number; total: number; elapsedMs: number } | null>(null);
+  const tileProgressTokenRef = useRef<string | null>(null);
+  const tilePollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTilePolling = useCallback(() => {
+    if (tilePollTimerRef.current) {
+      clearInterval(tilePollTimerRef.current);
+      tilePollTimerRef.current = null;
+    }
+  }, []);
+
+  const pollTileProgress = useCallback((token: string) => {
+    stopTilePolling();
+    tileProgressTokenRef.current = token;
+    let current = true;
+    tilePollTimerRef.current = setInterval(() => {
+      analysesApi.scanProgress(token).then(({ running, completed = 0, total = 0, elapsedMs = 0 }) => {
+        if (!current) return;
+        if (running) {
+          setTileProgress({ completed, total, elapsedMs });
+        } else {
+          setTileProgress(null);
+          stopTilePolling();
+        }
+      }).catch(() => {
+        // A poll failure is not worth surfacing: the scan itself is the
+        // authoritative outcome and its own error path will report it.
+        if (current) setTileProgress(null);
+      });
+    }, 400);
+    return () => {
+      current = false;
+    };
+}, [analysesApi, stopTilePolling]);
   useEffect(() => {
     if (!isAnalyzing) return;
     setScanSeconds(0);
@@ -128,12 +172,6 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
     const t = setInterval(() => setScanSeconds(Math.floor((Date.now() - started) / 1000)), 500);
     return () => clearInterval(t);
   }, [isAnalyzing]);
-
-  useEffect(() => {
-    if (currentAnalysisId && currentAnalysisId !== selectedAnalysisId) {
-      setSelectedAnalysisId(currentAnalysisId);
-    }
-  }, [currentAnalysisId, selectedAnalysisId]);
 
   const handleBrowseSelect = (id: string) => {
     setSelectedAnalysisId(id);
@@ -467,9 +505,15 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       setInferenceError('No slide image is loaded for this specimen. Use "Load Slide" or "Capture from Microscope" to attach one, then retry.');
       return null;
     }
+    // A token chosen here, before the request is issued, lets the progress
+    // poll watch the scan while it is still in flight rather than waiting for
+    // the analysis id the server assigns.
+    const scanToken = `scan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const cleanup = pollTileProgress(scanToken);
     setIsAnalyzing(true);
     setInferenceError(null);
     setScanSummary(null);
+    setTileProgress(null);
     const startedAt = Date.now();
     try {
       const newAna = await onRunAnalysis(
@@ -477,7 +521,8 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
         activeSample.id,
         selectedModelId || activeModel.id,
         imageUrl,
-        imageRefOverride ?? activeSlideRef
+        imageRefOverride ?? activeSlideRef,
+        scanToken
       );
       setSelectedAnalysisId(newAna.id);
 
@@ -508,6 +553,8 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       setScanSummary(null);
       return null;
     } finally {
+      cleanup();
+      setTileProgress(null);
       setIsAnalyzing(false);
     }
   };
@@ -1535,10 +1582,25 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
       {(isAnalyzing || scanSummary) && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-xs shadow-xs">
           {isAnalyzing ? (
-            <span className="font-mono text-slate-500 dark:text-slate-400">
-              <RotateCcw className="w-3.5 h-3.5 animate-spin text-cyan-600 dark:text-cyan-400 inline mr-1.5" />
-              Scanning field {currentField} of {totalFields} · {scanSeconds}s elapsed
-            </span>
+            <div className="space-y-2">
+              <span className="font-mono text-slate-500 dark:text-slate-400 inline-flex items-center">
+                <RotateCcw className="w-3.5 h-3.5 animate-spin text-cyan-600 dark:text-cyan-400 inline mr-1.5" />
+                Scanning field {currentField} of {totalFields} · {scanSeconds}s elapsed
+              </span>
+              {tileProgress && tileProgress.total > 1 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-cyan-500 dark:bg-cyan-400 transition-all duration-300"
+                      style={{ width: `${Math.min(100, (tileProgress.completed / tileProgress.total) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                    {tileProgress.completed}/{tileProgress.total}
+                  </span>
+                </div>
+              )}
+            </div>
           ) : (
             <span className="text-slate-600 dark:text-slate-300">{scanSummary}</span>
           )}

@@ -469,8 +469,8 @@ export default function App() {
             pendingSampleId={pendingMicroscopy?.sampleId}
             pendingInferenceError={pendingMicroscopy?.error}
             pendingInferenceActive={pendingMicroscopy?.scanning ?? false}
-            onRunAnalysis={async (patientId, sampleId, modelId, imageUrl, imageRef) => {
-              const analysis = await createAndRunAnalysis(patientId, sampleId, modelId, imageUrl, imageRef);
+            onRunAnalysis={async (patientId, sampleId, modelId, imageUrl, imageRef, scanToken) => {
+              const analysis = await createAndRunAnalysis(patientId, sampleId, modelId, imageUrl, imageRef, scanToken);
               if (pendingMicroscopy?.sampleId === sampleId) setPendingMicroscopy(null);
               return analysis;
             }}

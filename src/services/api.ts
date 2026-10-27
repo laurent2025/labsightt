@@ -452,6 +452,20 @@ export const analysesApi = {
   list: (params: { limit?: number; offset?: number; sampleId?: string; status?: string } = {}) =>
     request<{ analyses: Analysis[]; pagination: Pagination }>(`/analyses${query(params)}`),
 
+  /**
+   * Progress of an in-flight scan, polled while a slide is being read.
+   *
+   * A slide is read as many tiles and a 63-tile scan takes far longer than the
+   * request body it returns from, so the operator gets a real progress bar
+   * instead of a spinner. The client chooses a token before issuing the scan
+   * request and polls with it, so it can watch progress while the request is
+   * still in flight rather than waiting for the analysis id the server assigns.
+   */
+  scanProgress: (token: string) =>
+    request<{ running: boolean; total?: number; completed?: number; elapsedMs?: number }>(
+      `/scan-progress/${encodeURIComponent(token)}`
+    ),
+
  /**
     * Runs inference on a slide and persists the proposals. The model credential
     * stays server-side.
@@ -467,9 +481,13 @@ export const analysesApi = {
     sampleId: string,
     tiles: ScanTile[],
     confidence?: number,
-    imageRef?: string
-  ) =>
-    request<{ analysis: Analysis }>('/analyses', {
+    imageRef?: string,
+    scanToken?: string
+  ) => {
+    const path = scanToken
+      ? `/analyses?scanToken=${encodeURIComponent(scanToken)}`
+      : '/analyses';
+    return request<{ analysis: Analysis }>(path, {
       method: 'POST',
       body: JSON.stringify({
         sampleId,
@@ -481,7 +499,8 @@ export const analysesApi = {
         confidence,
         imageRef
       })
-    })
+    });
+  },
 };
 
 // ------------------------------------------------------------ detections ----
