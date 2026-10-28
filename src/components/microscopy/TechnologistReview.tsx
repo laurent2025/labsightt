@@ -8,6 +8,7 @@ import {
   allSourcesOptionLabel
 } from '../../lib/slideSources';
 import { detectionImagesApi } from '../../services/api';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -116,6 +117,37 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setCriticalCalloutLogged(`Notified ${patient.referringDoctor} at ${timeStr} · Read-back confirmed`);
   };
+
+  useKeyboardShortcuts(action => {
+    if (action === 'close') {
+      if (viewingImageId) closeEvidenceImage();
+      return;
+    }
+    if (action === 'confirmAll') {
+      onConfirmAll();
+      return;
+    }
+    if (filteredDetections.length === 0) return;
+
+    const index = filteredDetections.findIndex(d => d.id === selectedDetectionId);
+    const current = index >= 0 ? index : 0;
+
+    if (action === 'next') {
+      const next = filteredDetections[(current + 1) % filteredDetections.length];
+      onSelectDetection(next.id);
+      return;
+    }
+    if (action === 'previous') {
+      const prev = filteredDetections[(current - 1 + filteredDetections.length) % filteredDetections.length];
+      onSelectDetection(prev.id);
+      return;
+    }
+    const detection = filteredDetections[current];
+    if (!detection) return;
+    if (action === 'confirm') onToggleConfirmDetection(detection.id);
+    else if (action === 'reject') onRejectDetection(detection.id);
+    else if (action === 'release' && detection.confirmed) onToggleConfirmDetection(detection.id);
+  });
 
   const totalDetections = analysis.detections.filter(d => !d.rejected).length;
   const confirmedDetections = analysis.detections.filter(d => d.confirmed && !d.rejected).length;
@@ -599,6 +631,12 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
           Reviewed by: <strong className="text-slate-800 dark:text-slate-200">Laurent K., MLS (ASCP)</strong>
+        </div>
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex flex-wrap gap-x-3 gap-y-1">
+          <span><kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">1</kbd> confirm</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">2</kbd> reject</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">J</kbd>/<kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">K</kbd> move</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">C</kbd> confirm all</span>
         </div>
 
         <button

@@ -10,6 +10,7 @@ import { Footer } from './components/layout/Footer';
 import { PatientFormModal } from './components/patients/PatientFormModal';
 import { PatientEditModal } from './components/patients/PatientEditModal';
 import { LegalModal } from './components/legal/LegalModal';
+import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ChangePasswordModal } from './components/auth/ChangePasswordModal';
 import { Skeleton } from './components/ui/States';
@@ -117,6 +118,10 @@ export default function App() {
 
   const [microscopyBrowseFilter, setMicroscopyBrowseFilter] = useState<string | null>(null);
   const [reportsBrowseFilter, setReportsBrowseFilter] = useState<'all' | 'verified' | 'pending_verification'>('all');
+  /** The patient awaiting archive, shown in an inline dialog instead of a
+   *  browser confirm() so the action is keyboard-reachable and styled like the
+   *  rest of the interface. */
+  const [pendingDeletePatient, setPendingDeletePatient] = useState<Patient | null>(null);
 
   const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans', filter?: string | null) => {
     setActiveTab(tab);
@@ -329,12 +334,22 @@ export default function App() {
   };
 
   const handleDeletePatient = async (patient: Patient) => {
-    if (!confirm(`Archive patient "${patient.fullName}"? They will be hidden from active lists, with audit history retained.`)) return;
+    setPendingDeletePatient(patient);
+  };
+
+  const confirmDeletePatient = async () => {
+    const patient = pendingDeletePatient;
+    setPendingDeletePatient(null);
+    if (!patient) return;
     try {
       await deletePatient(patient.id);
     } catch (err) {
       console.error('Delete failed:', err);
     }
+  };
+
+  const cancelDeletePatient = () => {
+    setPendingDeletePatient(null);
   };
 
   if (!authChecked) {
@@ -607,6 +622,22 @@ export default function App() {
         <ChangePasswordModal onClose={() => setIsChangePasswordOpen(false)} />
       )}
 
+      {pendingDeletePatient && (
+        <ConfirmDialog
+          open
+          title="Archive patient record"
+          description={
+            <>
+              Archive <strong className="text-slate-900 dark:text-slate-100">{pendingDeletePatient.fullName}</strong> (
+              {pendingDeletePatient.patientNumber})? They will be hidden from active lists, with audit history retained.
+            </>
+          }
+          confirmLabel="Archive"
+          cancelLabel="Keep"
+          onConfirm={confirmDeletePatient}
+          onCancel={cancelDeletePatient}
+        />
+      )}
     </div>
   );
 }

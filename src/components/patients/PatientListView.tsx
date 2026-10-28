@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Patient, Sample, SampleType } from '../../types';
-import { Search, UserPlus, Microscope, Filter, X, Pencil, Trash2, Download } from 'lucide-react';
+import { Search, UserPlus, Microscope, Filter, X, Pencil, Trash2, Download, Barcode } from 'lucide-react';
 import { useLabStore } from '../../store/labStore';
 import { useDebounced } from '../../hooks/useDebounced';
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { TableSkeleton, EmptyState, NoResultsState, ErrorState, Pagination } from '../ui/States';
 import { patientsApi } from '../../services/api';
 
@@ -28,6 +29,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
   const [sampleFilter, setSampleFilter] = useState<string>('all');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [scannedMrn, setScannedMrn] = useState<string | null>(null);
   const {
     patientSearch,
     setPatientSearch,
@@ -38,6 +40,19 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
     loadError,
     refresh
   } = useLabStore();
+
+  // Accession by hand is a transcription error waiting to happen, and a barcode
+  // reader is the usual fix. Most readers type the code into whatever field has
+  // focus, so this watches for a burst of keystrokes and turns it into a
+  // patient number without a button. Typing a number by hand is unaffected: a
+  // gap between characters clears the buffer.
+  useBarcodeScanner({
+    onScan: event => {
+      setScannedMrn(event.code);
+      setSearchInput(event.code);
+      setPatientSearch(event.code);
+    }
+  });
 
   // The query runs on the server; this only throttles how often we ask for it.
   const [searchInput, setSearchInput] = useState(patientSearch);
@@ -140,6 +155,11 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             >
               <X className="w-3.5 h-3.5" />
             </button>
+          )}
+          {scannedMrn && (
+            <span className="absolute right-2 top-2 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <Barcode className="w-3 h-3" /> scanned
+            </span>
           )}
         </div>
 

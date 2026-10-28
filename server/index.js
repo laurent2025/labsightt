@@ -7,6 +7,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 import { openDatabase, installImmutabilityGuards } from './db.js';
 import {
   authenticate,
@@ -26,6 +27,14 @@ import { appendAudit, verifyChain, chainHead } from './audit.js';
 import { runInference, applyNMS, isSameOrganism, inferenceStatus, InferenceError, DEFAULT_CONFIDENCE } from './inference.js';
 import { beginScan, completeTile, endScan, getScan } from './scanProgress.js';
 import { encodeZip, crc32 } from './zip.js';
+import {
+  validateEmail,
+  validatePatientNumber,
+  validatePatientName,
+  validateDisplayName,
+  validateEvidenceImage,
+  EVIDENCE_IMAGE_PATTERN
+} from './validators.js';
 import { newId, validatePasswordStrength } from './crypto.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
 import { requestContext, createLoginLimiter, healthRoutes } from './operations.js';
@@ -322,7 +331,6 @@ function missingColumnFromMessage(error) {
 }
 
 /** Data URLs the evidence endpoints accept, and the largest one, in characters. */
-const EVIDENCE_IMAGE_PATTERN = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=\s]+$/;
 const EVIDENCE_IMAGE_MAX_CHARS = 4 * 1024 * 1024;
 
 /**
@@ -396,6 +404,69 @@ const EVIDENCE_SOURCE_LABELS = {
   rejected: 'rejected',
   reset: 'confirmation released'
 };
+
+/**
+ * Delivers an audit event to every configured webhook URL.
+ *
+ * An audit trail is only useful if the people who need to know about a
+ * decision can find out without polling, so a lab information system, a pager,
+ * or a compliance archive can subscribe to the same events the
+ * administrators read in the UI. The event is signed with
+ * AUDIENCE_WEBHOOK_SECRET so the receiver can tell it came from this server
+ * rather than an attacker replaying it.
+ *
+ * Delivery is fire-and-forget: a webhook that cannot be reached is logged and
+ * dropped, because the clinical write has already happened and must not be
+ * retried after the operator has moved on. The server never retries a failed
+ * delivery, so an outage costs a missed notification rather than a stuck
+ * request.
+ *
+ * Returns the list of URLs that were reached, so the caller can report what
+ * was delivered. An empty list means no webhook is configured.
+ */
+async function postAuditWebhook(event) {
+  const raw = (process.env.AUDIENCE_WEBHOOK_URLS || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (raw.length === 0) return [];
+
+  const body = JSON.stringify(event);
+  const secret = process.env.AUDIENCE_WEBHOOK_SECRET || '';
+  const signature = secret
+    ? crypto.createHmac('sha256', secret).update(body).digest('hex')
+    : null;
+
+  const delivered = [];
+  for (const url of raw) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(signature ? { 'X-Labsight-Signature': signature } : {}),
+            'X-Labsight-Event': event.event
+          },
+          body,
+          signal: controller.signal
+        });
+        if (response.ok) delivered.push(url);
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      // Fire-and-forget: a webhook that cannot be reached is logged and dropped.
+      logger({
+        level: 'warn',
+        event: 'webhook_delivery_failed',
+        url,
+        eventName: event.event,
+        error: 'Could not deliver audit event to webhook.'
+      });
+    }
+  }
+  return delivered;
+}
 
 /**
  * Every scanned image in the system, as one navigable list.
@@ -775,9 +846,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           return res.status(503).json({ error: 'The authentication service is not fully configured. Please contact your Lab Director or IT administrator.' });
         }
         const normalizedEmail = loginIdentifier.trim().toLowerCase();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-          return res.status(400).json({ error: 'Enter a valid email address.' });
-        }
+        const emailProblem = validateEmail(normalizedEmail);
+        if (emailProblem) return res.status(400).json({ error: emailProblem });
         const limit = loginLimiter.check(req.ip, normalizedEmail);
         if (!limit.allowed) {
           res.setHeader('Retry-After', Math.ceil(limit.retryAfterMs / 1000));
@@ -891,17 +961,12 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         return res.status(503).json({ error: 'Email sign-up is not enabled for this deployment. Please contact your Lab Director or IT administrator to request access.' });
       }
       const { email, password, displayName } = req.body ?? {};
-      if (typeof email !== 'string' || typeof password !== 'string' || typeof displayName !== 'string') {
-        return res.status(400).json({ error: 'Please provide your work email, full name, and a password to request an account.' });
-      }
+      const emailProblem = validateEmail(email);
+      if (emailProblem) return res.status(400).json({ error: emailProblem });
+      const nameProblem = validateDisplayName(displayName);
+      if (nameProblem) return res.status(400).json({ error: nameProblem });
       const normalizedEmail = email.trim().toLowerCase();
       const normalizedName = displayName.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-        return res.status(400).json({ error: 'Please enter a valid work email address (for example: jane.doe@hospital.org).' });
-      }
-      if (normalizedName.length < 2 || normalizedName.length > 120) {
-        return res.status(400).json({ error: 'Please enter your full name (between 2 and 120 characters).' });
-      }
       const problems = validatePasswordStrength(password);
       if (problems.length) return res.status(400).json({ error: `Password does not meet the policy: ${problems.join('; ')}.` });
 
@@ -1144,9 +1209,10 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       const { patientNumber, fullName, age, gender, referringDoctor, referringFacility, clinicalNotes } =
         req.body ?? {};
 
-      if (!patientNumber || !fullName) {
-        return res.status(400).json({ error: 'Please provide both the patient ID / MRN and the full patient name to continue.' });
-      }
+      const numberProblem = validatePatientNumber(patientNumber);
+      if (numberProblem) return res.status(400).json({ error: numberProblem });
+      const nameProblem = validatePatientName(fullName);
+      if (nameProblem) return res.status(400).json({ error: nameProblem });
 
       if (hasSupabaseDatabaseConfig()) {
         const supabase = getSupabaseClient({ admin: true });
@@ -1237,9 +1303,8 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         }
         const updates = req.body ?? {};
         if (updates.patientNumber !== undefined) {
-          if (typeof updates.patientNumber !== 'string' || !updates.patientNumber.trim()) {
-            return res.status(400).json({ error: 'Patient ID / MRN cannot be empty.' });
-          }
+          const numberProblem = validatePatientNumber(updates.patientNumber);
+          if (numberProblem) return res.status(400).json({ error: numberProblem });
           const { data: duplicate, error: duplicateError } = await supabase
             .from('patients')
             .select('id')
@@ -1250,8 +1315,9 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           if (duplicate) return res.status(409).json({ error: `Patient ID "${updates.patientNumber.trim()}" is already registered.` });
           updates.patientNumber = updates.patientNumber.trim();
         }
-        if (updates.fullName !== undefined && (typeof updates.fullName !== 'string' || !updates.fullName.trim())) {
-          return res.status(400).json({ error: 'Patient full name cannot be empty.' });
+        if (updates.fullName !== undefined) {
+          const nameProblem = validatePatientName(updates.fullName);
+          if (nameProblem) return res.status(400).json({ error: nameProblem });
         }
         if (updates.age !== undefined && (!Number.isInteger(Number(updates.age)) || Number(updates.age) < 0 || Number(updates.age) > 130)) {
           return res.status(400).json({ error: 'Patient age must be a whole number between 0 and 130.' });
@@ -1280,16 +1346,16 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
       const updates = { ...req.body };
       if (updates.patientNumber !== undefined) {
-        if (typeof updates.patientNumber !== 'string' || !updates.patientNumber.trim()) {
-          return res.status(400).json({ error: 'Patient ID / MRN cannot be empty.' });
-        }
+        const numberProblem = validatePatientNumber(updates.patientNumber);
+        if (numberProblem) return res.status(400).json({ error: numberProblem });
         const patientNumber = updates.patientNumber.trim();
         const duplicate = db.prepare('SELECT 1 FROM patients WHERE patient_number = ? AND id != ?').get(patientNumber, req.params.id);
         if (duplicate) return res.status(409).json({ error: `Patient ID "${patientNumber}" is already registered.` });
         updates.patientNumber = patientNumber;
       }
-      if (updates.fullName !== undefined && (typeof updates.fullName !== 'string' || !updates.fullName.trim())) {
-        return res.status(400).json({ error: 'Patient full name cannot be empty.' });
+      if (updates.fullName !== undefined) {
+        const nameProblem = validatePatientName(updates.fullName);
+        if (nameProblem) return res.status(400).json({ error: nameProblem });
       }
       if (updates.age !== undefined && (!Number.isInteger(Number(updates.age)) || Number(updates.age) < 0 || Number(updates.age) > 130)) {
         return res.status(400).json({ error: 'Patient age must be a whole number between 0 and 130.' });
@@ -3335,6 +3401,10 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           'Content-Disposition',
           `attachment; filename="${zipSafeName(only.label)}${dataUrlExtension(only.imageData)}"`
         );
+        // The image itself is content-addressed by its stored row id and does
+        // not change once saved, so a browser can keep it warm and a re-open of
+        // the same case does not have to re-download the picture.
+        res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
         return res.send(bytes);
       }
 
@@ -3562,6 +3632,47 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
 
   app.get('/api/audit/verify', auth, requireAdmin, (_req, res) => {
     res.json(verifyChain(db));
+  });
+
+  /**
+   * Outbound webhook for audit events.
+   *
+   * An audit trail is only useful if the people who need to know about a
+   * decision can find out without polling. This endpoint accepts an event and
+   * POSTs it to every URL in AUDIENCE_WEBHOOK_URLS (comma-separated), so a lab
+   * information system, a pager, or a compliance archive can subscribe to the
+   * same events the administrators read in the UI. The event is signed with
+   * AUDIENCE_WEBHOOK_SECRET so the receiver can tell it came from this server
+   * rather than an attacker replaying it.
+   *
+   * Delivery is fire-and-forget: a webhook that cannot be reached is logged and
+   * dropped, because a clinical write has already happened and must not be
+   * retried after the operator has moved on. The server never retries a failed
+   * delivery, so an outage costs a missed notification rather than a stuck
+   * request.
+   */
+  app.post('/api/webhooks/audit', auth, requireAdmin, async (req, res, next) => {
+    try {
+      const { event, entity, entityId, details, actor } = req.body ?? {};
+      if (!event) {
+        return res.status(400).json({ error: 'An audit event name is required.' });
+      }
+
+      const payload = {
+        id: newId('evt'),
+        event,
+        entity: entity ?? null,
+        entityId: entityId ?? null,
+        details: typeof details === 'string' ? details : null,
+        actor: actor ?? { id: req.user.id, name: req.user.display_name },
+        occurredAt: new Date().toISOString()
+      };
+
+      const delivered = await postAuditWebhook(payload);
+      res.json({ ok: true, delivered });
+    } catch (err) {
+      next(err);
+    }
   });
 
   // ------------------------------------------------------------- errors ----

@@ -557,6 +557,33 @@ export const detectionImagesApi = {
     request<{ image: DetectionImage }>(`/detection-images/${encodeURIComponent(id)}`)
 };
 
+// --------------------------------------------------------------- webhooks ----
+
+/**
+ * Outbound webhooks.
+ *
+ * An audit trail is only useful if the people who need to know about a
+ * decision can find out without polling, so a lab information system, a pager,
+ * or a compliance archive can subscribe to the same events the
+ * administrators read in the UI. The server signs each event with
+ * AUDIENCE_WEBHOOK_SECRET so the receiver can tell it came from this server
+ * rather than an attacker replaying it.
+ */
+export const webhooksApi = {
+  /** Delivers one audit event to every configured webhook URL. */
+  sendAuditEvent: (payload: {
+    event: string;
+    entity?: string | null;
+    entityId?: string | null;
+    details?: string | null;
+    actor?: { id: string; name: string } | null;
+  }) =>
+    request<{ ok: true; delivered: string[] }>('/webhooks/audit', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+};
+
 // --------------------------------------------------------------- reports ----
 
 export const reportsApi = {
