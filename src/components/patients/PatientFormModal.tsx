@@ -191,10 +191,10 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="clinical-form p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="clinical-form p-3 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 min-w-0">
           {/* Section 1: Patient Demographics */}
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-3">
+          <div className="form-section rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-3 sm:p-4">
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300 mb-3">
               1. Patient Demographics & Clinical Information
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -302,8 +302,8 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
           </div>
 
           {/* Section 2: Specimen & Microscopy Collection */}
-          <div className="pt-2 border-t border-slate-200">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-3">
+          <div className="form-section rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-3 sm:p-4">
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300 mb-3">
               2. Specimen & Optical Microscopy Configuration
             </h3>
 
@@ -383,8 +383,8 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
           </div>
 
           {/* Section 3: Microscope Slide Image Source */}
-          <div className="pt-2 border-t border-slate-200">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-2">
+          <div className="form-section rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-3 sm:p-4">
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300 mb-2">
               3. Microscope Photomicrograph Slide Image
             </h3>
 
@@ -506,25 +506,25 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-4 border-t border-slate-200 space-y-3">
+          <div className="sticky bottom-0 -mx-3 sm:-mx-6 px-3 sm:px-6 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur space-y-3">
             {submitError && (
               <div role="alert" className="text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
                 {submitError}
               </div>
             )}
-            <div className="flex items-center justify-end gap-3">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="px-4 py-2 text-sm font-bold text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-4 py-2.5 text-sm font-bold text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 disabled:bg-slate-600 dark:disabled:bg-cyan-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition"
+                className="w-full sm:w-auto justify-center px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 disabled:bg-slate-600 dark:disabled:bg-cyan-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition"
               >
                 {submitting ? (
                   <>

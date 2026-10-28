@@ -50,14 +50,14 @@ export const EmptyState: React.FC<{
 }> = ({ title, description, icon, action, tone = 'neutral' }) => (
   <div
     className={`flex flex-col items-center justify-center text-center px-6 py-12 ${
-      tone === 'error' ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'
+      tone === 'error' ? 'text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'
     }`}
   >
     <div
       className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${
         tone === 'error'
           ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
-          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
       }`}
     >
       {icon ?? (tone === 'error' ? <AlertCircle className="w-5 h-5" /> : <Inbox className="w-5 h-5" />)}

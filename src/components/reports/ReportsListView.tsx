@@ -108,12 +108,12 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
         Archived clinical reports, pathologist verification sign-offs, and A4 print / PDF export
       </p>
       </div>
-      <div className="flex gap-2">
-        <div className="flex-1 sm:flex-initial rounded-xl border border-amber-200 dark:border-amber-900/70 bg-amber-50/70 dark:bg-amber-950/20 px-3 py-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex">
+        <div className="min-w-0 flex-1 sm:flex-initial rounded-xl border border-amber-200 dark:border-amber-900/70 bg-amber-50/70 dark:bg-amber-950/20 px-3 py-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Awaiting sign-off</div>
           <div className="mt-0.5 font-mono text-lg font-bold leading-tight text-amber-950 dark:text-amber-100">{pendingCount}</div>
         </div>
-        <div className="flex-1 sm:flex-initial rounded-xl border border-green-200 dark:border-green-900/70 bg-green-50/70 dark:bg-green-950/20 px-3 py-2">
+        <div className="min-w-0 flex-1 sm:flex-initial rounded-xl border border-green-200 dark:border-green-900/70 bg-green-50/70 dark:bg-green-950/20 px-3 py-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-green-800 dark:text-green-300">Verified</div>
           <div className="mt-0.5 font-mono text-lg font-bold leading-tight text-green-950 dark:text-green-100">{verifiedCount}</div>
         </div>
@@ -196,7 +196,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
             aria-modal="true"
             aria-labelledby="edit-report-title"
             onSubmit={handleSaveReport}
-            className="clinical-form w-full max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"
+            className="clinical-form w-full max-w-xl space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xl dark:bg-slate-900 dark:border-slate-700"
           >
             <div>
               <h2 id="edit-report-title" className="text-base font-semibold text-slate-900 dark:text-white">
@@ -223,11 +223,11 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
               />
             </label>
             {actionError && <p role="alert" className="text-xs text-rose-700">{actionError}</p>}
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setEditingReport(null)} disabled={isSaving} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button type="button" onClick={() => setEditingReport(null)} disabled={isSaving} className="w-full sm:w-auto rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200">
                 Cancel
               </button>
-              <button type="submit" disabled={isSaving} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
+              <button type="submit" disabled={isSaving} className="w-full sm:w-auto rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50">
                 {isSaving ? 'Saving...' : 'Save changes'}
               </button>
             </div>

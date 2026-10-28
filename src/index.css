@@ -55,42 +55,42 @@
   --color-emerald-950: theme(--color-green-950);
 
   /* Accents and warnings — same green. */
-  --color-amber-500: theme(--color-green-500);
-  --color-amber-600: theme(--color-green-600);
-  --color-amber-700: theme(--color-green-700);
-  --color-amber-800: theme(--color-green-800);
-  --color-amber-900: theme(--color-green-900);
-  --color-amber-950: theme(--color-green-950);
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-amber-900: #78350f;
+  --color-amber-950: #451a03;
   --color-yellow-500: theme(--color-green-500);
   --color-orange-500: theme(--color-green-500);
 
   /* Destructive / error — dark green. Distinguished from positive by shade
      (dark, not medium) plus icon and label text, no red required. */
-  --color-rose-50:  theme(--color-green-50);
-  --color-rose-100: theme(--color-green-100);
-  --color-rose-200: theme(--color-green-200);
-  --color-rose-300: theme(--color-green-400);
-  --color-rose-400: theme(--color-green-600);
-  --color-rose-500: theme(--color-green-700);
-  --color-rose-600: theme(--color-green-800);
-  --color-rose-700: theme(--color-green-800);
-  --color-rose-800: theme(--color-green-900);
-  --color-rose-900: theme(--color-green-900);
-  --color-rose-950: theme(--color-green-950);
-  --color-red-500:  theme(--color-green-700);
-  --color-red-600:  theme(--color-green-800);
+  --color-rose-50: #fff1f2;
+  --color-rose-100: #ffe4e6;
+  --color-rose-200: #fecdd3;
+  --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185;
+  --color-rose-500: #f43f5e;
+  --color-rose-600: #e11d48;
+  --color-rose-700: #be123c;
+  --color-rose-800: #9f1239;
+  --color-rose-900: #881337;
+  --color-rose-950: #4c0519;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
 
   /* Remaining accent hues — same green, so class names stay valid. */
-  --color-indigo-500: theme(--color-green-500);
-  --color-indigo-600: theme(--color-green-600);
-  --color-indigo-700: theme(--color-green-700);
-  --color-purple-500: theme(--color-green-500);
-  --color-purple-400: theme(--color-green-400);
-  --color-teal-500:   theme(--color-green-500);
-  --color-lime-500:   theme(--color-green-500);
-  --color-sky-500:    theme(--color-green-500);
-  --color-fuchsia-500: theme(--color-green-500);
-  --color-pink-500:    theme(--color-green-500);
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
+  --color-purple-500: #a855f7;
+  --color-purple-400: #c084fc;
+  --color-teal-500: #14b8a6;
+  --color-lime-500: #84cc16;
+  --color-sky-500: #0ea5e9;
+  --color-fuchsia-500: #d946ef;
+  --color-pink-500: #ec4899;
 }
 
 /*
@@ -102,15 +102,15 @@
 :root {
   --surface-page:  #ffffff;
   --surface-panel: #ffffff;
-  --surface-raised: #f6f8f7;
-  --surface-sunken: #eef2f1;
+  --surface-raised: #f7faf8;
+  --surface-sunken: #edf3ef;
   --surface-strong: #14532d;   /* green-900 — for elevated/branded panels */
   --text-primary:  #0b1220;     /* near-black, 17.9:1 on white */
   --text-secondary: #334155;    /* slate-800-ish, 10.4:1 on white */
   --text-tertiary: #4b5563;     /* gray-600 — captions, mono labels, 7.5:1 */
   --text-muted:     #64748b;     /* decorative only, never body copy */
-  --border-panel:  #dbe2e0;
-  --border-strong: #c3cdca;
+  --border-panel:  #d5dfda;
+  --border-strong: #b9c8c1;
   --shadow-color: 0 0 0 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04);
   --shadow-elevated: 0 0 0 1px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08);
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -136,16 +136,16 @@
  */
 html.dark {
   --surface-page:  #080d15;
-  --surface-panel: #0f1723;
-  --surface-raised: #16202f;
+  --surface-panel: #111b2a;
+  --surface-raised: #192638;
   --surface-sunken: #060a11;
   --surface-strong: #166534;
   --text-primary:  #f8fafc;
   --text-secondary: #d3dce6;
   --text-tertiary: #a9b7c7;
   --text-muted:     #8494a6;
-  --border-panel:  #243044;
-  --border-strong: #33425c;
+  --border-panel:  #2b3a50;
+  --border-strong: #40516a;
   --shadow-color: 0 0 0 1px rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.3);
   --shadow-elevated: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.5);
 
@@ -167,6 +167,11 @@ html.dark {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -178,6 +183,17 @@ html.dark {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  svg {
+    flex-shrink: 0;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
   }
 
   /* Surfaces */
@@ -669,6 +685,100 @@ body {
 .gutter-x {
   padding-left: var(--gutter);
   padding-right: var(--gutter);
+}
+
+/* ---------------------------------------------------------------------------
+   Cross-device layout safeguards
+
+   These rules keep shared shells and dense clinical views from creating a
+   second horizontal scrollport. Components can still opt into horizontal
+   scrolling for tables and filter strips where that is the useful behavior.
+   --------------------------------------------------------------------------- */
+
+img,
+canvas,
+video,
+svg {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+}
+
+.app-main > *,
+.app-footer > *,
+.microscopy-workspace > *,
+.microscopy-main-grid > *,
+.microscopy-command-bar > * {
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .app-main {
+    padding-top: 1rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .microscopy-main-grid {
+    width: 100%;
+  }
+
+  .microscope-viewer,
+  .microscopy-review-pane > * {
+    max-width: 100%;
+  }
+
+  .microscope-viewer-toolbar {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .app-main {
+    padding-top: 0.75rem;
+    padding-bottom: 1rem;
+  }
+
+  .app-main,
+  .microscopy-workspace {
+    overflow-x: clip;
+  }
+
+  .microscopy-workspace {
+    gap: 0.75rem;
+  }
+
+  .microscope-viewer {
+    border-radius: 1rem;
+  }
+
+  .microscope-viewer-toolbar {
+    padding: 0.625rem;
+  }
+
+  .microscope-viewer-toolbar .microscope-view-modes {
+    margin-inline: -0.125rem;
+    padding-inline: 0.125rem;
+  }
+
+  .microscopy-review-pane {
+    min-width: 0;
+  }
+
+  .microscopy-review-pane table,
+  .microscope-viewer table {
+    font-size: 0.75rem;
+  }
+
+  /* Keep fixed dialogs usable above the mobile keyboard and safe-area inset. */
+  .fixed.inset-0.z-50 {
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ---------------------------------------------------------------------------

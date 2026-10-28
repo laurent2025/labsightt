@@ -99,11 +99,11 @@ export function ConfirmDialog({
             </button>
           </div>
         </div>
-        <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+        <div className="px-4 sm:px-5 py-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
+            className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
           >
             {cancelLabel}
           </button>
@@ -111,7 +111,7 @@ export function ConfirmDialog({
             type="button"
             ref={confirmRef}
             onClick={onConfirm}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold text-white transition cursor-pointer ${confirmButtonClasses}`}
+            className={`px-3 py-2 rounded-lg text-sm font-semibold text-white transition cursor-pointer ${confirmButtonClasses}`}
           >
             {confirmLabel}
           </button>

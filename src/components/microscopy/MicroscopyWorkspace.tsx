@@ -8,7 +8,6 @@ import {
   Upload,
   Microscope,
   Bot,
-  FileText,
   Code2,
   Terminal,
   AlertTriangle,
@@ -101,7 +100,6 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(null);
 
   const [currentField, setCurrentField] = useState<number>(1);
-  const [mobileActivePane, setMobileActivePane] = useState<'microscope' | 'review'>('microscope');
   const [aiAssistantImpression, setAiAssistantImpression] = useState<string | null>(null);
   const [inferenceError, setInferenceError] = useState<string | null>(null);
   const [gateError, setGateError] = useState<string | null>(null);
@@ -1528,42 +1526,9 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         </div>
       )}
 
-      {/* Responsive Pane Switcher for Tablets & Mobile (< xl) */}
-      <div role="group" aria-label="Microscopy workspace view" className="xl:hidden flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
-        <button
-          type="button"
-          onClick={() => setMobileActivePane('microscope')}
-          aria-pressed={mobileActivePane === 'microscope'}
-          aria-label="Show microscope field view"
-          className={`flex-1 min-h-[44px] rounded-lg font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
-            mobileActivePane === 'microscope'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Microscope className="w-4 h-4 text-green-700 dark:text-green-400" />
-          <span className="truncate">Microscope Field View</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileActivePane('review')}
-          aria-pressed={mobileActivePane === 'review'}
-          aria-label={`Show findings review, ${totalDets} detections`}
-          className={`flex-1 min-h-[44px] rounded-lg font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
-            mobileActivePane === 'review'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <FileText className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-          <span className="truncate">Findings Review ({totalDets})</span>
-        </button>
-      </div>
-
-{/* Main Two-Column Stage - Responsive */}
-      <div className="microscopy-main-grid grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 min-h-0">
-        {/* Left Column: Microscope Canvas */}
-        <div className={`microscopy-field-pane xl:col-span-8 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'review' ? 'hidden xl:flex' : 'flex'}`}>
+      {/* Microscope stage followed by the full-width findings review. */}
+      <div className="microscopy-main-grid flex flex-col gap-4 min-h-0">
+        <div className="microscopy-field-pane flex flex-col min-h-0 w-full">
         <div className="min-h-0 self-start w-full">
             <MicroscopeViewer
               imageUrl={activeImageUrl}
@@ -1593,8 +1558,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           </div>
         </div>
 
-        {/* Right Column: Technologist Findings Review */}
-        <div className={`microscopy-review-pane xl:col-span-4 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'microscope' ? 'hidden xl:flex' : 'flex'}`}>
+        <div className="microscopy-review-pane flex flex-col min-h-0 w-full">
           <TechnologistReview
             key={activeAnalysis.id}
             analysis={activeAnalysis}

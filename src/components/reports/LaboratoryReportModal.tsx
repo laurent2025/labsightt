@@ -75,7 +75,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
   const scaleBarUm = report.sample.objective === '100x_oil' ? '20' : report.sample.objective === '40x' ? '25' : '50';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex justify-center p-4 print:p-0 print:bg-white print:static print:block print:overflow-visible print:backdrop-blur-none">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex justify-center p-2 sm:p-4 print:p-0 print:bg-white print:static print:block print:overflow-visible print:backdrop-blur-none">
       <div
         ref={panelRef}
         tabIndex={-1}
@@ -93,7 +93,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
         )}
 
         {/* Floating Screen Actions Bar (hidden when printing) */}
-        <div className="no-print sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 bg-slate-900/95 text-white px-4 py-3 rounded-xl shadow-xl mb-3 border border-slate-700">
+        <div className="no-print sticky top-2 sm:top-3 z-20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 bg-slate-900/95 text-white px-3 sm:px-4 py-3 rounded-xl shadow-xl mb-3 border border-slate-700">
           <div className="flex min-w-0 items-center gap-3">
             <span className="font-mono text-cyan-400 font-semibold text-xs">
               {report.reportNumber}
@@ -114,12 +114,12 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full sm:w-auto flex-wrap items-center gap-2">
             {report.status !== 'verified' && onVerify && (
               <button
                 type="button"
                 onClick={() => void onVerify(report.id)}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
+                className="flex-1 sm:flex-initial justify-center px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Verify &amp; Sign</span>
@@ -128,7 +128,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             <button
               type="button"
               onClick={handleDownloadJSON}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+              className="flex-1 sm:flex-initial justify-center px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
               title="Download structured data"
             >
               <Download className="w-3.5 h-3.5" />
@@ -137,7 +137,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
+              className="flex-1 sm:flex-initial justify-center px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print / PDF</span>
@@ -156,7 +156,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
         {/* Standard A4 Printable Laboratory Document */}
         <div
           id="laboratory-report-container"
-          className="bg-white text-slate-900 rounded-2xl shadow-2xl p-6 border border-slate-200 print:border-none print:shadow-none print:p-0 print:rounded-none max-w-[210mm] mx-auto min-h-[297mm] text-sm flex flex-col justify-between"
+          className="bg-white text-slate-900 rounded-2xl shadow-2xl p-4 sm:p-6 border border-slate-200 print:border-none print:shadow-none print:p-0 print:rounded-none max-w-[210mm] mx-auto min-h-0 sm:min-h-[297mm] text-sm flex flex-col justify-between"
         >
           <div>
             {/* Header / Letterhead */}
@@ -203,9 +203,9 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             </div>
 
             {/* Patient & Specimen Metadata Two-Column Grid */}
-            <div className="grid grid-cols-2 gap-0 p-0 border border-slate-200 rounded-lg mb-5 print:grid-cols-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 p-0 border border-slate-200 rounded-lg mb-5 print:grid-cols-2">
               {/* Left: Patient */}
-              <div className="p-4 space-y-2.5 border-r border-slate-200">
+              <div className="p-3 sm:p-4 space-y-2.5 border-b sm:border-b-0 sm:border-r border-slate-200">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800 block border-b-2 border-slate-400 pb-1">
                   PATIENT DEMOGRAPHICS
                 </span>
@@ -232,7 +232,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
               </div>
 
               {/* Right: Specimen & Examination Details */}
-              <div className="p-4 space-y-2.5">
+              <div className="p-3 sm:p-4 space-y-2.5">
                 <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800 block border-b-2 border-slate-400 pb-1">
                   SPECIMEN &amp; MICROSCOPY METRICS
                 </span>
@@ -278,7 +278,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
             </div>
 
             {/* Microscopic Findings Table */}
-            <div className="mb-5 border border-slate-200 rounded-lg overflow-hidden">
+            <div className="mb-5 border border-slate-200 rounded-lg overflow-x-auto">
               <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 border-b border-slate-200">
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-800">
                   STANDARDIZED MICROSCOPIC QUANTIFICATION

@@ -186,10 +186,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const activePipeline = pipelinePresets[selectedQuickPipeline];
 
   return (
-    <div className="dashboard-overview space-y-6">
+    <div className="dashboard-overview space-y-7 sm:space-y-8">
       {/* Hero Welcome & Quick Launch Banner */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-200">
-        <div className="space-y-1">
+      <section className="relative overflow-hidden bg-gradient-to-br from-white via-white to-green-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-green-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5 transition-colors duration-200">
+        <div className="relative min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
               Pathology &amp; Clinical Microscopy Workstation
@@ -198,7 +198,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             Welcome back, {user?.name ?? 'Operator'}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
@@ -210,11 +210,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="relative flex flex-col sm:flex-row lg:flex-col xl:flex-row gap-2.5 w-full lg:w-auto shrink-0">
           <button
             type="button"
             onClick={onOpenNewPatientModal}
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-xs transition whitespace-nowrap cursor-pointer"
+            className="w-full sm:w-auto justify-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-xs transition whitespace-nowrap cursor-pointer"
           >
             <Microscope className="w-4 h-4 text-cyan-400 dark:text-white" />
             <span>Accession New Specimen</span>
@@ -223,7 +223,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab('microscopy', pendingReviewCount ? 'in_review' : null)}
-              className="px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-bold flex items-center gap-2 transition whitespace-nowrap cursor-pointer hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm"
+              className="w-full sm:w-auto justify-center px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-bold flex items-center gap-2 transition whitespace-nowrap cursor-pointer hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm"
             >
               <span>
                 {pendingReviewCount === null
@@ -236,7 +236,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </button>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Primary Telemetry Stat Cards */}
       {dashboardCountsError && (
@@ -252,9 +252,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       )}
 
+      <section aria-labelledby="dashboard-overview-heading">
+        <div className="flex items-end justify-between gap-3 mb-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-green-700 dark:text-green-400">Operational overview</p>
+            <h2 id="dashboard-overview-heading" className="text-lg font-bold text-slate-900 dark:text-white">Laboratory activity at a glance</h2>
+          </div>
+          <span className="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">Live workspace totals</span>
+        </div>
       <div className="dashboard-telemetry grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-busy={!dashboardCounts}>
-        <button type="button" onClick={() => onNavigateTab('patients')} className="group w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
-          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
+        <button type="button" onClick={() => onNavigateTab('patients')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
+          <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Accessioned Patients</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950 transition-colors">
               <Users className="w-4 h-4 text-slate-500 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" />
@@ -266,7 +274,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Patients in active laboratory records</div>
         </button>
 
-        <button type="button" onClick={() => onNavigateTab('microscopy')} className="group w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
+        <button type="button" onClick={() => onNavigateTab('microscopy')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Microscopy Runs</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950 transition-colors">
@@ -279,7 +287,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium mt-1">All recorded microscopy runs</div>
         </button>
 
-        <button type="button" onClick={() => onNavigateTab('microscopy', 'in_review')} className="group w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 transition-all duration-200">
+        <button type="button" onClick={() => onNavigateTab('microscopy', 'in_review')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Pending Review</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-amber-50 dark:group-hover:bg-amber-950 transition-colors">
@@ -295,7 +303,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <button
           type="button"
           onClick={() => onNavigateTab('reports', 'verified')}
-          className="group w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
+          className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
         >
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Verified Reports</span>
@@ -309,12 +317,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Verified and released reports</div>
         </button>
       </div>
+      </section>
 
       {/* Interactive Quick-Test Pipeline Stage & Live Slide Previewer */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200">
-        <div className="p-6 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <section aria-labelledby="dashboard-pipelines-heading" className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200 overflow-hidden">
+        <div className="p-4 sm:p-6 pb-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            <h2 id="dashboard-pipelines-heading" className="text-lg font-bold text-slate-900 dark:text-white">
               Diagnostic Pipelines
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -322,7 +331,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-sm font-semibold">
+          <div className="w-full lg:w-auto flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-sm font-semibold overflow-x-auto no-scrollbar">
             <button
               type="button"
               onClick={() => setSelectedQuickPipeline('stool')}
@@ -359,7 +368,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center px-6 pb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-center px-4 sm:px-6 pb-5 sm:pb-6">
           <div className="lg:col-span-5 space-y-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400 font-mono">
@@ -443,10 +452,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </figure>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Specimen Workflows & Distribution Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section aria-labelledby="dashboard-insights-heading">
+        <div className="mb-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-green-700 dark:text-green-400">Quality signals</p>
+          <h2 id="dashboard-insights-heading" className="text-lg font-bold text-slate-900 dark:text-white">Specimen and finding trends</h2>
+        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
         {/* Analyses by specimen type, derived from the local case list */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs transition-colors duration-200">
           <div className="flex items-center justify-between mb-1">
@@ -520,6 +534,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
       </div>
+      </section>
 
       {/* My Recent Work — the signed-in operator's own runs and reports */}
       {(myAnalyses.length > 0 || myReports.length > 0) && (

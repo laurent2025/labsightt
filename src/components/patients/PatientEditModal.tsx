@@ -67,7 +67,7 @@ export const PatientEditModal: React.FC<PatientEditModalProps> = ({ patient, onC
         aria-modal="true"
         aria-labelledby="edit-patient-title"
         onSubmit={handleSubmit}
-        className="clinical-form my-auto w-full max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"
+        className="clinical-form my-auto w-full max-w-xl space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xl dark:bg-slate-900 dark:border-slate-700"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -79,7 +79,7 @@ export const PatientEditModal: React.FC<PatientEditModalProps> = ({ patient, onC
           </button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="form-section grid gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-3 sm:p-4">
           <label className="text-sm font-bold text-slate-800 dark:text-slate-100">
             Patient ID / MRN
             <input value={patientNumber} onChange={event => setPatientNumber(event.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 dark:text-white dark:border-slate-600 dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-cyan-600 dark:border-slate-600 dark:bg-slate-950" />
@@ -116,9 +116,9 @@ export const PatientEditModal: React.FC<PatientEditModalProps> = ({ patient, onC
 
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-sm font-medium text-rose-800">{error}</p>}
 
-        <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 disabled:opacity-50 dark:border-slate-600">Cancel</button>
-          <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-slate-200 dark:border-slate-700 pt-3">
+          <button type="button" onClick={onClose} disabled={saving} className="w-full sm:w-auto rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 disabled:opacity-50 dark:border-slate-600">Cancel</button>
+          <button type="submit" disabled={saving} className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50">
             <Save className="h-4 w-4" />
             {saving ? 'Saving...' : 'Save patient'}
           </button>
