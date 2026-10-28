@@ -687,21 +687,21 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
     <div className="microscope-viewer self-start w-full flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
       {/* Top Toolbar - Clean visual zones for Slide Info | View Modes | Tools */}
       <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-3.5">
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        <div className="flex flex-col gap-3 xl:gap-4">
           {/* Left Zone: Slide Information & Field Stepper */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="flex items-center gap-2 font-mono text-cyan-300 font-semibold bg-slate-900/80 px-3 py-2 rounded-lg border border-cyan-900/60 shadow-sm">
               <Crosshair className="w-5 h-5" />
               <span className="truncate max-w-[160px] sm:max-w-none text-sm sm:text-base">{slideLabel}</span>
             </div>
-            <div className="hidden xl:flex items-center gap-2 px-2">
+            <div className="flex items-center gap-2 px-1 sm:px-2 text-[11px] sm:text-xs">
               <span className="font-mono text-slate-400 text-sm">OBJ: {objective}</span>
               <span className="text-slate-600 dark:text-slate-400">·</span>
               <span className="font-mono text-slate-400 text-sm">MAG: {totalMagnification}</span>
             </div>
             {/* Multi-field Scan Stepper - Compact & Prominent */}
             <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-700">
-              <span className="text-slate-300 text-xs font-semibold hidden sm:inline">HPF:</span>
+              <span className="text-slate-300 text-xs font-semibold">HPF:</span>
               <button
                 type="button"
                 onClick={() => {
@@ -736,9 +736,9 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           </div>
 
           {/* Center Zone: View Mode Filters - Prominent & Grouped */}
-          <div className="flex-1 min-w-0 xl:max-w-lg">
+          <div className="w-full min-w-0 xl:max-w-none">
             <div className="bg-slate-900/70 rounded-xl border border-slate-800 p-1.5">
-              <div className="microscope-view-modes flex items-center justify-start xl:justify-center gap-1.5 overflow-x-auto no-scrollbar" role="group" aria-label="View filter modes">
+              <div className="microscope-view-modes flex items-center justify-start gap-1.5 overflow-x-auto no-scrollbar" role="group" aria-label="View filter modes">
                 {['boxes', 'original', 'enhanced', 'darkfield', 'split'].map(mode => (
                   <button
                     key={mode}
@@ -763,13 +763,14 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           </div>
 
           {/* Right Zone: Primary Optical Controls - Grouped by function */}
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="w-full flex flex-wrap items-center justify-start gap-2">
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 px-1">Tools</span>
             {/* Imaging Controls */}
-            <div className="flex items-center gap-1.5 bg-slate-900/70 rounded-xl border border-slate-800 p-1.5">
+            <div className="flex items-center gap-1.5 bg-slate-900/70 rounded-xl border border-slate-700 p-1.5 overflow-x-auto max-w-full flex-1 min-w-0">
               <button
                 type="button"
                 onClick={() => setShowReticleGrid(!showReticleGrid)}
-                    className={`min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
+                    className={`shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
                   showReticleGrid
                     ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -779,7 +780,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 aria-label="Reticle Grid"
               >
                 <Compass className="w-4.5 h-4.5" />
-                <span className="hidden xl:inline text-[11px] font-semibold">Reticle</span>
+                <span className="text-[11px] font-semibold whitespace-nowrap">Reticle</span>
               </button>
 
               <button
@@ -788,7 +789,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                   setIsMeasuring(!isMeasuring);
                   setRulerPoints([]);
                 }}
-                    className={`min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
+                    className={`shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
                   isMeasuring
                     ? 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -798,13 +799,13 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 aria-label="Measurement Tool"
               >
                 <Ruler className="w-4.5 h-4.5" />
-                <span className="hidden xl:inline text-[11px] font-semibold">Measure</span>
+                <span className="text-[11px] font-semibold whitespace-nowrap">Measure</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsEyepieceMask(!isEyepieceMask)}
-                    className={`min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
+                    className={`shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
                   isEyepieceMask
                     ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -814,18 +815,18 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 aria-label="Eyepiece Mask"
               >
                 <Sun className="w-4.5 h-4.5" />
-                <span className="hidden xl:inline text-[11px] font-semibold">Eyepiece</span>
+                <span className="text-[11px] font-semibold whitespace-nowrap">Eyepiece</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleCaptureSnapshot}
-                className="min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
+                className="shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
                 title="Capture Field Photomicrograph"
                 aria-label="Capture Snapshot"
               >
                 <Camera className="w-4.5 h-4.5" />
-                <span className="hidden xl:inline text-[11px] font-semibold">Capture</span>
+                <span className="text-[11px] font-semibold whitespace-nowrap">Capture</span>
               </button>
             </div>
 
@@ -856,8 +857,8 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               >
                 <ZoomOut className="w-4.5 h-4.5" />
               </button>
-              <div className="hidden sm:flex items-center justify-center w-12 text-center">
-                <span className="font-mono text-xs text-slate-300">
+              <div className="flex items-center justify-center px-1.5 text-center">
+                <span className="font-mono text-xs text-slate-300 whitespace-nowrap">
                   {Math.round(zoom * 100)}%
                 </span>
               </div>
@@ -892,7 +893,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         }`}
       >
         <div
-          className="relative w-full max-w-[1400px] overflow-hidden rounded-lg"
+          className="relative w-fit max-w-full overflow-hidden rounded-lg"
           style={{ maxHeight: 'min(78vh, 860px)' }}
         >
           <div
@@ -901,7 +902,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               transformOrigin: 'center center',
               transition: isPanning ? 'none' : 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
-            className={`relative flex w-full max-w-full items-center justify-center overflow-hidden rounded-lg cursor-default select-none ${
+            className={`relative flex w-fit max-w-full items-center justify-center overflow-hidden rounded-lg cursor-default select-none ${
               imageUrl ? 'bg-slate-950' : 'bg-transparent'
             }`}
           >
@@ -924,7 +925,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               style={{
-                width: '100%',
+                width: 'auto',
                 height: 'auto',
                 maxWidth: '100%',
                 maxHeight: 'min(78vh, 860px)',
