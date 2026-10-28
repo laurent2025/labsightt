@@ -426,7 +426,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       let tiles: ImageTile[] | null = null;
       if (model?.tiling?.enabled) {
         try {
-          tiles = await sliceImageTiles(source.dataUrl, model.tiling);
+          tiles = await sliceImageTiles(source.dataUrl, model.tiling, source);
         } catch {
           // Tiling is an enhancement. If it fails, fall back to one whole-slide
           // read rather than failing the scan.
@@ -446,7 +446,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         // can still be a full photograph, and the provider downscales it to its
         // own input anyway, so it is scaled before it is sent.
         const passes = tiles
-          ?? [{ dataUrl: await downscaleImage(source.dataUrl), offsetX: 0, offsetY: 0, width: 0, height: 0 }];
+          ?? [{ dataUrl: await downscaleImage(source.dataUrl, { bitmap: source.bitmap }), offsetX: 0, offsetY: 0, width: 0, height: 0 }];
         const batches = chunkTilesByBytes(passes);
 
         let hydrated: Analysis | null = null;
@@ -649,18 +649,37 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       // proposal, so it is confirmed on arrival and cannot be added to an
       // analysis the server has already locked.
       const imageRef = det.imageRef ?? 'primary';
+
+      // Optimistic update: add the detection with a temporary ID so the canvas
+      // renders it immediately. The server-assigned ID replaces the temp one on
+      // success; on failure the temp ID is removed.
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimistic: Detection = {
+        ...det,
+        id: tempId,
+        confirmed: true,
+        manual: true,
+        imageRef
+      };
+      setAnalyses(prev =>
+        prev.map(ana =>
+          ana.id === analysisId ? requantify(ana, [...ana.detections, optimistic]) : ana
+        )
+      );
+
       // The crop the mark was drawn on is stored with it, so the mark can be
       // reviewed later against the same picture and read back as a labelled
       // example. A failure here costs the picture, never the finding: the
       // mark is an observation and outlives its own evidence.
-      const imageData = await captureEvidence(analysisId, det, imageRef);
-      // The box is written to the server first so the finding survives a
-      // reload; a finding that vanished on reload would be a lost clinical
-      // observation. Only on success is it added to the local analysis, so a
-      // failed write never shows a finding the database does not hold.
-      let saved: Detection;
+      let imageData: string | null;
       try {
-        const { detection } = await detectionsApi.create({
+        imageData = await captureEvidence(analysisId, det, imageRef);
+      } catch {
+        imageData = null;
+      }
+
+      try {
+        const { detection: saved } = await detectionsApi.create({
           analysisId,
           className: det.class,
           confidence: det.confidence,
@@ -672,26 +691,31 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
           imageRef,
           imageData: imageData ?? undefined
         });
-        saved = detection;
-      } catch (err) {
-        handleError(err, 'The manual finding could not be saved. Try again.');
-        return;
-      }
 
-      setAnalyses(prev =>
-        prev.map(ana => {
-          if (ana.id !== analysisId) return ana;
-          const created: Detection = {
-            ...saved,
-            confirmed: true,
-            manual: true,
-            // Tagged with the slide the operator was viewing so the viewer's
-            // per-image filter can place the box on the correct image.
-            imageRef: saved.imageRef ?? imageRef
-          };
-          return requantify(ana, [...ana.detections, created]);
-        })
-      );
+        // Replace the temp detection with the server-confirmed one.
+        setAnalyses(prev =>
+          prev.map(ana => {
+            if (ana.id !== analysisId) return ana;
+            const created: Detection = {
+              ...saved,
+              confirmed: true,
+              manual: true,
+              imageRef: saved.imageRef ?? imageRef
+            };
+            return requantify(ana, ana.detections.map(d => (d.id === tempId ? created : d)));
+          })
+        );
+      } catch (err) {
+        // Rollback the optimistic add on failure.
+        setAnalyses(prev =>
+          prev.map(ana =>
+            ana.id === analysisId
+              ? requantify(ana, ana.detections.filter(d => d.id !== tempId))
+              : ana
+          )
+        );
+        handleError(err, 'The manual finding could not be saved. Try again.');
+      }
     },
     [requantify, handleError, captureEvidence]
   );

@@ -29,6 +29,10 @@ interface MicroscopeViewerProps {
   onToggleConfirm?: (id: string) => void;
   onRejectDetection?: (id: string) => void;
   onAddManualDetection?: (detection: Omit<Detection, 'id'>) => void;
+  manualNote?: string;
+  manualConfidence?: number;
+  setManualNote?: (note: string) => void;
+  setManualConfidence?: (conf: number) => void;
   objective?: MicroscopeObjective;
   totalMagnification?: string;
   slideLabel?: string;
@@ -48,13 +52,25 @@ type LightFilter = 'daylight' | 'halogen' | 'daylight_blue' | 'fluorescence_filt
 
 const CLASS_COLORS: Record<string, { stroke: string; fill: string; text: string }> = {
   'Ascaris lumbricoides': { stroke: '#d97706', fill: 'rgba(217, 119, 6, 0.15)', text: '#b45309' },
+  'Ascaris lumbricoides ovum': { stroke: '#ea580c', fill: 'rgba(234, 88, 12, 0.15)', text: '#c2410c' },
   'Enterobius vermicularis': { stroke: '#0891b2', fill: 'rgba(8, 149, 178, 0.15)', text: '#0e7490' },
+  'Fasciola hepatica': { stroke: '#16a34a', fill: 'rgba(22, 163, 74, 0.15)', text: '#15803d' },
   'Fasciolopsis buski': { stroke: '#7c3aed', fill: 'rgba(124, 58, 237, 0.15)', text: '#6d28d9' },
-  'Hookworm egg': { stroke: '#ea580c', fill: 'rgba(234, 88, 12, 0.15)', text: '#c2410c' },
-  'Trichuris trichiura': { stroke: '#db2777', fill: 'rgba(219, 39, 119, 0.15)', text: '#be125c' },
   'Giardia lamblia cyst': { stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.15)', text: '#0891b2' },
-  'Entamoeba histolytica': { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)', text: '#d97706' },
+  'Giardia': { stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.15)', text: '#0891b2' },
+  'Hookworm egg': { stroke: '#ea580c', fill: 'rgba(234, 88, 12, 0.15)', text: '#c2410c' },
+  'Hymenolepis': { stroke: '#db2777', fill: 'rgba(219, 39, 119, 0.15)', text: '#be125c' },
   'Plasmodium falciparum ring': { stroke: '#dc2626', fill: 'rgba(220, 38, 38, 0.15)', text: '#b91c1c' },
+  'Plasmodium falciparum': { stroke: '#dc2626', fill: 'rgba(220, 38, 38, 0.15)', text: '#b91c1c' },
+  'Plasmodium malariae': { stroke: '#dc2626', fill: 'rgba(220, 38, 38, 0.15)', text: '#b91c1c' },
+  'Plasmodium ovale': { stroke: '#dc2626', fill: 'rgba(220, 38, 38, 0.15)', text: '#b91c1c' },
+  'Plasmodium vivax': { stroke: '#dc2626', fill: 'rgba(220, 38, 38, 0.15)', text: '#b91c1c' },
+  'Schistosoma haematobium': { stroke: '#0891b2', fill: 'rgba(8, 149, 178, 0.15)', text: '#0e7490' },
+  'Taenia solium': { stroke: '#7c3aed', fill: 'rgba(124, 58, 237, 0.15)', text: '#6d28d9' },
+  'Taenia saginum': { stroke: '#7c3aed', fill: 'rgba(124, 58, 237, 0.15)', text: '#6d28d9' },
+  'Trichuris trichiura': { stroke: '#db2777', fill: 'rgba(219, 39, 119, 0.15)', text: '#be125c' },
+  'Trichuris trichiura ovum': { stroke: '#db2777', fill: 'rgba(219, 39, 119, 0.15)', text: '#be125c' },
+  'Entamoeba histolytica': { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.15)', text: '#d97706' },
   'Erythrocyte (RBC)': { stroke: '#e11d48', fill: 'rgba(225, 29, 72, 0.12)', text: '#be123c' },
   'Polymorphonuclear Neutrophil': { stroke: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.15)', text: '#7c3aed' },
   'Pus cell (Leukocyte)': { stroke: '#a855f7', fill: 'rgba(168, 85, 247, 0.15)', text: '#9333ea' },
@@ -75,10 +91,14 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
   onToggleConfirm,
   onRejectDetection,
   onAddManualDetection,
+  manualNote,
+  manualConfidence,
+  setManualNote: setManualNoteProp,
+  setManualConfidence: setManualConfidenceProp,
   objective = '40x',
   totalMagnification = '400x',
   slideLabel = 'SLD-CURRENT',
-  availableClasses = ['Giardia lamblia cyst', 'Entamoeba histolytica', 'Hookworm egg', 'Ascaris lumbricoides ovum', 'Pus cell (Leukocyte)'],
+  availableClasses = ['Giardia lamblia cyst', 'Entamoeba histolytica', 'Hookworm egg', 'Ascaris lumbricoides ovum', 'Trichuris trichiura ovum', 'Enterobius vermicularis', 'Fasciola hepatica', 'Fasciolopsis buski', 'Hymenolepis', 'Plasmodium falciparum', 'Plasmodium malariae', 'Plasmodium ovale', 'Plasmodium vivax', 'Schistosoma haematobium', 'Taenia solium', 'Pus cell (Leukocyte)'],
   currentField = 1,
   totalFields = 10,
   onFieldChange,
@@ -87,7 +107,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
   slideNavigationLabel = 'Slide image',
   canSwitchSlides = false,
   isScanning = false
-}) => {
+}: MicroscopeViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageObjRef = useRef<HTMLImageElement | null>(null);
@@ -101,8 +121,8 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
   const [selectedClassToAdd, setSelectedClassToAdd] = useState<string>(availableClasses[0] || 'Giardia lamblia cyst');
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null);
-
-  // Optical & Physical Microscope Controls
+  const [internalConfidence, setInternalConfidence] = useState<number>(manualConfidence ?? 1.0);
+  const [internalNote, setInternalNote] = useState<string>(manualNote ?? '');  // Optical & Physical Microscope Controls
   const [isEyepieceMask, setIsEyepieceMask] = useState<boolean>(false);
   const [focusOffset, setFocusOffset] = useState<number>(0);
   const [irisAperture, setIrisAperture] = useState<number>(75); // 20% to 100% iris condenser opening
@@ -375,6 +395,15 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
       ctx.fillStyle = '#ffffff';
       ctx.font = '12px "Plus Jakarta Sans", sans-serif';
       ctx.fillText(`+ Add: ${selectedClassToAdd}`, x1 + 6, Math.max(0, y1 - 22) + 15);
+
+      // Show real-time dimensions near the box
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fillRect(x1 + 6, y1 + 6, 130, 36);
+      ctx.fillStyle = '#93c5fd';
+      ctx.font = '11px monospace';
+      ctx.fillText(`${Math.round(w)} × ${Math.round(h)} px`, x1 + 12, y1 + 24);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`${((w / pxPerMicron).toFixed(1))} × ${((h / pxPerMicron).toFixed(1))} µm`, x1 + 12, y1 + 38);
       ctx.restore();
     }
 
@@ -531,13 +560,13 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
       if (w > 20 && h > 20) {
         onAddManualDetection?.({
           class: selectedClassToAdd,
-          confidence: 1.0,
+          confidence: internalConfidence,
           x: x1 + w / 2,
           y: y1 + h / 2,
           width: w,
           height: h,
           confirmed: true,
-          note: 'Manually verified target'
+          note: internalNote || 'Manually verified target'
         });
       }
       setDragStart(null);
@@ -843,6 +872,25 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
                 ? 'cursor-grab active:cursor-grabbing'
                 : 'cursor-crosshair'
             }`}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                if (isAddingBox) {
+                  setIsAddingBox(false);
+                  setDragStart(null);
+                  setDragCurrent(null);
+                } else if (isMeasuring) {
+                  setIsMeasuring(false);
+                  setRulerPoints([]);
+                }
+              }
+              if (e.key === 'l' && !isAddingBox && !isMeasuring) {
+                setIsAddingBox(true);
+                setIsMeasuring(false);
+                setDragStart(null);
+                setDragCurrent(null);
+              }
+            }}
+            tabIndex={0}
           />
         </div>
 
@@ -999,41 +1047,71 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
 
         {/* Add Manual Target Floating Toolbar */}
         <div className="absolute top-4 left-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2 rounded-xl shadow-lg flex items-center gap-2">
-          {!isAddingBox ? (
-            <button
-              type="button"
-              onClick={() => {
-                setIsAddingBox(true);
-                setIsMeasuring(false);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Label Cell / Organism</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-cyan-300 font-bold">Select &amp; Drag on Slide:</span>
-              <select
-                value={selectedClassToAdd}
-                onChange={e => setSelectedClassToAdd(e.target.value)}
-                className="bg-slate-800 text-slate-100 border border-slate-700 text-sm font-medium rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-              >
-                {availableClasses.map(c => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => setIsAddingBox(false)}
-                className="px-2.5 py-1.5 text-sm text-slate-300 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
+           {!isAddingBox ? (
+             <button
+               type="button"
+               onClick={() => {
+                 setIsAddingBox(true);
+                 setIsMeasuring(false);
+                 setDragStart(null);
+                 setDragCurrent(null);
+               }}
+               className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer"
+             >
+               <PlusCircle className="w-3.5 h-3.5" />
+               <span>Label Cell / Organism</span>
+               <span className="text-[10px] bg-cyan-800/40 px-1.5 py-0.25 rounded">L</span>
+             </button>
+           ) : (
+             <div className="flex items-center gap-2">
+               <span className="text-sm text-cyan-300 font-bold">Select &amp; Drag on Slide:</span>
+               <select
+                 value={selectedClassToAdd}
+                 onChange={e => setSelectedClassToAdd(e.target.value)}
+                 className="bg-slate-800 text-slate-100 border border-slate-700 text-sm font-medium rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+               >
+                 {availableClasses.map(c => (
+                   <option key={c} value={c}>
+                     {c}
+                   </option>
+                 ))}
+               </select>
+               <input
+                 type="number"
+                 min={0}
+                 max={1}
+                 step={0.01}
+                 value={String(internalConfidence)}
+                 onChange={e => {
+                   const val = parseFloat(e.target.value);
+                   setInternalConfidence(val);
+                   if (setManualConfidenceProp) setManualConfidenceProp(val);
+                 }}
+                 className="w-16 bg-slate-800 text-slate-100 border border-slate-700 text-xs font-mono rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                 aria-label="Confidence"
+                 title="Set confidence (0–1). Lower values flag the detection for review."
+               />
+               <input
+                 type="text"
+                 value={internalNote}
+                 onChange={e => {
+                   setInternalNote(e.target.value);
+                   if (setManualNoteProp) setManualNoteProp(e.target.value);
+                 }}
+                 className="w-32 bg-slate-800 text-slate-300 border border-slate-700 text-xs rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                 placeholder="Note (optional)"
+                 aria-label="Detection note"
+               />
+               <span className="text-[10px] text-slate-500">Esc to cancel</span>
+               <button
+                 type="button"
+                 onClick={() => setIsAddingBox(false)}
+                 className="px-2.5 py-1.5 text-sm text-slate-300 hover:text-white bg-slate-800 rounded-lg cursor-pointer"
+               >
+                 Cancel
+               </button>
+             </div>
+           )}
         </div>
 
         {snapshotFeedback && (
@@ -1110,3 +1188,4 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
     </div>
   );
 };
+

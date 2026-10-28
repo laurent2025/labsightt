@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Analysis, Detection, DetectionImage, Patient, Sample } from '../../types';
 import {
   orderImageRefs,
@@ -52,21 +52,22 @@ interface TechnologistReviewProps {
   onGenerateReport: () => void;
 }
 
-export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
-  analysis,
-  patient,
-  sample,
-  slideNames = {},
-  activeSlideRef,
-  evidenceImages = [],
-  onConfirmAll,
-  onSelectDetection,
-  selectedDetectionId,
-  onToggleConfirmDetection,
-  onRejectDetection,
-  onSaveNotes,
-  onGenerateReport
-}) => {
+export const TechnologistReview = React.memo(
+  ({
+    analysis,
+    patient,
+    sample,
+    slideNames = {},
+    activeSlideRef,
+    evidenceImages,
+    onConfirmAll,
+    onSelectDetection,
+    selectedDetectionId,
+    onToggleConfirmDetection,
+    onRejectDetection,
+    onSaveNotes,
+    onGenerateReport
+  }: TechnologistReviewProps) => {
   const [techNotes, setTechNotes] = useState(analysis.technologistNotes || '');
   const [impression, setImpression] = useState(analysis.clinicalImpression || '');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -102,9 +103,10 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
     setImageError(null);
   };
 
+  const evidence = evidenceImages ?? [];
   /** Every saved picture of one finding, in the order the decisions were made. */
   const evidenceFor = (detection: Detection) =>
-    evidenceImages.filter(image => image.detectionId === detection.id);
+    evidence.filter(image => image.detectionId === detection.id);
 
   const hasCriticalFindings = analysis.findings.some(f => f.clinicalSignificance === 'critical');
 
@@ -149,38 +151,41 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
     else if (action === 'release' && detection.confirmed) onToggleConfirmDetection(detection.id);
   });
 
-  const totalDetections = analysis.detections.filter(d => !d.rejected).length;
-  const confirmedDetections = analysis.detections.filter(d => d.confirmed && !d.rejected).length;
-  const allConfirmed = totalDetections > 0 && confirmedDetections === totalDetections;
-
-  // Image refs present in this analysis, in a stable order (specimen first).
-  const sourceOptions = orderImageRefs(analysis.detections.map(d => d.imageRef ?? 'primary'));
-
-  /**
-   * A name for an image ref that is never blank and never a raw database id.
-   *
-   * A specimen uploaded as several photographs has one finding per image, so the
-   * review panel has to say which image each came from. Falling back to the id
-   * itself rendered an opaque `slide_1791...` string that told the technologist
-   * nothing; `Source image 2` at least says it is the second one.
-   */
-  const sourceLabel = (ref: string) => imageRefLabel(ref, slideNames, sourceOptions);
-
-  // How many photographs this analysis actually read. The specimen may be
-  // uploaded as one image or several, and the quantification below is stated
-  // per examined field, so the header says how many images were scanned rather
-  // than leaving the operator to assume one.
-  const scannedImageCount = sourceOptions.length;
-
-  const filteredDetections = analysis.detections.filter(
-    d =>
-      !d.rejected &&
-      d.confidence >= minConfidenceFilter &&
-      (sourceFilter === 'all' || (d.imageRef ?? 'primary') === sourceFilter)
+  const totalDetections = useMemo(
+    () => analysis.detections.filter(d => !d.rejected).length,
+    [analysis.detections]
+  );
+  const confirmedDetections = useMemo(
+    () => analysis.detections.filter(d => d.confirmed && !d.rejected).length,
+    [analysis.detections]
+  );
+  const allConfirmed = useMemo(
+    () => totalDetections > 0 && confirmedDetections === totalDetections,
+    [totalDetections, confirmedDetections]
   );
 
-  // The list is filtered, so say so: "12 of 18" reads as a filtered view, while
-  // a bare number implies the specimen holds that many targets.
+  const sourceOptions = useMemo(
+    () => orderImageRefs(analysis.detections.map(d => d.imageRef ?? 'primary')),
+    [analysis.detections]
+  );
+
+  const scannedImageCount = sourceOptions.length;
+
+  const sourceLabel = useCallback(
+    (ref: string) => imageRefLabel(ref, slideNames, sourceOptions),
+    [slideNames, sourceOptions]
+  );
+
+  const filteredDetections = useMemo(
+    () => analysis.detections.filter(
+      d =>
+        !d.rejected &&
+        d.confidence >= minConfidenceFilter &&
+        (sourceFilter === 'all' || (d.imageRef ?? 'primary') === sourceFilter)
+    ),
+    [analysis.detections, minConfidenceFilter, sourceFilter]
+  );
+
   const isFiltered = minConfidenceFilter > 0 || sourceFilter !== 'all';
   const targetsLabel = targetsHeading(filteredDetections.length, totalDetections, isFiltered);
 
@@ -726,4 +731,4 @@ export const TechnologistReview: React.FC<TechnologistReviewProps> = ({
       )}
     </div>
   );
-};
+});

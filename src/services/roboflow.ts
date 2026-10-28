@@ -1,3 +1,12 @@
+import {
+  WorkerTilingConfig,
+  WorkerResponse,
+  fitTileBudget,
+  tileCount
+} from './tilingWorker';
+
+export { fitTileBudget, tileCount };
+
 /** One crop of a slide, with where it was taken from in whole-slide pixels. */
 export interface ImageTile {
   dataUrl: string;
@@ -32,39 +41,6 @@ export interface TilingConfig {
 
 const MIN_TILE_EDGE = 32;
 
-/** Tiles a slide of this size needs at a given tile edge and stride. */
-export function tileCount(width: number, height: number, tileSize: number, stride: number): number {
-  const columns = width <= tileSize ? 1 : Math.ceil(width / stride);
-  const rows = height <= tileSize ? 1 : Math.ceil(height / stride);
-  return columns * rows;
-}
-
-/**
- * Grows the tile edge until the slide fits the tile budget.
- *
- * The tile is enlarged rather than the grid trimmed, so every part of the slide
- * is still read even when a slide is far larger than expected. A larger tile is
- * presented to the detector at a slightly smaller scale, which costs some
- * sensitivity on the smallest ova, but it never silently skips a region of the
- * specimen the way dropping tiles would.
- */
-export function fitTileBudget(
-  width: number,
-  height: number,
-  tileSize: number,
-  overlap: number,
-  maxTiles: number
-): number {
-  if (!maxTiles || maxTiles < 1) return tileSize;
-  let size = tileSize;
-  for (let guard = 0; guard < 32; guard += 1) {
-    const stride = Math.max(1, Math.round(size * (1 - overlap)));
-    if (tileCount(width, height, size, stride) <= maxTiles) return size;
-    size = Math.round(size * 1.3);
-  }
-  return size;
-}
-
 function drawImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -74,11 +50,6 @@ function drawImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/**
- * Whether the browser exposes a Worker primitive. False in Node (tests) and in
- * environments without worker support, where tiling falls back to the main
- * thread rather than failing the scan.
- */
 const HAS_WORKER = typeof Worker !== 'undefined';
 
 /**
@@ -99,10 +70,36 @@ const HAS_WORKER = typeof Worker !== 'undefined';
  * is fire-and-forget: a failure to spawn one drops back to the synchronous
  * path rather than failing the scan.
  */
+/**
+ * Crops a slide into overlapping tiles so each one reaches the detector at its
+ * own input size instead of being downscaled away.
+ *
+ * A microscopy field is far larger than the detector's input, so sending the
+ * whole slide forces the provider to shrink it and an ovum a few dozen pixels
+ * tall becomes a couple of pixels - below anything the model can recognise.
+ * Reading the slide as tiles of `tileSize` keeps that ovum at full detector
+ * resolution in at least one tile.
+ *
+ * Returns null when the slide is already smaller than one tile, which is the
+ * common case for a phone photograph and means no tiling is needed.
+ *
+ * When `source` is supplied with a decoded `bitmap`, that bitmap is transferred
+ * to the worker with zero-copy semantics, skipping the second image decode that
+ * a plain `url` path would require. This is the hot path in the scan loop.
+ */
 export async function sliceImageTiles(
   url: string,
-  config: TilingConfig
+  config: TilingConfig,
+  source?: SourceImage
 ): Promise<ImageTile[] | null> {
+  if (source?.bitmap && HAS_WORKER) {
+    try {
+      return await sliceImageTilesViaWorkerFromBitmap(source.bitmap, config);
+    } catch {
+      // Fall through to the url path.
+    }
+  }
+
   if (HAS_WORKER) {
     try {
       return await sliceImageTilesViaWorker(url, config);
@@ -182,16 +179,13 @@ function getWorker(): Worker {
   return worker;
 }
 
-interface WorkerRequest {
-  id: string;
-  dataUrl: string;
-  config: { tileSize: number; overlap: number; maxTiles: number; quality: number };
-}
-
-interface WorkerResponse {
-  id: string;
-  tiles: ImageTile[] | null;
-  error?: string;
+function toWorkerConfig(config: TilingConfig): WorkerTilingConfig {
+  return {
+    tileSize: Math.max(64, Math.round(config.tileSize) || 640),
+    overlap: Math.min(0.5, Math.max(0, Number(config.overlap) || 0)),
+    maxTiles: Math.max(1, Math.round(Number(config.maxTiles) || 160)),
+    quality: 0.92
+  };
 }
 
 function sliceImageTilesViaWorker(
@@ -223,13 +217,49 @@ function sliceImageTilesViaWorker(
     w.postMessage({
       id,
       dataUrl: url,
-      config: {
-        tileSize: Math.max(64, Math.round(config.tileSize) || 640),
-        overlap: Math.min(0.5, Math.max(0, Number(config.overlap) || 0)),
-        maxTiles: Math.max(1, Math.round(Number(config.maxTiles) || 160)),
-        quality: 0.92
+      config: toWorkerConfig(config)
+    });
+  });
+}
+
+/**
+ * Tiles a slide from a pre-decoded ImageBitmap, transferring it to the worker
+ * with zero-copy semantics so the worker never decodes the image itself.
+ */
+function sliceImageTilesViaWorkerFromBitmap(
+  bitmap: ImageBitmap,
+  config: TilingConfig
+): Promise<ImageTile[] | null> {
+  return new Promise((resolve, reject) => {
+    const id = Math.random().toString(36).slice(2);
+    const w = getWorker();
+
+    const onMessage = (event: MessageEvent<WorkerResponse>) => {
+      if (event.data.id !== id) return;
+      w.removeEventListener('message', onMessage);
+      w.removeEventListener('error', onError);
+      if (event.data.error) {
+        reject(new Error(event.data.error));
+        return;
       }
-    } satisfies WorkerRequest);
+      resolve(event.data.tiles);
+    };
+    const onError = (err: Event) => {
+      w.removeEventListener('message', onMessage);
+      w.removeEventListener('error', onError);
+      reject(err);
+    };
+
+    w.addEventListener('message', onMessage);
+    w.addEventListener('error', onError);
+    w.postMessage(
+      {
+        id,
+        bitmap,
+        config: toWorkerConfig(config)
+      },
+      [bitmap]
+    );
   });
 }
 
@@ -280,6 +310,7 @@ export interface SourceImage {
   dataUrl: string;
   width: number;
   height: number;
+  bitmap?: ImageBitmap;
 }
 
 export function fileToBase64(file: File): Promise<string> {
@@ -347,16 +378,46 @@ export function scaledDimensions(
  * photograph already inside the bound is returned untouched rather than being
  * re-compressed for no gain.
  */
+/**
+ * Scales a data URL to `maxEdge` on the longest edge.
+ *
+ * When a pre-decoded `bitmap` is supplied, it is reused so the image is never
+ * decoded a second time — the caller already paid that cost in `loadImageSource`.
+ */
 export async function downscaleImage(
   dataUrl: string,
-  { maxEdge = STORED_SLIDE_MAX_EDGE, quality = 0.85 }: { maxEdge?: number; quality?: number } = {}
+  { maxEdge = STORED_SLIDE_MAX_EDGE, quality = 0.85, bitmap }: { maxEdge?: number; quality?: number; bitmap?: ImageBitmap } = {}
 ): Promise<string> {
   let image: HTMLImageElement;
+  if (bitmap) {
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return dataUrl;
+    }
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    image = { naturalWidth: bitmap.width, naturalHeight: bitmap.height, src: '' } as unknown as HTMLImageElement;
+    const src = canvas.toDataURL('image/jpeg', quality);
+    const { width, height } = scaledDimensions(bitmap.width, bitmap.height, maxEdge);
+    if (width === bitmap.width && height === bitmap.height) return src;
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    const outCtx = out.getContext('2d');
+    if (!outCtx) return src;
+    outCtx.imageSmoothingEnabled = true;
+    outCtx.imageSmoothingQuality = 'high';
+    outCtx.drawImage(canvas, 0, 0, width, height);
+    return out.toDataURL('image/jpeg', quality);
+  }
+
   try {
     image = await drawImage(dataUrl);
   } catch {
-    // An undecodable image is the caller's problem to report; silently sending
-    // the original would only move the failure.
     return dataUrl;
   }
 
@@ -435,16 +496,22 @@ export async function loadImageSource(url: string): Promise<SourceImage> {
 
   const dimensions = await decodeDimensions(blob);
 
-  return { base64, dataUrl, width: dimensions.width, height: dimensions.height };
+  return { base64, dataUrl, width: dimensions.width, height: dimensions.height, bitmap: dimensions.bitmap };
 }
 
-/** The pixel size of a blob, decoded once. */
-async function decodeDimensions(blob: Blob): Promise<{ width: number; height: number }> {
+/**
+ * The pixel size of a blob, decoded once.
+ *
+ * When `createImageBitmap` is available the bitmap is returned (not closed) so
+ * the caller can hand it to the tiling worker with zero-copy Transfer semantics
+ * and skip a second decode. When it is not available (e.g. jsdom in tests), the
+ * `<img>` fallback is used and `bitmap` is undefined.
+ */
+async function decodeDimensions(blob: Blob): Promise<{ width: number; height: number; bitmap?: ImageBitmap }> {
   if (typeof createImageBitmap === 'function') {
     try {
       const bitmap = await createImageBitmap(blob);
-      const size = { width: bitmap.width, height: bitmap.height };
-      bitmap.close();
+      const size = { width: bitmap.width, height: bitmap.height, bitmap };
       return size;
     } catch {
       // Fall through to the <img> path.

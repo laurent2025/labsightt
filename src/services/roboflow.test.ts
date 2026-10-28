@@ -190,12 +190,11 @@ describe('loadImageSource', () => {
     vi.stubGlobal('FileReader', MockFileReader);
     vi.stubGlobal('Image', MockImage);
 
-    await expect(loadImageSource('/slide.png')).resolves.toEqual({
-      base64: 'aW1hZ2U=',
-      dataUrl: 'data:image/png;base64,aW1hZ2U=',
-      width: 3024,
-      height: 4032
-    });
+    const result = await loadImageSource('/slide.png');
+    expect(result.base64).toBe('aW1hZ2U=');
+    expect(result.dataUrl).toBe('data:image/png;base64,aW1hZ2U=');
+    expect(result.width).toBe(3024);
+    expect(result.height).toBe(4032);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

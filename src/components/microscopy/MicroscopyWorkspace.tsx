@@ -133,11 +133,11 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
    */
   const [tileProgress, setTileProgress] = useState<{ completed: number; total: number; elapsedMs: number } | null>(null);
   const tileProgressTokenRef = useRef<string | null>(null);
-  const tilePollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tilePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopTilePolling = useCallback(() => {
     if (tilePollTimerRef.current) {
-      clearInterval(tilePollTimerRef.current);
+      clearTimeout(tilePollTimerRef.current);
       tilePollTimerRef.current = null;
     }
   }, []);
@@ -146,11 +146,26 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     stopTilePolling();
     tileProgressTokenRef.current = token;
     let current = true;
-    tilePollTimerRef.current = setInterval(() => {
+    let lastCompleted = 0;
+    let lastChanged = Date.now();
+    const POLL_FAST = 350;
+    const POLL_SLOW = 1000;
+
+    const tick = () => {
+      if (!current) return;
       analysesApi.scanProgress(token).then(({ running, completed = 0, total = 0, elapsedMs = 0 }) => {
         if (!current) return;
         if (running) {
           setTileProgress({ completed, total, elapsedMs });
+          if (completed !== lastCompleted) {
+            lastCompleted = completed;
+            lastChanged = Date.now();
+          } else if (Date.now() - lastChanged > 3000) {
+            // Progress has stalled visually; slow the poll to reduce load.
+            tilePollTimerRef.current = setTimeout(tick, POLL_SLOW);
+            return;
+          }
+          tilePollTimerRef.current = setTimeout(tick, POLL_FAST);
         } else {
           setTileProgress(null);
           stopTilePolling();
@@ -159,12 +174,15 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         // A poll failure is not worth surfacing: the scan itself is the
         // authoritative outcome and its own error path will report it.
         if (current) setTileProgress(null);
+        if (current) tilePollTimerRef.current = setTimeout(tick, POLL_FAST);
       });
-    }, 400);
+    };
+
+    tilePollTimerRef.current = setTimeout(tick, POLL_FAST);
     return () => {
       current = false;
     };
-}, [analysesApi, stopTilePolling]);
+  }, [analysesApi, stopTilePolling]);
   useEffect(() => {
     if (!isAnalyzing) return;
     setScanSeconds(0);
@@ -973,7 +991,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                             : 'border-slate-200 dark:border-slate-700'
                         }`}
                       >
-                        <img src={slide.dataUrl} alt="" className="h-14 w-20 rounded object-cover" />
+                        <img src={slide.dataUrl} alt="" className="h-14 w-20 rounded object-cover" loading="lazy" />
                         <span className="mt-1 block max-w-20 truncate text-[10px] text-slate-600 dark:text-slate-300">
                           {index + 1}. {slide.name}
                         </span>
@@ -1299,7 +1317,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                         : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   >
-                    <img src={slide.dataUrl} alt={slide.name} className="w-full h-full object-cover" />
+                    <img src={slide.dataUrl} alt={slide.name} className="w-full h-full object-cover" loading="lazy" />
                     {hasFindings && (
                       <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900" title="Findings recorded for this slide" />
                     )}

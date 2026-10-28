@@ -88,18 +88,45 @@ export const DEFAULT_AI_MODELS: AIModelConfig[] = [
     // and two-person verification before release.
     classes: [
       "Ascaris lumbricoides",
+      "Ascaris lumbricoides ovum",
       "Enterobius vermicularis",
+      "Fasciola hepatica",
       "Fasciolopsis buski",
+      "Giardia lamblia cyst",
       "Hookworm egg",
-      "Trichuris trichiura"
+      "Hymenolepis",
+      "Plasmodium falciparum ring",
+      "Plasmodium malariae",
+      "Plasmodium ovale",
+      "Plasmodium vivax",
+      "Schistosoma haematobium",
+      "Taenia solium",
+      "Taenia saginum",
+      "Trichuris trichiura",
+      "Trichuris trichiura ovum",
+      "Entamoeba histolytica",
+      "Pus cell (Leukocyte)"
     ],
     // Parasites reported as confirmed findings when detected.
     reportedParasites: [
       "Ascaris lumbricoides",
+      "Ascaris lumbricoides ovum",
       "Enterobius vermicularis",
+      "Fasciola hepatica",
       "Fasciolopsis buski",
+      "Giardia lamblia cyst",
       "Hookworm egg",
-      "Trichuris trichiura"
+      "Hymenolepis",
+      "Plasmodium falciparum ring",
+      "Plasmodium malariae",
+      "Plasmodium ovale",
+      "Plasmodium vivax",
+      "Schistosoma haematobium",
+      "Taenia solium",
+      "Taenia saginum",
+      "Trichuris trichiura",
+      "Trichuris trichiura ovum",
+      "Entamoeba histolytica"
     ]
   }
 ];

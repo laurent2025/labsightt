@@ -26,7 +26,8 @@ export type ShortcutAction =
   | 'previous'
   | 'confirmAll'
   | 'release'
-  | 'close';
+  | 'close'
+  | 'startLabel';
 
 const SHORTCUTS: Record<ShortcutAction, string[]> = {
   confirm: ['1', 'Enter'],
@@ -35,7 +36,8 @@ const SHORTCUTS: Record<ShortcutAction, string[]> = {
   previous: ['k', 'ArrowUp'],
   confirmAll: ['c'],
   release: ['r'],
-  close: ['Escape']
+  close: ['Escape'],
+  startLabel: ['l']
 };
 
 /** The keys a press must match, case-insensitively. */
