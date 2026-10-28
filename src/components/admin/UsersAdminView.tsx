@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { adminApi, type AdminUser } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 import { EmptyState, ErrorState, TableSkeleton } from '../ui/States';
 import {
   Loader2,
@@ -39,7 +40,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
       const { users: next } = await adminApi.listUsers();
       setUsers(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'The user list could not be loaded.');
+      setError(userFriendlyError(err, 'The user list could not be loaded.'));
     } finally {
       setLoading(false);
     }
@@ -57,7 +58,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
       await adminApi.setRole(user.id, nextRole);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'The role change failed.');
+      setActionError(userFriendlyError(err, 'The role change could not be completed.'));
     } finally {
       setActingId(null);
     }
@@ -72,7 +73,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
       await adminApi.approveUser(user.id);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'The account could not be approved.');
+      setActionError(userFriendlyError(err, 'The account could not be approved.'));
     } finally {
       setActingId(null);
     }
@@ -87,7 +88,7 @@ export const UsersAdminView: React.FC<{ currentUserId: string }> = ({ currentUse
       await adminApi.removeUser(user.id);
       await load();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'The approval could not be revoked.');
+      setActionError(userFriendlyError(err, 'The approval could not be revoked.'));
     } finally {
       setActingId(null);
     }

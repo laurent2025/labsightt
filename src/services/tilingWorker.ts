@@ -184,11 +184,11 @@ if (typeof self !== 'undefined') {
         const response: WorkerResponse = { id, tiles };
         workerSelf.postMessage(response);
       })
-      .catch(err => {
+      .catch(() => {
         const response: WorkerResponse = {
           id,
           tiles: null,
-          error: err instanceof Error ? err.message : 'Tiling failed'
+          error: 'The slide could not be prepared for analysis. Please try again.'
         };
         workerSelf.postMessage(response);
       });

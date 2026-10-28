@@ -17,6 +17,7 @@ import { Skeleton } from './components/ui/States';
 import { Microscope } from 'lucide-react';
 import type { LaboratoryReport, NewPatient, Patient, Sample } from './types';
 import { ApiError, authApi, samplesApi } from './services/api';
+import { userFriendlyError } from './lib/userFriendlyError';
 
 /** Eager: the default view after sign-in. */
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
@@ -243,7 +244,7 @@ export default function App() {
       setPendingMicroscopy({
         patientId,
         sampleId: sample.id,
-        error: err instanceof Error ? err.message : 'Analysis could not be completed.',
+        error: userFriendlyError(err, 'Analysis could not be completed. Please check the slide and try again.'),
         scanning: false
       });
       setSelectedAnalysisId(null);
@@ -280,7 +281,7 @@ export default function App() {
         savedSlides.push(result.value.slide);
       } else {
         const slide = additionalSlides[index];
-        slideErrors.push(`${slide.name}: ${result.reason instanceof Error ? result.reason.message : 'upload failed'}`);
+        slideErrors.push(`${slide.name}: ${userFriendlyError(result.reason, 'upload could not be completed')}`);
       }
     });
 
@@ -331,7 +332,7 @@ export default function App() {
         sampleId: newSmp.id,
         error: e instanceof ApiError && e.status === 402
           ? ''
-          : e instanceof Error ? e.message : String(e),
+          : userFriendlyError(e, 'The microscope analysis could not be started. Please try again.'),
         scanning: false
       });
     }
@@ -622,7 +623,7 @@ export default function App() {
                 await verifyReport(reportId);
                 setActiveReportModal(prev => (prev ? { ...prev, status: 'verified' } : null));
               } catch (err) {
-                setVerifyError(err instanceof Error ? err.message : String(err));
+                setVerifyError(userFriendlyError(err, 'The report could not be verified. Please try again.'));
               }
             }}
             verifyError={verifyError}

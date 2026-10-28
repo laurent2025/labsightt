@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApi, auditApi, type AdminAnalysis, type AuditEntry, type ChainIntegrity } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 import { EmptyState, ErrorState, TableSkeleton } from '../ui/States';
 import { Download, Loader2, Microscope, RefreshCw, ScrollText, SearchX, ShieldAlert, ShieldCheck, Trash2 } from 'lucide-react';
 
@@ -67,7 +68,7 @@ export const AuditLogView: React.FC = () => {
       setRuns(result.items);
       setRunsTotal(result.total);
     } catch (err) {
-      setRunsError(err instanceof Error ? err.message : 'Microscopy runs could not be loaded.');
+      setRunsError(userFriendlyError(err, 'Microscopy runs could not be loaded.'));
     } finally {
       setRunsLoading(false);
     }
@@ -92,7 +93,7 @@ export const AuditLogView: React.FC = () => {
             setIntegrity(result.integrity);
           }
         } catch (err) {
-          if (!cancelled) setLogsError(err instanceof Error ? err.message : 'The audit trail could not be loaded.');
+          if (!cancelled) setLogsError(userFriendlyError(err, 'The audit trail could not be loaded.'));
         } finally {
           if (!cancelled) setLogsLoading(false);
         }
@@ -121,7 +122,7 @@ export const AuditLogView: React.FC = () => {
       const result = await adminApi.updateAnalysis(analysisId, { status: nextStatus });
       setRuns(prev => prev.map(run => run.id === analysisId ? { ...run, status: result.analysis.status } : run));
     } catch (err) {
-      setRunsError(err instanceof Error ? err.message : 'Status update failed.');
+      setRunsError(userFriendlyError(err, 'The status update could not be completed.'));
     } finally {
       setUpdatingId(null);
     }
@@ -135,7 +136,7 @@ export const AuditLogView: React.FC = () => {
       setRuns(prev => prev.filter(run => run.id !== analysisId));
       setRunsTotal(prev => Math.max(0, prev - 1));
     } catch (err) {
-      setRunsError(err instanceof Error ? err.message : 'Delete failed.');
+      setRunsError(userFriendlyError(err, 'The record could not be deleted.'));
     } finally {
       setDeletingId(null);
     }

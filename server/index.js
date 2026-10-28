@@ -190,7 +190,7 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
         // A scan-level abort is expected; anything else is a real tile failure.
         if (scanController?.signal?.aborted) return;
         // Record the failure but continue processing other tiles
-        failedTiles.push({ index, error: err.message, status: err.status });
+        failedTiles.push({ index, error: 'A slide section could not be analysed.', status: err.status });
         collected[index] = [];
         if (scanToken) failTile(scanToken);
       } finally {
@@ -841,7 +841,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       const result = await deepHealthCheck(db);
       res.status(result.status === 'healthy' ? 200 : 503).json(result);
     } catch (err) {
-      res.status(503).json({ status: 'error', error: err.message, timestamp: new Date().toISOString() });
+      res.status(503).json({ status: 'error', error: 'The health check could not complete. Please try again later.', timestamp: new Date().toISOString() });
     }
   });
 
@@ -3720,7 +3720,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   // Special-case handlers first
   app.use((err, req, res, next) => {
     if (err instanceof InferenceError) {
-      return res.status(err.status).json({ error: err.status === 402 ? '' : err.message });
+      return res.status(err.status).json({ error: err.status === 402 ? '' : 'The analysis service could not complete this request. Please try again.' });
     }
     if (err?.type === 'entity.too.large') {
       return res.status(413).json({ error: 'Request body is too large.' });

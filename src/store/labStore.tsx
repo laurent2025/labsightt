@@ -39,6 +39,7 @@ import {
   onSessionExpired,
   type SessionUser
 } from '../services/api';
+import { userFriendlyError } from '../lib/userFriendlyError';
 import { captureDetectionImage } from '../lib/detectionImages';
 
 export interface UserSession {
@@ -161,8 +162,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       setStorageIssue(null);
       return;
     }
-    const message =
-      err instanceof ApiError ? err.message : err instanceof Error ? err.message : fallback;
+    const message = userFriendlyError(err, fallback);
     setStorageIssue(message);
   }, []);
 
@@ -204,15 +204,15 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
       } else {
         const err = rejected[0].reason;
         if (err instanceof ApiError && err.status === 0) {
-          setConnectionError(err.message);
+          setConnectionError(userFriendlyError(err, 'The laboratory service could not be reached. Please try again.'));
         } else if (err instanceof SessionExpiredError) {
           // The listener already cleared the session; no banner needed.
         } else if (results.some(res => res.status === 'fulfilled')) {
           setLoadError(
-            `Some data could not be loaded: ${err instanceof ApiError ? err.message : 'server error'}. The rest of the page is still available. Refresh to try loading the missing data again.`
+            `Some data could not be loaded: ${userFriendlyError(err, 'the laboratory service did not respond')}. The rest of the page is still available. Refresh to try loading the missing data again.`
           );
         } else {
-          setLoadError(err instanceof ApiError ? err.message : 'Could not load laboratory data. Please refresh the page or sign in again.');
+          setLoadError(userFriendlyError(err, 'Could not load laboratory data. Please refresh the page or sign in again.'));
         }
       }
     } finally {
@@ -249,7 +249,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         } else if (!(err instanceof SessionExpiredError) && err instanceof ApiError && (err.status === 0 || err.status === 403)) {
           setConnectionError(err.status === 403
             ? 'Account profile could not be loaded. Please sign in again.'
-            : err.message);
+            : userFriendlyError(err, 'Your account profile could not be loaded. Please sign in again.'));
         }
       } finally {
         if (!cancelled) setAuthChecked(true);

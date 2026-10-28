@@ -342,21 +342,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         </section>
 
         {/* Stats bar */}
-        <section className="border-y border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/40 backdrop-blur-sm">
-          <div className="max-w-[1440px] mx-auto gutter-x py-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {STATS.map((stat, i) => (
-                <div key={i} className="text-center space-y-1 group" style={{
-                  opacity: isLoaded ? 1 : 0,
-                  transform: isLoaded ? 'translateY(0)' : 'translateY(16px)',
-                  animation: isLoaded ? `fadeInUp 0.5s ease-out ${200 + i * 80}ms forwards` : 'none'
-                }}>
-                  <div className="text-2xl font-bold bg-gradient-to-r from-cyan-700 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 bg-clip-text text-transparent group-hover:scale-110 transition-transform">
-                    {stat.value}
-                  </div>
-                  <div className="text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                    {stat.label}
-                  </div>
+        <section
+          className="landing-trust-marquee border-y border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/40 backdrop-blur-sm"
+          aria-label="Security and workflow guarantees"
+        >
+          <div className="overflow-hidden py-5 sm:py-7">
+            <div className="landing-trust-track flex w-max items-center">
+              {[0, 1].map(group => (
+                <div
+                  key={group}
+                  className="flex shrink-0 items-center"
+                  aria-hidden={group === 1}
+                >
+                  {STATS.map((stat, i) => (
+                    <div key={`${group}-${i}`} className="landing-trust-stat group flex w-[min(76vw,18rem)] shrink-0 items-center justify-center gap-3 px-4 text-center sm:w-[min(34vw,20rem)] lg:w-[min(25vw,22rem)]">
+                      <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-700 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 bg-clip-text text-transparent transition-transform group-hover:scale-105">
+                        {stat.value}
+                      </div>
+                      <div className="text-left text-[10px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider leading-snug">
+                        {stat.label}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

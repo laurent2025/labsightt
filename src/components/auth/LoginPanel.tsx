@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Microscope, LogIn, UserPlus, AlertTriangle, ServerCrash, Eye, EyeOff, ShieldCheck, MailCheck, X, CheckCircle2 } from 'lucide-react';
 import { ApiError } from '../../services/api';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 interface LoginPanelProps {
   onSubmit: (email: string, password: string) => Promise<void>;
@@ -66,11 +67,11 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
         if (notApproved) {
           setError('Your account is awaiting administrator approval. Your email is verified — once an administrator approves your account you can sign in. No further action is needed from you.');
         } else if (err.status === 403) {
-          setError(err.message || 'Your account is not authorized to access this system. Please contact your administrator for help.');
+          setError(userFriendlyError(err, 'Your account is not authorized to access this system. Please contact your administrator for help.'));
         } else if (err.status === 429) {
           setError('Too many sign-in attempts. Please wait a minute and try again.');
         } else {
-          setError(err.message);
+          setError(userFriendlyError(err, 'We could not complete sign in. Please check your details and try again.'));
         }
         if (err.status === 401 || err.status === 403) setPassword('');
       } else {

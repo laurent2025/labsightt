@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { KeyRound, CheckCircle2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useLabStore } from '../../store/labStore';
-import { ApiError } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ChangePasswordModalProps {
@@ -48,7 +48,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ onClos
       await changePassword(current, next);
       setDone(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not change the password. Please check your current password and try again.');
+      setError(userFriendlyError(err, 'Could not change the password. Please check your current password and try again.'));
     } finally {
       setSubmitting(false);
     }

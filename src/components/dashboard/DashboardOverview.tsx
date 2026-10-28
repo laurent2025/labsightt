@@ -13,6 +13,7 @@ import { useLabStore } from '../../store/labStore';
 import { EmptyState } from '../ui/States';
 import { AdminOversight } from '../admin/AdminOversight';
 import { analysesApi, patientsApi, reportsApi } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 interface DashboardCounts {
   patients: number;
@@ -67,7 +68,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     } catch (err) {
       setDashboardCounts(null);
       setDashboardCountsError(
-        err instanceof Error ? err.message : 'Could not load the latest laboratory totals.'
+        userFriendlyError(err, 'Could not load the latest laboratory totals. Please refresh and try again.')
       );
     }
   }, []);

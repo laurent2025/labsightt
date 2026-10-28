@@ -6,6 +6,7 @@ import { useDebounced } from '../../hooks/useDebounced';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { TableSkeleton, EmptyState, NoResultsState, ErrorState, Pagination } from '../ui/States';
 import { patientsApi } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 interface PatientListViewProps {
   patients: Patient[];
@@ -91,7 +92,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
       setExportError(null);
     } catch (err) {
       console.error('Failed to export patients:', err);
-      setExportError(err instanceof Error && err.message ? err.message : 'Could not export the patient list. Please try again.');
+      setExportError(userFriendlyError(err, 'Could not export the patient list. Please try again.'));
     } finally {
       setExporting(false);
     }

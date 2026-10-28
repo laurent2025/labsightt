@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { userFriendlyError } from '../lib/userFriendlyError';
 
 /**
  * USB/DCC cameras attached to a microscope commonly report labels with these
@@ -10,7 +11,7 @@ const MICROSCOPE_DEVICE_HINT =
 
 function friendlyCameraError(err: unknown): string {
   const name = (err as { name?: string } | null)?.name ?? '';
-  const detail = err instanceof Error ? err.message : String(err);
+  const detail = userFriendlyError(err, 'Please check the camera connection and try again.');
   switch (name) {
     case 'NotAllowedError':
       return 'Camera access is blocked. Allow it for this site in your browser settings and in your device privacy settings, then click Retry.';
@@ -22,7 +23,7 @@ function friendlyCameraError(err: unknown): string {
     case 'SecurityError':
       return 'Camera capture requires a secure context (HTTPS or localhost).';
     default:
-      return detail ? `Camera access failed: ${detail}` : 'Camera access failed.';
+      return `Camera access failed. ${detail}`;
   }
 }
 

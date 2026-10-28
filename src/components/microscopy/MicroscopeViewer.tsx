@@ -684,7 +684,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const selectedDetection = detections.find(d => d.id === selectedDetectionId);
 
   return (
-    <div className="microscope-viewer flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+    <div className="microscope-viewer self-start w-full flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
       {/* Top Toolbar - Clean visual zones for Slide Info | View Modes | Tools */}
       <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-3">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
@@ -883,19 +883,22 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       {/* Main Optical Canvas Stage */}
       <div
         ref={containerRef}
-        className={`relative w-full aspect-[4/3] overflow-hidden flex flex-col items-center justify-center max-h-[70vh] ${
-          imageUrl ? 'bg-slate-950' : 'bg-transparent'
+        className={`relative w-full flex-none overflow-hidden flex items-center justify-center ${
+          imageUrl ? 'py-1' : 'min-h-52'
         }`}
       >
-        <div className="relative w-full h-full max-w-full max-h-full">
+        <div
+          className="relative w-fit max-w-full overflow-hidden rounded-lg"
+          style={{ maxHeight: 'min(70vh, 720px)' }}
+        >
           <div
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: 'center center',
               transition: isPanning ? 'none' : 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
-            className={`relative flex items-center justify-center overflow-hidden rounded-lg cursor-default select-none ${
-              imageUrl ? 'bg-slate-900/50' : 'bg-transparent'
+            className={`relative flex w-fit max-w-full items-center justify-center overflow-hidden rounded-lg cursor-default select-none ${
+              imageUrl ? 'bg-slate-950' : 'bg-transparent'
             }`}
           >
             {/* Empty state placeholder */}
@@ -920,7 +923,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 width: 'auto',
                 height: 'auto',
                 maxWidth: '100%',
-                maxHeight: '100%',
+                maxHeight: 'min(70vh, 720px)',
                 imageRendering: 'crisp-edges' as const
               }}
               className={`rounded-lg ${

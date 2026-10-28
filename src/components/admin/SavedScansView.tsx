@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { scanImagesApi, saveFile, type SavedScanImage, type SavedScanCounts } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 import { EmptyState, ErrorState, TableSkeleton } from '../ui/States';
 import { Download, HardDrive, Image as ImageIcon, Loader2 } from 'lucide-react';
 
@@ -60,7 +61,7 @@ export const SavedScansView: React.FC = () => {
       setCounts(result.counts);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'The saved images could not be listed.'
+        userFriendlyError(err, 'The saved images could not be listed.')
       );
     } finally {
       setLoading(false);
@@ -118,7 +119,7 @@ export const SavedScansView: React.FC = () => {
     try {
       saveFile(await scanImagesApi.download([{ kind: image.kind, id: image.id }]));
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'That image could not be downloaded.');
+      setActionError(userFriendlyError(err, 'That image could not be downloaded.'));
     } finally {
       setBusy(null);
     }
@@ -136,7 +137,7 @@ export const SavedScansView: React.FC = () => {
       );
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : 'The chosen images could not be downloaded.'
+        userFriendlyError(err, 'The chosen images could not be downloaded.')
       );
     } finally {
       setBusy(null);
@@ -150,7 +151,7 @@ export const SavedScansView: React.FC = () => {
       saveFile(await scanImagesApi.downloadAll());
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : 'The saved images could not be downloaded.'
+        userFriendlyError(err, 'The saved images could not be downloaded.')
       );
     } finally {
       setBusy(null);

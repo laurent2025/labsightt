@@ -40,16 +40,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
     return (
       <div role="alert" className="bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 rounded-xl p-8 text-center">
-        <h2 className="text-sm font-bold text-rose-900 dark:text-rose-200">
-          This view failed to render
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+          We couldn&apos;t open this view
         </h2>
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 max-w-lg mx-auto leading-relaxed">
-          The error below is a rendering fault, not a diagnostic result. No patient data has been
-          altered. Switch tabs to continue, or retry this view.
+          Something interrupted this screen before it finished loading. Your patient data has not
+          been changed. Retry the view, or switch tabs and return to it.
         </p>
-        <pre className="mt-4 text-[11px] text-left font-mono text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-3 overflow-x-auto max-h-40">
-          {error.name}: {error.message}
-        </pre>
         <button
           type="button"
           onClick={this.handleReset}

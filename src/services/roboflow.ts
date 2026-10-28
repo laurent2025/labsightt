@@ -4,6 +4,7 @@ import {
   fitTileBudget,
   tileCount
 } from './tilingWorker';
+import { userFriendlyError } from '../lib/userFriendlyError';
 
 export { fitTileBudget, tileCount };
 
@@ -490,7 +491,7 @@ export async function loadImageSource(url: string): Promise<SourceImage> {
   } catch (err) {
     if (err instanceof InferenceError) throw err;
     throw new InferenceError(
-      `Could not load slide image: ${err instanceof Error ? err.message : String(err)}`
+      `Could not load slide image: ${userFriendlyError(err, 'the image source is unavailable')}`
     );
   }
 

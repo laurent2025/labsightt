@@ -4,6 +4,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Printer, Download, X, ShieldCheck } from 'lucide-react';
 import { LAB_METADATA } from '../../lib/constants';
 import { samplesApi, type SpecimenSlide } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 interface LaboratoryReportModalProps {
   report: LaboratoryReport;
@@ -51,7 +52,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
       })
       .catch(err => {
         if (current) {
-          setImageLoadError(err instanceof Error ? err.message : 'Saved specimen images could not be loaded.');
+          setImageLoadError(userFriendlyError(err, 'Saved specimen images could not be loaded.'));
         }
       });
     return () => { current = false; };

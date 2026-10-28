@@ -987,6 +987,29 @@ table thead tr {
   pointer-events: none;
 }
 
+.landing-trust-marquee {
+  position: relative;
+}
+
+.landing-trust-track {
+  animation: trust-marquee 24s linear infinite;
+  will-change: transform;
+}
+
+.landing-trust-marquee:hover .landing-trust-track,
+.landing-trust-marquee:focus-within .landing-trust-track {
+  animation-play-state: paused;
+}
+
+.landing-trust-stat + .landing-trust-stat {
+  border-left: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+@keyframes trust-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 .auth-panel {
   animation: auth-panel-enter 0.32s ease-out both;
 }
@@ -1053,5 +1076,15 @@ label {
 
   .auth-panel {
     animation: none !important;
+  }
+
+  .landing-trust-track {
+    animation: none !important;
+    transform: none !important;
+    width: 100%;
+  }
+
+  .landing-trust-track > [aria-hidden='true'] {
+    display: none;
   }
 }

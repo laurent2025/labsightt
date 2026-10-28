@@ -5,6 +5,7 @@ import { prepareImageForUpload } from '../../services/roboflow';
 import { X, Upload, Microscope, UserPlus, Camera, Video, RotateCcw } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 interface PatientFormModalProps {
   onClose: () => void;
@@ -157,7 +158,7 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
     try {
       await onSubmit(patientData, sampleData);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not save the patient and specimen. Please check the details and try again.');
+      setSubmitError(userFriendlyError(err, 'Could not save the patient and specimen. Please check the details and try again.'));
     } finally {
       setSubmitting(false);
     }

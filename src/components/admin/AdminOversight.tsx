@@ -6,6 +6,7 @@ import {
   type AuditEntry,
   type ChainIntegrity
 } from '../../services/api';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 import { ArrowRight, ScrollText, ShieldAlert, ShieldCheck, Users } from 'lucide-react';
 
 function formatTime(iso: string | null) {
@@ -45,7 +46,7 @@ export const AdminOversight: React.FC<{ onNavigateTab: (tab: 'audit' | 'users') 
       setEntries(auditResult.entries);
       setIntegrity(auditResult.integrity);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Administrative data could not be loaded.');
+      setError(userFriendlyError(err, 'Administrative data could not be loaded.'));
     }
   }, []);
 

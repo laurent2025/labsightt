@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LaboratoryReport } from '../../types';
 import { Printer, Search, CheckCircle2, Clock, AlertTriangle, Pencil, Trash2 } from 'lucide-react';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 interface ReportsListViewProps {
   reports: LaboratoryReport[];
@@ -44,7 +45,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
     try {
       await onVerifyReport(reportId);
     } catch (err) {
-      setGateError(err instanceof Error ? err.message : String(err));
+      setGateError(userFriendlyError(err, 'The report could not be verified. Please try again.'));
     }
   };
 
@@ -57,7 +58,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
       await onEditReport(editingReport.id, { technologistNotes, clinicalImpression });
       setEditingReport(null);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err));
+      setActionError(userFriendlyError(err, 'The report could not be saved. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -69,7 +70,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
     try {
       await onDeleteReport(report);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err));
+      setActionError(userFriendlyError(err, 'The report could not be deleted. Please try again.'));
     }
   };
 

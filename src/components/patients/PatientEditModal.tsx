@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Patient } from '../../types';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Save, X } from 'lucide-react';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 type PatientUpdates = Pick<
   Patient,
@@ -51,7 +52,7 @@ export const PatientEditModal: React.FC<PatientEditModalProps> = ({ patient, onC
         clinicalNotes: clinicalNotes.trim()
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update the patient record. Please try again or contact support if the problem continues.');
+      setError(userFriendlyError(err, 'Could not update the patient record. Please try again or contact support if the problem continues.'));
     } finally {
       setSaving(false);
     }

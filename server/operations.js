@@ -194,7 +194,7 @@ export async function deepHealthCheck(db, config = {}) {
     db.prepare('SELECT 1').get();
     checks.database = { status: 'ok' };
   } catch (err) {
-    checks.database = { status: 'error', error: err.message };
+    checks.database = { status: 'error', error: 'The database health check could not complete.' };
   }
 
   // Inference configuration
@@ -248,8 +248,14 @@ export function errorHandler(logger) {
     const status = err.status || err.statusCode || 500;
     const traceId = req.traceId || req.requestId;
 
+    const rawMessage = String(err?.message || '');
+    const technicalMessage = /(?:ReferenceError|TypeError|SyntaxError|Cannot access|is not defined|stack trace| at [^ ]+\(|SQLSTATE|PGRST|postgres|supabase|column .* does not exist|ECONN|ERR_[A-Z_]+)/i.test(rawMessage);
+    const publicMessage = status >= 500 || technicalMessage
+      ? 'We could not complete that request. Please try again. If the problem continues, contact your administrator.'
+      : rawMessage || 'We could not complete that request. Please try again.';
+
     let payload = {
-      error: err.message || 'Internal server error',
+      error: publicMessage,
       traceId,
       timestamp: new Date().toISOString()
     };
@@ -263,7 +269,7 @@ export function errorHandler(logger) {
           : null;
 
       if (guidance) {
-        payload = { ...payload, error: err.message || 'The database rejected this request.', hint: guidance };
+        payload = { ...payload, error: 'The laboratory database needs attention before this request can continue.', hint: guidance };
         return res.status(502).json(payload);
       }
     }
@@ -271,10 +277,6 @@ export function errorHandler(logger) {
     if (err.retryable) {
       payload.retryable = true;
       res.setHeader('Retry-After', Math.ceil((err.retryAfter || 5000) / 1000));
-    }
-
-    if (process.env.NODE_ENV !== 'production' && err.stack) {
-      payload.stack = err.stack;
     }
 
     logger({

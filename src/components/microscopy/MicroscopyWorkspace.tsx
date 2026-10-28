@@ -30,6 +30,7 @@ import {
 import { playScanComplete, playCriticalValueAlert } from '../../lib/audioOpticalFeedback';
 import { ApiError, detectionImagesApi, samplesApi, analysesApi } from '../../services/api';
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
+import { userFriendlyError } from '../../lib/userFriendlyError';
 
 // The Roboflow workflow id ("labsight-vlabsight-3-yolo26m-t1-logic") and the
 // display name ("LenziAI vlabsight-3-yolo26m-t1 Logic") share one long token.
@@ -472,7 +473,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       })
       .catch(err => {
         if (current) {
-          setInferenceError(err instanceof Error ? `Could not load saved specimen images: ${err.message}` : 'Could not load saved specimen images.');
+          setInferenceError(userFriendlyError(err, 'Could not load saved specimen images.'));
         }
       })
       .finally(() => {
@@ -572,8 +573,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       return newAna;
     } catch (err) {
       if (err instanceof ApiError && err.status === 402) return null;
-      const message = err instanceof Error ? err.message : String(err);
-      setInferenceError(message);
+      setInferenceError(userFriendlyError(err, 'The microscope analysis could not be completed. Please try again.'));
       setScanSummary(null);
       return null;
     } finally {
@@ -720,7 +720,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           setUploadedSlides(prev => [...prev, saved]);
           void writeCachedSlide(activeSample.id, saved.id, saved.dataUrl);
         } catch (err) {
-          uploadErrors.push(`${file.name}: ${err instanceof Error ? err.message : 'upload failed'}`);
+          uploadErrors.push(`${file.name}: ${userFriendlyError(err, 'upload could not be completed')}`);
         }
       }
 
@@ -737,7 +737,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         setInferenceError(`Some images could not be saved: ${uploadErrors.join('; ')}`);
       }
     } catch (err) {
-      setInferenceError(err instanceof Error ? `Failed to save slide images: ${err.message}` : 'Failed to save slide images.');
+      setInferenceError(userFriendlyError(err, 'Failed to save slide images.'));
     } finally {
       setIsSavingSlides(false);
     }
@@ -763,7 +763,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         setActiveSlideRef('primary');
       }
     } catch (err) {
-      setInferenceError(err instanceof Error ? err.message : 'Could not remove this slide image.');
+      setInferenceError(userFriendlyError(err, 'Could not remove this slide image.'));
     }
   };
 
@@ -783,7 +783,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         })
         .catch(err => {
           if (current) {
-            setInferenceError(err instanceof Error ? `Could not load the specimen image: ${err.message}` : 'Could not load the specimen image.');
+            setInferenceError(userFriendlyError(err, 'Could not load the specimen image.'));
           }
         });
     }
@@ -797,7 +797,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       const report = await onGenerateReport(activeAnalysis.id);
       onOpenReportModal(report);
     } catch (err) {
-      setGateError(err instanceof Error ? err.message : String(err));
+      setGateError(userFriendlyError(err, 'The report could not be generated. Please try again.'));
     }
   };
 
@@ -831,7 +831,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       setScanSummary(`Microscope capture saved to this specimen. Starting scan…`);
       await handleTriggerAnalysis(saved.dataUrl, saved.id);
     } catch (err) {
-      setInferenceError(err instanceof Error ? `Could not save microscope capture: ${err.message}` : 'Could not save microscope capture.');
+      setInferenceError(userFriendlyError(err, 'Could not save microscope capture.'));
     } finally {
       setIsSavingSlides(false);
     }
@@ -891,6 +891,18 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
   const handleAiConsultation = () => {
     setAiAssistantImpression(buildAdjudicationSummary());
   };
+
+  // These derived values must be declared before the empty/pending state
+  // return below. Keeping hooks in one unconditional path prevents React's
+  // hook order error when an analysis finishes loading into the workspace.
+  const activeDetections = useMemo(
+    () => activeAnalysis?.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef) ?? [],
+    [activeAnalysis?.detections, activeSlideRef]
+  );
+  const slideNames = useMemo(
+    () => Object.fromEntries(slideChoices.map(slide => [slide.id, slide.name])),
+    [slideChoices]
+  );
 
   if (!activeAnalysis || !activePatient || !activeSample) {
     if (activePatient && activeSample) {
@@ -1050,14 +1062,6 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
   }
 
   const totalFields = Math.max(1, activeSample.fieldsExamined || 10);
-  const activeDetections = useMemo(
-    () => activeAnalysis.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef),
-    [activeAnalysis.detections, activeSlideRef]
-  );
-  const slideNames = useMemo(
-    () => Object.fromEntries(slideChoices.map(slide => [slide.id, slide.name])),
-    [slideChoices]
-  );
   const confirmedCount = activeAnalysis.detections.filter(d => d.confirmed && !d.rejected).length;
   const totalDets = activeAnalysis.detections.filter(d => !d.rejected).length;
   const pendingCount = totalDets - confirmedCount;
@@ -1560,7 +1564,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       <div className="microscopy-main-grid grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 min-h-0">
         {/* Left Column: Microscope Canvas */}
         <div className={`microscopy-field-pane xl:col-span-8 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'review' ? 'hidden xl:flex' : 'flex'}`}>
-          <div className="flex-1 min-h-0">
+        <div className="min-h-0 self-start w-full">
             <MicroscopeViewer
               imageUrl={activeImageUrl}
               detections={activeDetections}
