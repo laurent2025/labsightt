@@ -25,7 +25,7 @@ import {
 } from './auth.js';
 import { appendAudit, verifyChain, chainHead } from './audit.js';
 import { runInference, applyNMS, isSameOrganism, inferenceStatus, InferenceError, DEFAULT_CONFIDENCE } from './inference.js';
-import { beginScan, completeTile, endScan, getScan } from './scanProgress.js';
+import { beginScan, completeTile, failTile, endScan, getScan } from './scanProgress.js';
 import { encodeZip, crc32 } from './zip.js';
 import {
   validateEmail,
@@ -37,7 +37,8 @@ import {
 } from './validators.js';
 import { newId, validatePasswordStrength } from './crypto.js';
 import { encryptPHI, decryptPHI, blindIndex } from './encryption.js';
-import { requestContext, createLoginLimiter, healthRoutes } from './operations.js';
+import { requestContext, createLoginLimiter, healthRoutes, deepHealthCheck, correlationId, errorHandler } from './operations.js';
+import { inferenceMetrics } from './inference.js';
 import * as repo from './repository.js';
 import {
   getSupabaseClient,
@@ -152,6 +153,7 @@ function dropAlreadyFound(detections, priorDetections = []) {
 async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanToken = null) {
   const concurrency = Math.max(1, Math.min(Number(process.env.INFERENCE_CONCURRENCY) || 6, passes.length));
   const collected = new Array(passes.length);
+  const failedTiles = [];
   let next = 0;
   // A scan-level abort controller lets the request handler cancel a scan that
   // has run past its budget, and it propagates to every in-flight tile so the
@@ -175,7 +177,7 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
       next += 1;
       const tile = passes[index];
       try {
-        collected[index] = await runInference(db, actor, tile.imageBase64, {
+        const result = await runInference(db, actor, tile.imageBase64, {
           confidence,
           iou: Number(process.env.ROBOFLOW_IOU) || 0.55,
           offsetX: tile.offsetX,
@@ -183,10 +185,14 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
           audit: false,
           scanSignal: scanController?.signal
         });
+        collected[index] = result;
       } catch (err) {
         // A scan-level abort is expected; anything else is a real tile failure.
         if (scanController?.signal?.aborted) return;
-        throw err;
+        // Record the failure but continue processing other tiles
+        failedTiles.push({ index, error: err.message, status: err.status });
+        collected[index] = [];
+        if (scanToken) failTile(scanToken);
       } finally {
         if (scanToken) completeTile(scanToken);
       }
@@ -198,6 +204,9 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
   } finally {
     if (scanToken) endScan(scanToken);
   }
+
+  const successfulTiles = collected.filter(arr => arr && arr.length >= 0).length;
+  const totalDetections = collected.flat().length;
 
   /*
    * Suppress duplicates across the whole slide, not just within one tile.
@@ -217,16 +226,27 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
    */
   const detections = applyNMS(collected.flat());
 
-  const suppressed = collected.flat().length - detections.length;
+  const suppressed = totalDetections - detections.length;
+  const auditDetails = `read ${passes.length} tile(s) of the slide (${successfulTiles} successful, ${failedTiles.length} failed), ${detections.length} candidate(s) proposed`
+    + ` above confidence ${confidence > 1 ? confidence / 100 : confidence}`
+    + (suppressed > 0 ? ` (${suppressed} duplicate box(es) across overlapping tiles suppressed)` : '')
+    + (failedTiles.length > 0 ? ` [${failedTiles.length} tile(s) failed]` : '');
+
   appendAudit(db, {
     actorId: actor.id,
     actorName: actor.display_name,
-    action: 'INFERENCE_EXECUTED',
+    action: failedTiles.length > 0 ? 'INFERENCE_PARTIAL' : 'INFERENCE_EXECUTED',
     entity: 'analysis',
-    details: `read ${passes.length} tile(s) of the slide, ${detections.length} candidate(s) proposed`
-      + ` above confidence ${confidence > 1 ? confidence / 100 : confidence}`
-      + (suppressed > 0 ? ` (${suppressed} duplicate box(es) across overlapping tiles suppressed)` : '')
+    details: auditDetails
   });
+
+  // Attach failure info to the result for caller awareness
+  detections._scanMetadata = {
+    totalTiles: passes.length,
+    successfulTiles,
+    failedTiles: failedTiles.length,
+    failures: failedTiles
+  };
 
   return detections;
 }
@@ -679,6 +699,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   app.use(express.json({ limit: '25mb' }));
   app.use(cookieParser());
   app.use(requestContext(logger));
+  app.use(correlationId());
 
   // Gzip JSON responses when the client accepts them. Uses Node's built-in
   // zlib so no extra dependency is added. Only compresses text payloads
@@ -813,6 +834,24 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   }
 
   healthRoutes(app, db);
+
+  // Deep health check with dependency verification
+  app.get('/healthz/deep', async (_req, res) => {
+    try {
+      const result = await deepHealthCheck(db);
+      res.status(result.status === 'healthy' ? 200 : 503).json(result);
+    } catch (err) {
+      res.status(503).json({ status: 'error', error: err.message, timestamp: new Date().toISOString() });
+    }
+  });
+
+  // Inference metrics endpoint for operational visibility
+  app.get('/api/system/metrics', auth, requireAdmin, (_req, res) => {
+    res.json({
+      inference: inferenceMetrics.snapshot(),
+      timestamp: new Date().toISOString()
+    });
+  });
 
   app.get('/api/system/status', auth, (req, res) => {
     purgeExpiredSessions(db);
@@ -3674,12 +3713,12 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
       next(err);
     }
   });
-
-  // ------------------------------------------------------------- errors ----
+// ------------------------------------------------------------- errors ----
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'No such endpoint.' }));
 
-  app.use((err, req, res, _next) => {
+  // Special-case handlers first
+  app.use((err, req, res, next) => {
     if (err instanceof InferenceError) {
       return res.status(err.status).json({ error: err.status === 402 ? '' : err.message });
     }
@@ -3689,37 +3728,11 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
     if (err?.type === 'entity.parse.failed') {
       return res.status(400).json({ error: 'Request body is not valid JSON.' });
     }
-    /*
-     * A Postgres failure caught here is a schema or policy problem, not a crash:
-     * the message names the column, constraint or policy that rejected the
-     * write. Returning it tells the operator what to fix in schema.sql instead
-     * of leaving them with an unexplained error, and it carries no patient data
-     * or credential. Anything without a SQLSTATE keeps the generic message.
-     */
-    if (typeof err?.code === 'string' && err.code.length === 5) {
-      const guidance = err.code === '42501'
-        ? 'Row-level security rejected this write. Grant the service role full access, or sign in with a Supabase Auth account.'
-        : err.code === '42703' || err.code === '42P01'
-          ? 'The Supabase schema is out of date. Run supabase/schema.sql in the Supabase SQL editor, then retry.'
-          : null;
-      return res.status(502).json({
-        error: err.message || 'The database rejected this request.',
-        ...(guidance ? { hint: guidance } : {})
-      });
-    }
-    logger({
-      level: 'error',
-      event: 'unhandled_error',
-      requestId: req.requestId,
-      error: err?.message,
-      stack: err?.stack
-    });
-    // The stack is logged, never returned: it can disclose schema details.
-    res.status(500).json({
-      error: 'Internal server error.',
-      requestId: req.requestId
-    });
+    next(err);
   });
+
+  // Structured error handler for everything else
+  app.use(errorHandler(logger));
 
   app.locals.db = db;
   return app;

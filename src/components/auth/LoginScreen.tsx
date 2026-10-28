@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { LoginPanel } from './LoginPanel';
 
 interface LoginScreenProps {
@@ -6,18 +6,30 @@ interface LoginScreenProps {
   onSignup: (email: string, password: string, displayName: string) => Promise<{ message: string }>;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = props => (
-  <div className="relative min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col items-center justify-center p-3 sm:p-5 overflow-hidden">
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 bg-gradient-to-br from-green-100/70 via-transparent to-white dark:from-green-950/40 dark:via-transparent dark:to-transparent"
-    />
-    <div className="relative w-full max-w-sm">
-      <LoginPanel {...props} />
-      <p className="mt-3 text-center text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-        LenziAI Diagnostic Systems Inc.
-        <span className="block">Patient records are encrypted at rest on the laboratory server.</span>
-      </p>
+export const LoginScreen: React.FC<LoginScreenProps> = props => {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
+
+  return (
+    <div className="relative min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col items-center justify-center p-3 sm:p-5 overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-green-100/70 via-transparent to-white dark:from-green-950/40 dark:via-transparent dark:to-transparent"
+      />
+      <div className="relative w-full max-w-sm" style={{
+        opacity: isLoaded ? 1 : 0,
+        transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+        animation: isLoaded ? 'fadeInUp 0.6s ease-out forwards' : 'none'
+      }}>
+        <LoginPanel {...props} />
+        <p className="mt-3 text-center text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+          LenziAI Diagnostic Systems Inc.
+          <span className="block">Patient records are encrypted at rest on the laboratory server.</span>
+        </p>
+      </div>
     </div>
-  </div>
-);
+  );
+};

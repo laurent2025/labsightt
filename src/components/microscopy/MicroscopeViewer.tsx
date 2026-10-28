@@ -17,7 +17,8 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  SlidersHorizontal
 } from 'lucide-react';
 import { playShutterSnapshot, playTurretClick } from '../../lib/audioOpticalFeedback';
 
@@ -132,6 +133,8 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
   const [rulerPoints, setRulerPoints] = useState<Array<{ x: number; y: number }>>([]);
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number } | null>(null);
   const [snapshotFeedback, setSnapshotFeedback] = useState<boolean>(false);
+  // Mobile controls panel
+  const [showControlsPanel, setShowControlsPanel] = useState<boolean>(false);
 
   // Mechanical Stage Vernier Coordinates (in millimeters, simulating real Leica/Olympus mechanical stage)
   const [stageVernierX, setStageVernierX] = useState<number>(42.5);
@@ -147,9 +150,22 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = imageUrl;
-    img.onload = () => {
+    
+    const onLoad = () => {
       imageObjRef.current = img;
       renderCanvas();
+    };
+    
+    const onError = () => {
+      imageObjRef.current = null;
+    };
+    
+    img.onload = onLoad;
+    img.onerror = onError;
+    
+    return () => {
+      img.onload = null;
+      img.onerror = null;
     };
   }, [imageUrl]);
 
@@ -160,11 +176,12 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
     if (!ctx) return;
 
     const img = imageObjRef.current;
-    if (!img) return;
+    if (!img || !img.complete || img.naturalWidth === 0) return;
 
-    const imgWidth = img.naturalWidth || 1200;
-    const imgHeight = img.naturalHeight || 900;
+    const imgWidth = img.naturalWidth;
+    const imgHeight = img.naturalHeight;
 
+    // Render at native resolution for quality
     canvas.width = imgWidth;
     canvas.height = imgHeight;
 
@@ -651,21 +668,22 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-md">
-      {/* Top Telemetry & Optical Controls Ribbon */}
-      <div className="flex flex-wrap items-center justify-between px-3 sm:px-4 py-2 bg-slate-950/90 border-b border-slate-800 text-sm text-slate-200 gap-2">
-        <div className="flex items-center gap-2">
+      {/* Top Telemetry & Optical Controls Ribbon - Responsive */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-3 py-2 bg-slate-950/90 border-b border-slate-800 text-slate-200 gap-2">
+        {/* Left: Slide info & field stepper */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 font-mono text-cyan-400 font-semibold">
             <Crosshair className="w-3.5 h-3.5" />
-            <span>{slideLabel}</span>
+            <span className="truncate max-w-[160px] sm:max-w-none">{slideLabel}</span>
           </div>
-          <span className="text-slate-600 dark:text-slate-400">·</span>
-          <span className="font-mono text-slate-400">OBJ: {objective}</span>
-          <span className="text-slate-600 dark:text-slate-400">·</span>
-          <span className="font-mono text-slate-400">MAG: {totalMagnification}</span>
-          <span className="text-slate-600 dark:text-slate-400">·</span>
-          {/* Multi-field Scan Stepper */}
+          <span className="text-slate-600 dark:text-slate-400 hidden sm:inline">·</span>
+          <span className="font-mono text-slate-400 hidden sm:inline">OBJ: {objective}</span>
+          <span className="text-slate-600 dark:text-slate-400 hidden sm:inline">·</span>
+          <span className="font-mono text-slate-400 hidden sm:inline">MAG: {totalMagnification}</span>
+          <span className="text-slate-600 dark:text-slate-400 hidden sm:inline">·</span>
+          {/* Multi-field Scan Stepper - compact */}
           <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-xs font-mono">
-            <span className="text-slate-400">HPF:</span>
+            <span className="text-slate-400 hidden sm:inline">HPF:</span>
             <button
               type="button"
               onClick={() => {
@@ -673,11 +691,12 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
                 onFieldChange?.(Math.max(1, currentField - 1));
               }}
               disabled={currentField <= 1}
-              className="text-slate-400 hover:text-white disabled:opacity-30 px-1 cursor-pointer"
+              className="text-slate-400 hover:text-white disabled:opacity-30 px-1.5 py-1 cursor-pointer touch-target"
+              aria-label="Previous field"
             >
-              <ChevronLeft className="w-3 h-3" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-cyan-300 font-semibold">
+            <span className="text-cyan-300 font-semibold min-w-[3ch] text-center">
               {currentField}/{totalFields}
             </span>
             <button
@@ -687,157 +706,145 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
                 onFieldChange?.(Math.min(totalFields, currentField + 1));
               }}
               disabled={currentField >= totalFields}
-              className="text-slate-400 hover:text-white disabled:opacity-30 px-1 cursor-pointer"
+              className="text-slate-400 hover:text-white disabled:opacity-30 px-1.5 py-1 cursor-pointer touch-target"
+              aria-label="Next field"
             >
-              <ChevronRight className="w-3 h-3" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Optical Light & Contrast Filter Modes */}
-        <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 overflow-x-auto max-w-full">
-          <button
-            type="button"
-            onClick={() => setFilterMode('boxes')}
-            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-              filterMode === 'boxes'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Roboflow AI
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterMode('original')}
-            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-              filterMode === 'original'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Brightfield
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterMode('enhanced')}
-            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-              filterMode === 'enhanced'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Membrane Boost
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterMode('darkfield')}
-            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-              filterMode === 'darkfield'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Darkfield
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterMode('split')}
-            className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-              filterMode === 'split'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Split
-          </button>
+        {/* Center: Filter Modes - horizontal scroll on mobile */}
+        <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 overflow-x-auto whitespace-nowrap -mx-2 px-2 sm:mx-0 sm:px-0.5" role="group" aria-label="View filter modes">
+          {['boxes', 'original', 'enhanced', 'darkfield', 'split'].map(mode => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setFilterMode(mode as ViewFilterMode)}
+              className={`px-2.5 py-1 rounded text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer touch-target ${
+                filterMode === mode
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              aria-pressed={filterMode === mode}
+            >
+              {mode === 'boxes' && 'AI Detection'}
+              {mode === 'original' && 'Brightfield'}
+              {mode === 'enhanced' && 'Membrane Boost'}
+              {mode === 'darkfield' && 'Darkfield'}
+              {mode === 'split' && 'Split View'}
+            </button>
+          ))}
         </div>
 
-        {/* Optical Tools & Realism Toggles */}
-        <div className="flex items-center gap-1.5">
-          {/* Reticle grid toggle */}
+        {/* Right: Optical Tools */}
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <button
             type="button"
             onClick={() => setShowReticleGrid(!showReticleGrid)}
-            className={`p-1.5 rounded transition cursor-pointer ${
+            className={`p-2 rounded transition cursor-pointer touch-target ${
               showReticleGrid
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
             title="Toggle Concentric Ocular Reticle Graticule"
+            aria-pressed={showReticleGrid}
+            aria-label="Reticle Grid"
           >
-            <Compass className="w-4 h-4" />
+            <Compass className="w-5 h-5" />
           </button>
 
-          {/* Caliper measurement tool */}
           <button
             type="button"
             onClick={() => {
               setIsMeasuring(!isMeasuring);
               setRulerPoints([]);
             }}
-            className={`p-1.5 rounded transition cursor-pointer ${
+            className={`p-2 rounded transition cursor-pointer touch-target ${
               isMeasuring
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
             title="Micrometer Caliper"
+            aria-pressed={isMeasuring}
+            aria-label="Measurement Tool"
           >
-            <Ruler className="w-4 h-4" />
+            <Ruler className="w-5 h-5" />
           </button>
 
-          {/* Eyepiece circular aperture */}
           <button
             type="button"
             onClick={() => setIsEyepieceMask(!isEyepieceMask)}
-            className={`p-1.5 rounded transition cursor-pointer ${
+            className={`p-2 rounded transition cursor-pointer touch-target ${
               isEyepieceMask
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
             title="Circular Eyepiece Aperture"
+            aria-pressed={isEyepieceMask}
+            aria-label="Eyepiece Mask"
           >
-            <Sun className="w-4 h-4" />
+            <Sun className="w-5 h-5" />
           </button>
 
-          {/* Shutter snapshot */}
           <button
             type="button"
             onClick={handleCaptureSnapshot}
-            className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer touch-target"
             title="Capture Field Photomicrograph"
+            aria-label="Capture Snapshot"
           >
-            <Camera className="w-4 h-4" />
+            <Camera className="w-5 h-5" />
           </button>
 
-          <span className="text-slate-700 dark:text-slate-400">|</span>
+          <span className="text-slate-700 dark:text-slate-400 hidden sm:inline">|</span>
+
+          {/* Mobile Controls Panel Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowControlsPanel(!showControlsPanel)}
+            className={`p-2 rounded transition cursor-pointer touch-target lg:hidden ${
+              showControlsPanel
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+            title="Optical Controls"
+            aria-label="Optical Controls"
+            aria-expanded={showControlsPanel}
+            aria-controls="mobile-controls-panel"
+          >
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
 
           <button
             type="button"
             onClick={() => setZoom(prev => Math.max(0.5, prev - 0.25))}
-            className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer touch-target"
             title="Zoom Out"
+            aria-label="Zoom Out"
           >
-            <ZoomOut className="w-4 h-4" />
+            <ZoomOut className="w-5 h-5" />
           </button>
-          <span className="font-mono text-xs w-10 text-center text-slate-300">
+          <span className="font-mono text-xs w-10 text-center text-slate-300 hidden sm:inline-flex">
             {Math.round(zoom * 100)}%
           </span>
           <button
             type="button"
             onClick={() => setZoom(prev => Math.min(4, prev + 0.25))}
-            className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer touch-target"
             title="Zoom In"
+            aria-label="Zoom In"
           >
-            <ZoomIn className="w-4 h-4" />
+            <ZoomIn className="w-5 h-5" />
           </button>
           <button
             type="button"
             onClick={resetView}
-            className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer"
+            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-slate-200 cursor-pointer touch-target"
             title="Reset All Controls"
+            aria-label="Reset View"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -845,13 +852,13 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
       {/* Main Optical Canvas Stage */}
       <div
         ref={containerRef}
-        className="relative flex-1 bg-slate-950 overflow-hidden flex items-center justify-center cursor-default select-none min-h-[340px] sm:min-h-[460px] max-h-[75vh]"
+        className="relative flex-1 bg-slate-950 overflow-hidden flex items-center justify-center cursor-default select-none min-h-[340px] sm:min-h-[400px] max-h-[70vh]"
       >
         <div
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: 'center center',
-            transition: isPanning ? 'none' : 'transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+            transition: isPanning ? 'none' : 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
           className="relative inline-block"
         >
@@ -863,14 +870,21 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className={`max-w-full max-h-[68vh] object-contain rounded ${
+            style={{
+              width: 'auto',
+              height: 'auto',
+              maxWidth: '100%',
+              maxHeight: '70vh',
+              imageRendering: 'crisp-edges' as const
+            }}
+            className={`rounded ${
               isMeasuring
-                ? 'cursor-crosshair'
+                ? 'cursor-crosshair touch-none'
                 : isAddingBox
-                ? 'cursor-crosshair'
+                ? 'cursor-crosshair touch-none'
                 : zoom > 1
-                ? 'cursor-grab active:cursor-grabbing'
-                : 'cursor-crosshair'
+                ? 'cursor-grab active:cursor-grabbing touch-none'
+                : 'cursor-crosshair touch-none'
             }`}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
@@ -1182,6 +1196,156 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
                 <span>Reject</span>
               </button>
             </div>
+          </div>
+        )}
+        
+        {/* Mobile Controls Bottom Sheet */}
+        {showControlsPanel && (
+          <div
+            id="mobile-controls-panel"
+            className="lg:hidden fixed inset-x-0 bottom-0 z-40 animate-slide-in"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Optical Controls"
+          >
+            <div className="bg-slate-900 border-t border-slate-800 rounded-t-2xl shadow-2xl max-h-[60vh] overflow-y-auto">
+              {/* Drag handle */}
+              <div className="flex items-center justify-center pt-3 pb-2">
+                <div className="w-10 h-1 bg-slate-700 rounded-full" />
+              </div>
+              
+              <div className="px-4 pb-4 space-y-4">
+                {/* Condenser Iris */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-cyan-400 font-semibold text-sm">CONDENSER IRIS</span>
+                    <span className="font-mono text-slate-300">{irisAperture}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="20"
+                    max="100"
+                    step="5"
+                    value={irisAperture}
+                    onChange={e => setIrisAperture(parseInt(e.target.value, 10))}
+                    className="w-full h-2 accent-cyan-500 cursor-pointer"
+                    aria-label="Condenser Iris Diaphragm Aperture"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-2 text-center">Aperture: {irisAperture}% (20% = high contrast, 100% = max resolution)</p>
+                </div>
+                
+                {/* Fine Focus */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-cyan-400 font-semibold text-sm">FINE FOCUS</span>
+                    <span className="font-mono text-slate-300">
+                      {focusOffset === 0 ? '0µm' : `${focusOffset > 0 ? '+' : ''}${focusOffset}µm`}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-3"
+                    max="3"
+                    step="0.5"
+                    value={focusOffset}
+                    onChange={e => setFocusOffset(parseFloat(e.target.value))}
+                    className="w-full h-2 accent-cyan-500 cursor-pointer mb-2"
+                    aria-label="Micrometer Fine Focus Wheel"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFocusOffset(0)}
+                    className="w-full py-2 px-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-medium cursor-pointer"
+                  >
+                    Reset Focus (0µm)
+                  </button>
+                </div>
+                
+                {/* Light Filter */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                  <span className="text-cyan-400 font-semibold text-sm block mb-3">LIGHT FILTER</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['daylight', 'halogen', 'daylight_blue', 'fluorescence_filter'] as LightFilter[]).map(filter => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setLightFilter(filter)}
+                        className={`py-2 px-3 rounded-lg text-xs font-medium transition cursor-pointer ${
+                          lightFilter === filter
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                        }`}
+                        aria-pressed={lightFilter === filter}
+                      >
+                        {filter === 'daylight' && 'Daylight'}
+                        {filter === 'halogen' && 'Halogen'}
+                        {filter === 'daylight_blue' && 'Daylight Blue'}
+                        {filter === 'fluorescence_filter' && 'Fluorescence'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Mechanical Stage Controls */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                  <span className="text-cyan-400 font-semibold text-sm block mb-3">MECHANICAL STAGE</span>
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => translateMechanicalStage(0, -0.4)}
+                      className="p-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 w-20 cursor-pointer touch-target"
+                      title="Translate Stage Up"
+                      aria-label="Stage Up"
+                    >
+                      <ArrowUp className="w-6 h-6" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => translateMechanicalStage(-0.4, 0)}
+                        className="p-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 w-20 cursor-pointer touch-target"
+                        title="Translate Stage Left"
+                        aria-label="Stage Left"
+                      >
+                        <ArrowLeft className="w-6 h-6" />
+                      </button>
+                      <div className="bg-slate-900 border border-slate-700 px-4 py-2 rounded-lg">
+                        <span className="text-[11px] font-mono text-cyan-400 font-bold">STAGE</span>
+                        <div className="text-[10px] text-slate-400">X: {stageVernierX}mm · Y: {stageVernierY}mm</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => translateMechanicalStage(0.4, 0)}
+                        className="p-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 w-20 cursor-pointer touch-target"
+                        title="Translate Stage Right"
+                        aria-label="Stage Right"
+                      >
+                        <ArrowRight className="w-6 h-6" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => translateMechanicalStage(0, 0.4)}
+                      className="p-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 w-20 cursor-pointer touch-target"
+                      title="Translate Stage Down"
+                      aria-label="Stage Down"
+                    >
+                      <ArrowDown className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Close button */}
+                <button
+                  type="button"
+                  onClick={() => setShowControlsPanel(false)}
+                  className="w-full py-3 px-4 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold text-sm cursor-pointer touch-target"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+            <div className="fixed inset-0 bg-black/50 lg:hidden z-[-1]" onClick={() => setShowControlsPanel(false)} />
           </div>
         )}
       </div>

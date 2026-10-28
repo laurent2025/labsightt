@@ -11,6 +11,11 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 250;
 /**
+ * Maximum number of tiles to process in a single scan before yielding.
+ * Prevents a single massive slide from monopolizing the event loop.
+ */
+const MAX_TILES_PER_BATCH = 100;
+/**
  * Confidence floor used when a caller does not state one.
  *
  * It must match the model's configured `confidenceThreshold` in
@@ -44,6 +49,50 @@ const SAME_OBJECT_IOU = 0.5;
 const SAME_OBJECT_CONTAINMENT = 0.35;
 const DEFAULT_WORKFLOW_ENDPOINT =
   'https://serverless.roboflow.com/laurents-workspace-5cub2/workflows/lenziai-vlenziai-qatyd-1-yolo26s-t1-logic';
+
+/**
+ * Inference metrics collector for operational visibility.
+ * Tracks throughput, error rates, and latency percentiles.
+ */
+export class InferenceMetrics {
+  #latencies = [];
+  #errors = 0;
+  #total = 0;
+  #startTime = Date.now();
+
+  record(latencyMs, success) {
+    this.#total += 1;
+    if (success) {
+      this.#latencies.push(latencyMs);
+      if (this.#latencies.length > 1000) this.#latencies.shift();
+    } else {
+      this.#errors += 1;
+    }
+  }
+
+  snapshot() {
+    const sorted = [...this.#latencies].sort((a, b) => a - b);
+    const p50 = sorted[Math.floor(sorted.length * 0.5)] ?? 0;
+    const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? 0;
+    const p99 = sorted[Math.floor(sorted.length * 0.99)] ?? 0;
+    return {
+      total: this.#total,
+      errors: this.#errors,
+      errorRate: this.#total ? this.#errors / this.#total : 0,
+      latency: { p50, p95, p99 },
+      uptimeMs: Date.now() - this.#startTime
+    };
+  }
+
+  reset() {
+    this.#latencies = [];
+    this.#errors = 0;
+    this.#total = 0;
+    this.#startTime = Date.now();
+  }
+}
+
+export const inferenceMetrics = new InferenceMetrics();
 
 /**
  * Reads the inference configuration from environment variables, falling back
@@ -150,9 +199,11 @@ export async function runInference(
   imageBase64,
   { confidence = DEFAULT_CONFIDENCE, iou = 0.55, offsetX = 0, offsetY = 0, audit = true, scanSignal } = {}
 ) {
+  const startedAt = Date.now();
   const { endpoint, apiKey, timeoutMs } = envConfig();
 
   if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
+    inferenceMetrics.record(Date.now() - startedAt, false);
     throw new InferenceError('No image was supplied for inference.', 400);
   }
 
@@ -161,6 +212,7 @@ export async function runInference(
   const mockMode = process.env.ROBOFLOW_MOCK === 'true'
     && process.env.NODE_ENV !== 'production';
   if (mockMode) {
+    inferenceMetrics.record(Date.now() - startedAt, true);
     return [
       { class: 'Ascaris lumbricoides', confidence: 0.92, x: 120, y: 80, width: 40, height: 35 },
       { class: 'Hookworm egg', confidence: 0.87, x: 200, y: 150, width: 25, height: 20 },
@@ -169,6 +221,7 @@ export async function runInference(
   }
 
   if (!endpoint || !apiKey) {
+    inferenceMetrics.record(Date.now() - startedAt, false);
     throw new InferenceError(
       'Inference is not configured on the server. Set ROBOFLOW_API_KEY; set ROBOFLOW_ENDPOINT only to override the default workflow.',
       503
@@ -212,6 +265,7 @@ export async function runInference(
     });
   }
 
+  inferenceMetrics.record(Date.now() - startedAt, true);
   return detections;
 }
 

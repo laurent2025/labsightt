@@ -177,3 +177,117 @@ export function installGracefulShutdown(server, db, logger) {
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
+
+/**
+ * Extended health check with dependency verification.
+ * Returns detailed status of all critical dependencies.
+ */
+export async function deepHealthCheck(db, config = {}) {
+  const checks = {
+    database: { status: 'unknown' },
+    inference: { status: 'unknown' },
+    storage: { status: 'unknown' }
+  };
+
+  // Database connectivity
+  try {
+    db.prepare('SELECT 1').get();
+    checks.database = { status: 'ok' };
+  } catch (err) {
+    checks.database = { status: 'error', error: err.message };
+  }
+
+  // Inference configuration
+  try {
+    const { endpoint, apiKey } = (await import('./inference.js')).envConfig();
+    if (endpoint && apiKey) {
+      checks.inference = { status: 'configured' };
+    } else {
+      checks.inference = { status: 'not_configured' };
+    }
+  } catch {
+    checks.inference = { status: 'error' };
+  }
+
+  // Storage (check if we can write to temp)
+  try {
+    const fs = await import('node:fs/promises');
+    await fs.access('.', fs.constants.W_OK);
+    checks.storage = { status: 'ok' };
+  } catch {
+    checks.storage = { status: 'error' };
+  }
+
+  const allOk = Object.values(checks).every(c => c.status === 'ok' || c.status === 'configured');
+  return {
+    status: allOk ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.round(process.uptime()),
+    checks
+  };
+}
+
+/**
+ * Request correlation middleware.
+ * Ensures every request has a trace ID that propagates through logs and responses.
+ */
+export function correlationId() {
+  return (req, res, next) => {
+    const traceId = req.get('x-trace-id') || req.get('x-request-id') || crypto.randomUUID();
+    req.traceId = traceId;
+    res.setHeader('X-Trace-Id', traceId);
+    next();
+  };
+}
+
+/**
+ * Structured error handler with consistent formatting.
+ */
+export function errorHandler(logger) {
+  return (err, req, res, next) => {
+    const status = err.status || err.statusCode || 500;
+    const traceId = req.traceId || req.requestId;
+
+    let payload = {
+      error: err.message || 'Internal server error',
+      traceId,
+      timestamp: new Date().toISOString()
+    };
+
+    // Database error guidance
+    if (typeof err?.code === 'string' && err.code.length === 5) {
+      const guidance = err.code === '42501'
+        ? 'Row-level security rejected this write. Grant the service role full access, or sign in with a Supabase Auth account.'
+        : err.code === '42703' || err.code === '42P01'
+          ? 'The Supabase schema is out of date. Run supabase/schema.sql in the Supabase SQL editor, then retry.'
+          : null;
+
+      if (guidance) {
+        payload = { ...payload, error: err.message || 'The database rejected this request.', hint: guidance };
+        return res.status(502).json(payload);
+      }
+    }
+
+    if (err.retryable) {
+      payload.retryable = true;
+      res.setHeader('Retry-After', Math.ceil((err.retryAfter || 5000) / 1000));
+    }
+
+    if (process.env.NODE_ENV !== 'production' && err.stack) {
+      payload.stack = err.stack;
+    }
+
+    logger({
+      level: status >= 500 ? 'error' : 'warn',
+      event: 'request_error',
+      traceId,
+      status,
+      path: req.originalUrl,
+      method: req.method,
+      error: err.message,
+      stack: err.stack
+    });
+
+    res.status(status).json(payload);
+  };
+}

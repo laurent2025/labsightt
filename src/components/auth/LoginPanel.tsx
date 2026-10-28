@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Microscope, LogIn, UserPlus, AlertTriangle, ServerCrash, Eye, EyeOff, ShieldCheck, MailCheck, X, CheckCircle2 } from 'lucide-react';
 import { ApiError } from '../../services/api';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -26,7 +26,12 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; displayName?: string; password?: string; confirmPassword?: string }>({});
   const [submitting, setSubmitting] = useState(false);
   const [signupMessage, setSignupMessage] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
   const panelRef = useFocusTrap<HTMLDivElement>(true, () => {});
+
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
 
   const validate = () => {
     const next: typeof fieldErrors = {};
@@ -98,7 +103,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
           type="button"
           onClick={onClose}
           aria-label="Close sign in"
-          className="absolute right-2.5 top-2.5 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
+          className="absolute right-2.5 top-2.5 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition cursor-pointer touch-target"
         >
           <X className="w-4 h-4" />
         </button>
@@ -129,7 +134,11 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
       </div>
 
       {signupMessage ? (
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-4 space-y-3" style={{
+          opacity: isLoaded ? 1 : 0,
+          transform: isLoaded ? 'translateY(0)' : 'translateY(12px)',
+          animation: isLoaded ? 'fadeInUp 0.4s ease-out forwards' : 'none'
+        }}>
           <div className="flex gap-2.5 p-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30">
             <MailCheck className="w-4 h-4 shrink-0 text-emerald-700 dark:text-emerald-400" />
             <div>
@@ -137,13 +146,17 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
               <p className="mt-0.5 text-xs leading-relaxed text-emerald-800 dark:text-emerald-300">{signupMessage}</p>
             </div>
           </div>
-          <button type="button" onClick={() => changeMode('signin')} className="w-full py-2 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-semibold">Return to sign in</button>
+          <button type="button" onClick={() => changeMode('signin')} className="w-full py-2 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-semibold touch-target">Return to sign in</button>
         </div>
       ) : (
-      <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3" noValidate>
+      <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3" noValidate style={{
+        opacity: isLoaded ? 1 : 0,
+        transform: isLoaded ? 'translateY(0)' : 'translateY(12px)',
+        animation: isLoaded ? 'fadeInUp 0.4s ease-out forwards' : 'none'
+      }}>
         <div className="grid grid-cols-2 p-1 rounded-lg bg-slate-100 dark:bg-slate-800" role="tablist" aria-label="Account access">
-          <button type="button" role="tab" aria-selected={mode === 'signin'} onClick={() => changeMode('signin')} className={`py-1.5 rounded-lg text-xs font-semibold transition ${mode === 'signin' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>Sign in</button>
-          <button type="button" role="tab" aria-selected={mode === 'signup'} onClick={() => changeMode('signup')} className={`py-1.5 rounded-lg text-xs font-semibold transition ${mode === 'signup' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>Create account</button>
+          <button type="button" role="tab" aria-selected={mode === 'signin'} onClick={() => changeMode('signin')} className={`py-1.5 rounded-lg text-xs font-semibold transition touch-target ${mode === 'signin' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>Sign in</button>
+          <button type="button" role="tab" aria-selected={mode === 'signup'} onClick={() => changeMode('signup')} className={`py-1.5 rounded-lg text-xs font-semibold transition touch-target ${mode === 'signup' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>Create account</button>
         </div>
 
         {error && (
@@ -236,7 +249,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
               type="button"
               onClick={() => setShowPassword(v => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 touch-target"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -272,7 +285,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-2 bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-cyan-600 dark:hover:bg-cyan-500 dark:disabled:bg-slate-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition"
+          className="w-full py-2 bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-cyan-600 dark:hover:bg-cyan-500 dark:disabled:bg-slate-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition touch-target"
         >
           {submitting ? (
             <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin motion-reduce:animate-none" aria-hidden="true" />

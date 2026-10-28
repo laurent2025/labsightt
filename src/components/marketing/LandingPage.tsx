@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Microscope,
   Sun,
@@ -116,6 +116,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy' | null>(null);
   const { theme, toggleTheme } = useTheme();
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased transition-colors duration-200 selection:bg-cyan-200 dark:selection:bg-cyan-800">
@@ -216,7 +221,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
 
           <div className="relative max-w-[1440px] mx-auto gutter-x pt-14 pb-16 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             {/* Left column - text */}
-            <div className="animate-fade-in space-y-6">
+            <div className="space-y-6" style={{
+              opacity: isLoaded ? 1 : 0,
+              transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+              animation: isLoaded ? 'fadeInUp 0.6s ease-out forwards' : 'none'
+            }}>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-50 to-emerald-50 dark:from-cyan-950/60 dark:to-emerald-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
                 <Sparkles className="w-3.5 h-3.5" />
                 AI ASSISTED CLINICAL MICROSCOPY
@@ -234,11 +243,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 release a two-person verified report with an unbroken chain of custody.
               </p>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3" style={{
+                opacity: isLoaded ? 1 : 0,
+                transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+                animation: isLoaded ? 'fadeInUp 0.6s ease-out 150ms forwards' : 'none'
+              }}>
                 <button
                   type="button"
                   onClick={() => setAuthMode('signin')}
-                  className="group px-5 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-slate-900/20 dark:hover:shadow-cyan-900/30 hover:-translate-y-0.5"
+                  className="group px-5 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-slate-900/20 dark:hover:shadow-cyan-900/30 hover:-translate-y-0.5 touch-target"
                 >
                   <LogIn className="w-4 h-4" />
                   Sign in
@@ -247,14 +260,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 <button
                   type="button"
                   onClick={() => setAuthMode('signup')}
-                  className="px-5 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md hover:-translate-y-0.5"
+                  className="px-5 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md hover:-translate-y-0.5 touch-target"
                 >
                   <UserPlus className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
                   Create account
                 </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 text-xs font-semibold text-slate-600 dark:text-slate-400" style={{
+                opacity: isLoaded ? 1 : 0,
+                transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+                animation: isLoaded ? 'fadeInUp 0.6s ease-out 300ms forwards' : 'none'
+              }}>
                 <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-green-700 dark:text-green-400" /> Encrypted patient data</span>
                 <span className="flex items-center gap-1.5"><Server className="w-3.5 h-3.5 text-green-700 dark:text-green-400" /> Server-side inference</span>
                 <span className="flex items-center gap-1.5"><GitCommitVertical className="w-3.5 h-3.5 text-green-700 dark:text-green-400" /> Hash-chained audit</span>
@@ -262,9 +279,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
             </div>
 
             {/* Right column - preview card */}
-            <div className="relative animate-fade-in [animation-delay:120ms]">
+            <div className="relative" style={{
+              opacity: isLoaded ? 1 : 0,
+              transform: isLoaded ? 'translateY(0)' : 'translateY(30px)',
+              animation: isLoaded ? 'fadeInUp 0.6s ease-out 100ms forwards' : 'none'
+            }}>
               <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 dark:from-cyan-400/20 dark:to-emerald-400/20 rounded-3xl blur-2xl opacity-60" />
-              <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-2xl overflow-hidden">
+              <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-2xl overflow-hidden group">
                 {/* Card header */}
                 <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
                   <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
@@ -284,16 +305,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   <img
                     src={SLIDE_ASSETS.stool}
                     alt="Example photomicrograph with detection overlays"
-                    className="w-full aspect-[4/3] object-cover"
+                    className="w-full aspect-[4/3] object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                   {/* Detection overlays with improved styling */}
-                  <div className="absolute top-[18%] left-[12%] w-[26%] h-[22%] rounded-lg border-2 border-emerald-400 bg-emerald-400/10 backdrop-blur-sm">
+                  <div className="absolute top-[18%] left-[12%] w-[26%] h-[22%] rounded-lg border-2 border-emerald-400 bg-emerald-400/10 backdrop-blur-sm group-hover:border-emerald-300 group-hover:bg-emerald-400/20 transition-all duration-300">
                     <div className="absolute -top-6 left-0 px-2 py-1 rounded-md bg-emerald-500 text-white text-[11px] font-mono whitespace-nowrap shadow-lg shadow-emerald-500/30 flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       Giardia lamblia cyst · 0.82
                     </div>
                   </div>
-                  <div className="absolute bottom-[16%] right-[14%] w-[22%] h-[18%] rounded-lg border-2 border-amber-400 bg-amber-400/10 backdrop-blur-sm">
+                  <div className="absolute bottom-[16%] right-[14%] w-[22%] h-[18%] rounded-lg border-2 border-amber-400 bg-amber-400/10 backdrop-blur-sm group-hover:border-amber-300 group-hover:bg-amber-400/20 transition-all duration-300">
                     <div className="absolute -top-6 right-0 px-2 py-1 rounded-md bg-amber-500 text-white text-[11px] font-mono whitespace-nowrap shadow-lg shadow-amber-500/30 flex items-center gap-1">
                       <Sparkles className="w-3 h-3" />
                       Ascaris ovum · 0.71
@@ -325,7 +346,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
           <div className="max-w-[1440px] mx-auto gutter-x py-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {STATS.map((stat, i) => (
-                <div key={i} className="text-center space-y-1 group">
+                <div key={i} className="text-center space-y-1 group" style={{
+                  opacity: isLoaded ? 1 : 0,
+                  transform: isLoaded ? 'translateY(0)' : 'translateY(16px)',
+                  animation: isLoaded ? `fadeInUp 0.5s ease-out ${200 + i * 80}ms forwards` : 'none'
+                }}>
                   <div className="text-2xl font-bold bg-gradient-to-r from-cyan-700 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 bg-clip-text text-transparent group-hover:scale-110 transition-transform">
                     {stat.value}
                   </div>
@@ -341,7 +366,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         {/* Features */}
         <section id="features" className="scroll-mt-20">
           <div className="max-w-[1440px] mx-auto gutter-x py-16 lg:py-24">
-            <div className="max-w-2xl space-y-3">
+            <div className="max-w-2xl space-y-3" style={{
+              opacity: isLoaded ? 1 : 0,
+              transform: isLoaded ? 'translateY(0)' : 'translateY(16px)',
+              animation: isLoaded ? 'fadeInUp 0.5s ease-out forwards' : 'none'
+            }}>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
                 <FlaskConical className="w-3.5 h-3.5" />
                 CORE CAPABILITIES
@@ -359,7 +388,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 <div
                   key={feature.title}
                   className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-xl hover:shadow-cyan-500/5 dark:hover:shadow-cyan-900/10 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
-                  style={{ animationDelay: `${i * 60}ms` }}
+                  style={{
+                    animationDelay: `${i * 60}ms`,
+                    opacity: isLoaded ? 1 : 0,
+                    transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+                    animation: isLoaded ? 'fadeInUp 0.5s ease-out forwards' : 'none'
+                  }}
                 >
                   {/* Background gradient on hover */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${feature.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
@@ -384,7 +418,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         {/* Workflow */}
         <section id="workflow" className="scroll-mt-20 bg-white/80 dark:bg-slate-900/40 backdrop-blur-sm border-y border-slate-200 dark:border-slate-800">
           <div className="max-w-[1440px] mx-auto gutter-x py-16 lg:py-24">
-            <div className="max-w-2xl space-y-3">
+            <div className="max-w-2xl space-y-3" style={{
+              opacity: isLoaded ? 1 : 0,
+              transform: isLoaded ? 'translateY(0)' : 'translateY(16px)',
+              animation: isLoaded ? 'fadeInUp 0.5s ease-out forwards' : 'none'
+            }}>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs font-mono font-semibold text-emerald-800 dark:text-emerald-300">
                 <GitCommitVertical className="w-3.5 h-3.5" />
                 WORKFLOW
@@ -404,7 +442,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 {WORKFLOW.map((item, index) => (
-                  <li key={item.step} className="relative group">
+                  <li key={item.step} className="relative group" style={{
+                    animationDelay: `${index * 80}ms`,
+                    opacity: isLoaded ? 1 : 0,
+                    transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+                    animation: isLoaded ? 'fadeInUp 0.5s ease-out forwards' : 'none'
+                  }}>
                     <div className="flex items-start gap-4">
                       {/* Step indicator */}
                       <div className="relative z-10 flex flex-col items-center">
@@ -438,10 +481,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
           </div>
         </section>
 
-        {/* Governance */}
+{/* Governance */}
         <section id="governance" className="scroll-mt-20">
           <div className="max-w-[1440px] mx-auto gutter-x py-16 lg:py-24">
-            <div className="max-w-2xl space-y-3">
+            <div className="max-w-2xl space-y-3" style={{
+              opacity: isLoaded ? 1 : 0,
+              transform: isLoaded ? 'translateY(0)' : 'translateY(16px)',
+              animation: isLoaded ? 'fadeInUp 0.5s ease-out forwards' : 'none'
+            }}>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
                 <FileCheck2 className="w-3.5 h-3.5" />
                 GOVERNANCE
@@ -455,38 +502,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
             </div>
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-lg transition-all">
-                <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center mb-4">
-                  <Lock className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+              {[0, 1, 2].map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-lg transition-all"
+                  style={{
+                    opacity: isLoaded ? 1 : 0,
+                    transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+                    animation: isLoaded ? `fadeInUp 0.5s ease-out ${400 + i * 80}ms forwards` : 'none'
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    {i === 0 && <Lock className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />}
+                    {i === 1 && <GitCommitVertical className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />}
+                    {i === 2 && <ShieldCheck className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />}
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
+                    {i === 0 ? 'Encryption at rest' : i === 1 ? 'Append-only audit chain' : 'Access control & approval'}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                    {i === 0 ? 'Patient-identifying fields are encrypted with AES-256-GCM before they touch disk. A stolen database file yields ciphertext, not a patient list. A blind index preserves exact-match search without storing plaintext.' :
+                    i === 1 ? 'Every accession, inference run, detection adjudication, report verification, and role change is written to a hash-chained log. Any edit or deletion invalidates every subsequent entry verified in one click from the admin console.' :
+                    'New accounts are email-verified and held for administrator approval before first sign-in. Reports require a second operator to verify the originating technologist cannot sign off alone. Admins can disable accounts instantly.'}
+                  </p>
                 </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Encryption at rest</h3>
-                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  Patient-identifying fields are encrypted with AES-256-GCM before they touch disk. A stolen database file yields ciphertext, not a patient list. A blind index preserves exact-match search without storing plaintext.
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-lg transition-all">
-                <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center mb-4">
-                  <GitCommitVertical className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Append-only audit chain</h3>
-                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  Every accession, inference run, detection adjudication, report verification, and role change is written to a hash-chained log. Any edit or deletion invalidates every subsequent entry verified in one click from the admin console.
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 hover:border-cyan-300 dark:hover:border-cyan-700 hover:shadow-lg transition-all">
-                <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center mb-4">
-                  <ShieldCheck className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Access control &amp; approval</h3>
-                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  New accounts are email-verified and held for administrator approval before first sign-in. Reports require a second operator to verify the originating technologist cannot sign off alone. Admins can disable accounts instantly.
-                </p>
-              </div>
+              ))}
             </div>
 
-            <div className="mt-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="mt-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{
+              opacity: isLoaded ? 1 : 0,
+              transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+              animation: isLoaded ? 'fadeInUp 0.5s ease-out 640ms forwards' : 'none'
+            }}>
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -496,7 +543,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   <div className="w-6 h-6 rounded-md bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center group-hover/btn:scale-110 transition-transform">
                     <ArrowRight className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
                   </div>
-                  Terms of Service &amp; Decision Support
+                  Terms of Service & Decision Support
                 </button>
                 <button
                   type="button"
@@ -506,7 +553,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   <div className="w-6 h-6 rounded-md bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center group-hover/btn:scale-110 transition-transform">
                     <ArrowRight className="w-3 h-3 text-cyan-700 dark:text-cyan-400" />
                   </div>
-                  Privacy Policy &amp; HIPAA De-Identification
+                  Privacy Policy & HIPAA De-Identification
                 </button>
               </div>
               <p className="text-xs text-amber-700 dark:text-amber-300 border-l-2 border-amber-400 dark:border-amber-600 pl-3 leading-relaxed">
@@ -523,7 +570,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(34,197,94,0.08),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(34,197,94,0.05),transparent_70%)]" />
 
           <div className="relative max-w-[1440px] mx-auto gutter-x py-16 lg:py-20">
-            <div className="max-w-3xl mx-auto text-center space-y-5">
+            <div className="max-w-3xl mx-auto text-center space-y-5" style={{
+              opacity: isLoaded ? 1 : 0,
+              transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+              animation: isLoaded ? 'fadeInUp 0.5s ease-out forwards' : 'none'
+            }}>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cyan-100 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-xs font-mono font-semibold text-cyan-800 dark:text-cyan-300">
                 <Globe2 className="w-3.5 h-3.5" />
                 GET STARTED
@@ -534,11 +585,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl mx-auto">
                 Create an account with your email, verify it, and sign in to the full laboratory workflow.
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2" style={{
+                opacity: isLoaded ? 1 : 0,
+                transform: isLoaded ? 'translateY(0)' : 'translateY(16px)',
+                animation: isLoaded ? 'fadeInUp 0.5s ease-out 100ms forwards' : 'none'
+              }}>
                 <button
                   type="button"
                   onClick={() => setAuthMode('signup')}
-                  className="group px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:shadow-xl hover:shadow-slate-900/20 dark:hover:shadow-cyan-900/30 hover:-translate-y-0.5"
+                  className="group px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:shadow-xl hover:shadow-slate-900/20 dark:hover:shadow-cyan-900/30 hover:-translate-y-0.5 touch-target"
                 >
                   <UserPlus className="w-4 h-4" />
                   Create account
@@ -547,7 +602,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 <button
                   type="button"
                   onClick={() => setAuthMode('signin')}
-                  className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md hover:-translate-y-0.5"
+                  className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md hover:-translate-y-0.5 touch-target"
                 >
                   <LogIn className="w-4 h-4 text-cyan-700 dark:text-cyan-400" />
                   Sign in
@@ -560,7 +615,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
 
       {/* Marketing footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm safe-bottom">
-        <div className="max-w-[1440px] mx-auto gutter-x py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+        <div className="max-w-[1440px] mx-auto gutter-x py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left" style={{
+          opacity: isLoaded ? 1 : 0,
+          transform: isLoaded ? 'translateY(0)' : 'translateY(12px)',
+          animation: isLoaded ? 'fadeInUp 0.4s ease-out forwards' : 'none'
+        }}>
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="w-7 h-7 shrink-0 rounded-lg bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
               <Microscope className="w-3.5 h-3.5 text-white" />

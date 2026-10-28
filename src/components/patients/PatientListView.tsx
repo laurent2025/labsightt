@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Patient, Sample, SampleType } from '../../types';
 import { Search, UserPlus, Microscope, Filter, X, Pencil, Trash2, Download, Barcode } from 'lucide-react';
 import { useLabStore } from '../../store/labStore';
@@ -30,6 +30,11 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [scannedMrn, setScannedMrn] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
   const {
     patientSearch,
     setPatientSearch,
@@ -93,9 +98,13 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
   };
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-5 sm:space-y-6 animate-fade-in-up">
       {/* Action Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{
+        opacity: isLoaded ? 1 : 0,
+        transform: isLoaded ? 'translateY(0)' : 'translateY(12px)',
+        animation: isLoaded ? 'fadeInUp 0.4s ease-out forwards' : 'none'
+      }}>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Patient & Specimen Directory
@@ -110,7 +119,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
               type="button"
               onClick={handleExportCsv}
               disabled={exporting || patients.length === 0}
-              className="justify-center px-3 sm:px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-green-500 dark:hover:border-green-600 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              className="justify-center px-3 sm:px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-green-500 dark:hover:border-green-600 text-slate-900 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed touch-target"
             >
               <Download className="w-4 h-4" />
               <span>{exporting ? 'Exporting...' : 'Export CSV'}</span>
@@ -118,7 +127,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
             <button
               type="button"
               onClick={onOpenNewPatientModal}
-              className="justify-center px-3 sm:px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-green-600 dark:hover:bg-green-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap"
+              className="justify-center px-3 sm:px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-green-600 dark:hover:bg-green-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition whitespace-nowrap touch-target"
             >
               <UserPlus className="w-4 h-4" />
               <span className="sm:hidden">New patient</span>
@@ -128,14 +137,22 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
         </div>
 
         {exportError && (
-          <div className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          <div className="flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300" style={{
+            opacity: isLoaded ? 1 : 0,
+            transform: isLoaded ? 'translateY(0)' : 'translateY(8px)',
+            animation: isLoaded ? 'fadeInUp 0.3s ease-out 100ms forwards' : 'none'
+          }}>
             <X className="w-4 h-4 mt-0.5 shrink-0" />
             <p>{exportError}</p>
           </div>
         )}
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs" style={{
+        opacity: isLoaded ? 1 : 0,
+        transform: isLoaded ? 'translateY(0)' : 'translateY(12px)',
+        animation: isLoaded ? 'fadeInUp 0.4s ease-out 60ms forwards' : 'none'
+      }}>
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
           <input
@@ -172,7 +189,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
                 type="button"
                 onClick={() => setSampleFilter(t)}
                 aria-pressed={sampleFilter === t}
-                className={`px-3 py-1 rounded-md capitalize font-medium transition whitespace-nowrap ${
+                className={`px-3 py-1 rounded-md capitalize font-medium transition whitespace-nowrap touch-target ${
                   sampleFilter === t
                     ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'

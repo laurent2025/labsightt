@@ -890,7 +890,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     if (activePatient && activeSample) {
       const analysisError = inferenceError || pendingInferenceError;
       return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-amber-300 dark:border-amber-800 p-5 sm:p-8 max-w-2xl mx-auto">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-amber-300 dark:border-amber-800 p-4 sm:p-5 max-w-2xl mx-auto">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
@@ -1069,7 +1069,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     <div className="space-y-4">
       {/* Visual Clinical Workflow Step Bar */}
       <div
-        className="bg-white dark:bg-slate-900 px-4 py-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
+        className="bg-white dark:bg-slate-900 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
         aria-label="Clinical workflow progress"
       >
         <ol className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
@@ -1114,7 +1114,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       </div>
 
       {/* Top Session Ribbon */}
-      <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs transition-colors duration-200">
+      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs transition-colors duration-200">
         <div className="flex items-center gap-3">
           <div>
             <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
@@ -1282,7 +1282,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
 
       {/* Uploaded slide thumbnails — click to select the active slide */}
       {uploadedSlides.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 shadow-xs">
           <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 shrink-0">
               {slidesLoading ? 'Loading saved slides…' : isSavingSlides ? 'Saving images…' : `Saved Slides (${uploadedSlides.length})`}
@@ -1366,7 +1366,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
 
       {/* Raw JSON Inference Inspector Drawer */}
       {showRawInspector && (
-        <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-slate-300 font-mono text-xs shadow-xl animate-fade-in">
+        <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-slate-300 font-mono text-xs shadow-xl animate-fade-in">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-cyan-400" />
@@ -1421,7 +1421,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
 
       {/* Report gate rejection */}
       {gateError && (
-        <div role="alert" className="bg-amber-50 border border-amber-300 p-3 rounded-xl text-xs flex items-start gap-2.5 text-amber-900">
+        <div role="alert" className="bg-amber-50 border border-amber-300 p-2.5 rounded-xl text-xs flex items-start gap-2 text-amber-900">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold text-amber-950 block">Report not generated</span>
@@ -1442,7 +1442,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           Shows the ACTUAL server error; the "add the API key" guidance only
           appears when the server truly has no key. */}
       {inferenceError && (
-        <div role="alert" className="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl text-xs flex items-start gap-2.5">
+        <div role="alert" className="bg-slate-900 text-white border border-slate-700 p-2.5 rounded-xl text-xs flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold block text-white">
@@ -1478,20 +1478,20 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       )}
 
       {pendingInferenceActive && activeAnalysis && (
-        <div role="status" aria-live="polite" className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 p-3 rounded-xl text-xs text-cyan-900 dark:text-cyan-100">
+        <div role="status" aria-live="polite" className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 p-2.5 rounded-xl text-xs text-cyan-900 dark:text-cyan-100">
           Scanning the remaining specimen images. Results are shown as each image finishes.
         </div>
       )}
 
       {pendingInferenceError && activeAnalysis && (
-        <div role="alert" className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 p-3 rounded-xl text-xs text-amber-900 dark:text-amber-100">
+        <div role="alert" className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 p-2.5 rounded-xl text-xs text-amber-900 dark:text-amber-100">
           Some images could not be scanned. Results from completed images are shown. {pendingInferenceError}
         </div>
       )}
 
       {/* Adjudication summary banner */}
       {aiAssistantImpression && (
-        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 p-3 rounded-xl text-xs flex items-start gap-2.5 text-indigo-900 dark:text-indigo-100">
+        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 p-2.5 rounded-xl text-xs flex items-start gap-2 text-indigo-900 dark:text-indigo-100">
           <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-bold text-indigo-950 dark:text-indigo-100 block">
@@ -1510,8 +1510,8 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         </div>
       )}
 
-      {/* Responsive Pane Switcher for Tablets & Mobile (< lg) */}
-      <div role="group" aria-label="Microscopy workspace view" className="lg:hidden flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
+      {/* Responsive Pane Switcher for Tablets & Mobile (< xl) */}
+      <div role="group" aria-label="Microscopy workspace view" className="xl:hidden flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
         <button
           type="button"
           onClick={() => setMobileActivePane('microscope')}
@@ -1542,39 +1542,41 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         </button>
       </div>
 
-      {/* Main Two-Column Stage */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 min-h-0 lg:min-h-[580px]">
+{/* Main Two-Column Stage - Responsive */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 min-h-0 xl:min-h-[500px] lg:min-h-[450px]">
         {/* Left Column: Microscope Canvas */}
-        <div className={`lg:col-span-7 flex flex-col ${mobileActivePane === 'review' ? 'hidden lg:flex' : 'flex'}`}>
-          <MicroscopeViewer
-            imageUrl={activeImageUrl}
-            detections={activeAnalysis.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef)}
-            selectedDetectionId={selectedDetectionId}
-            onSelectDetection={id => setSelectedDetectionId(id)}
-            onToggleConfirm={handleToggleConfirm}
-            onRejectDetection={handleRejectDetection}
-            onAddManualDetection={handleAddManualDetection}
-            objective={activeSample.objective}
-            totalMagnification={activeSample.totalMagnification}
-            slideLabel={activeSample.slideLabel}
-            availableClasses={activeModel.classes}
-            currentField={currentField}
-            totalFields={totalFields}
-            onFieldChange={f => setCurrentField(f)}
-            onPreviousSlide={() => changeSlide(-1)}
-            onNextSlide={() => changeSlide(1)}
-            slideNavigationLabel={slidesLoading
-              ? 'loading images'
-              : slideChoices.length > 0
+        <div className={`xl:col-span-7 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'review' ? 'hidden xl:flex' : 'flex'}`}>
+          <div className="flex-1 min-h-0">
+            <MicroscopeViewer
+              imageUrl={activeImageUrl}
+              detections={activeAnalysis.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef)}
+              selectedDetectionId={selectedDetectionId}
+              onSelectDetection={id => setSelectedDetectionId(id)}
+              onToggleConfirm={handleToggleConfirm}
+              onRejectDetection={handleRejectDetection}
+              onAddManualDetection={handleAddManualDetection}
+              objective={activeSample.objective}
+              totalMagnification={activeSample.totalMagnification}
+              slideLabel={activeSample.slideLabel}
+              availableClasses={activeModel.classes}
+              currentField={currentField}
+              totalFields={totalFields}
+              onFieldChange={f => setCurrentField(f)}
+              onPreviousSlide={() => changeSlide(-1)}
+              onNextSlide={() => changeSlide(1)}
+              slideNavigationLabel={slidesLoading
+                ? 'loading images'
+                : slideChoices.length > 0
                 ? `image ${activeSlidePosition >= 0 ? activeSlidePosition + 1 : 1} of ${slideChoices.length}`
                 : 'no saved images'}
-            canSwitchSlides={!slidesLoading && slideChoices.length > 1}
-            isScanning={isAnalyzing}
-          />
+              canSwitchSlides={!slidesLoading && slideChoices.length > 1}
+              isScanning={isAnalyzing}
+            />
+          </div>
         </div>
 
         {/* Right Column: Technologist Findings Review */}
-        <div className={`lg:col-span-5 flex flex-col ${mobileActivePane === 'microscope' ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`xl:col-span-5 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'microscope' ? 'hidden xl:flex' : 'flex'}`}>
           <TechnologistReview
             key={activeAnalysis.id}
             analysis={activeAnalysis}
@@ -1598,7 +1600,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
 
       {/* Scan progress + one-line result summary */}
       {(isAnalyzing || scanSummary) && (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 text-xs shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs shadow-xs">
           {isAnalyzing ? (
             <div className="space-y-2">
               <span className="font-mono text-slate-500 dark:text-slate-400 inline-flex items-center">

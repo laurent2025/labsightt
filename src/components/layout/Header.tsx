@@ -82,6 +82,12 @@ export const Header: React.FC<HeaderProps> = ({
 
   const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
 
+  // Staggered entrance animation for tabs
+  const [tabsMounted, setTabsMounted] = useState(false);
+  useEffect(() => {
+    setTabsMounted(true);
+  }, [visibleTabs.length]);
+
 return (
     <header
       className={`no-print sticky top-0 z-40 safe-top transition-all duration-300 ${
@@ -92,16 +98,16 @@ return (
     >
       <div className="max-w-[1440px] mx-auto gutter-x h-14 md:h-16 xl:h-[72px] flex items-center justify-between gap-2 sm:gap-3">
         {/* Zone 1: Logo / wordmark */}
-        <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 lg:gap-3 shrink-0" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
           <button
             type="button"
             onClick={() => handleTabClick('dashboard')}
-            className="flex items-center gap-2.5 group whitespace-nowrap cursor-pointer bg-transparent border-none p-0"
+            className="flex items-center gap-2.5 group whitespace-nowrap cursor-pointer bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950 rounded-lg"
             aria-label="LenziAI Dashboard"
           >
             <div className="relative w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center shadow-md shadow-green-600/25 group-hover:shadow-lg group-hover:shadow-green-600/35 group-hover:scale-105 transition-all duration-300">
               <Microscope className="w-4 h-4 md:w-5 md:h-5 text-white" />
-              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-300 border-2 border-white dark:border-slate-950" />
+              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-300 border-2 border-white dark:border-slate-950 animate-ping" />
             </div>
             <div className="flex flex-col">
               <span className="text-sm md:text-base lg:text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent leading-tight">
@@ -114,30 +120,36 @@ return (
           </button>
         </div>
 
-        {/*
+{/*
          * Zone 2: Desktop navigation.
-
+         *
          * Shown from lg up, but allowed to scroll horizontally inside its own
          * box: an administrator sees seven tabs, and at exactly 1024px those
          * plus the action cluster no longer fit beside the wordmark. Scrolling
          * degrades gracefully where shrinking or clipping would not.
          */}
-        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-sm font-bold min-w-0 flex-1 justify-center no-scrollbar overflow-x-auto py-1">
-          {visibleTabs.map(tab => (
+        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-sm font-bold min-w-0 flex-1 justify-center no-scrollbar overflow-x-auto py-1" role="navigation" aria-label="Main navigation">
+          {visibleTabs.map((tab, index) => (
             <button
               key={tab.tab}
               type="button"
               onClick={() => handleTabClick(tab.tab)}
               aria-current={activeTab === tab.tab ? 'page' : undefined}
-              className={`relative px-2.5 xl:px-3 py-2 min-h-[40px] rounded-lg transition-all duration-200 whitespace-nowrap cursor-pointer shrink-0 ${
+              className={`relative px-2.5 xl:px-3 py-2 min-h-[40px] rounded-lg transition-all duration-200 whitespace-nowrap cursor-pointer shrink-0 touch-target ${
                 activeTab === tab.tab
                   ? 'text-green-800 dark:text-green-200 bg-green-50 dark:bg-green-950/50 ring-1 ring-inset ring-green-200 dark:ring-green-900'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/70'
               }`}
+              style={{
+                animationDelay: tabsMounted ? `${index * 50}ms` : '0ms',
+                opacity: tabsMounted ? 1 : 0,
+                transform: tabsMounted ? 'translateY(0)' : 'translateY(-8px)',
+                animation: tabsMounted ? 'fadeInUp 0.4s ease-out forwards' : 'none'
+              }}
             >
               {tab.label}
               {activeTab === tab.tab && (
-                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-gradient-to-r from-green-600 to-green-800 dark:from-green-400 dark:to-green-600 rounded-full" />
+                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-gradient-to-r from-green-600 to-green-800 dark:from-green-400 dark:to-green-600 rounded-full animate-scale-in" />
               )}
             </button>
           ))}
