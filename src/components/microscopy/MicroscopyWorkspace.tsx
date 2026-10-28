@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Patient, Sample, Analysis, AIModelConfig, Detection, DetectionImage, LaboratoryReport } from '../../types';
 import { MicroscopeViewer } from './MicroscopeViewer';
 import { TechnologistReview } from './TechnologistReview';
@@ -490,12 +490,12 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     models.find(m => m.id === activeAnalysis?.modelId) || models[0];
 
   const primaryImageUrl = resolvedImageUrl || activeSample?.imageUrl || null;
-  const slideChoices = [
+  const slideChoices = useMemo(() => [
     ...(primaryImageUrl ? [{ id: 'primary', name: 'Specimen image', dataUrl: primaryImageUrl }] : []),
     ...uploadedSlides
-  ];
+  ], [primaryImageUrl, uploadedSlides]);
   const activeImageUrl = customSlideDataUrl || primaryImageUrl || '';
-  const changeSlide = (direction: -1 | 1) => {
+  const changeSlide = useCallback((direction: -1 | 1) => {
     if (slideChoices.length < 2 || slidesLoading) return;
     const currentIndex = slideChoices.findIndex(slide => slide.id === activeSlideRef);
     const startIndex = currentIndex < 0 ? (direction > 0 ? -1 : 0) : currentIndex;
@@ -508,8 +508,14 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       return;
     }
     const uploadedSlide = uploadedSlides.find(slide => slide.id === nextSlide.id);
-    if (uploadedSlide) selectSlide(uploadedSlide);
-  };
+    if (uploadedSlide) {
+      setCustomSlideDataUrl(uploadedSlide.dataUrl);
+      setActiveSlideRef(uploadedSlide.id);
+      setInferenceError(null);
+    }
+  }, [activeSlideRef, slideChoices, slidesLoading, uploadedSlides]);
+  const handlePreviousSlide = useCallback(() => changeSlide(-1), [changeSlide]);
+  const handleNextSlide = useCallback(() => changeSlide(1), [changeSlide]);
   const activeSlidePosition = slideChoices.findIndex(slide => slide.id === activeSlideRef);
 
   // Re-run inference with current or selected model. An explicit image
@@ -1044,6 +1050,14 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
   }
 
   const totalFields = Math.max(1, activeSample.fieldsExamined || 10);
+  const activeDetections = useMemo(
+    () => activeAnalysis.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef),
+    [activeAnalysis.detections, activeSlideRef]
+  );
+  const slideNames = useMemo(
+    () => Object.fromEntries(slideChoices.map(slide => [slide.id, slide.name])),
+    [slideChoices]
+  );
   const confirmedCount = activeAnalysis.detections.filter(d => d.confirmed && !d.rejected).length;
   const totalDets = activeAnalysis.detections.filter(d => !d.rejected).length;
   const pendingCount = totalDets - confirmedCount;
@@ -1549,9 +1563,9 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           <div className="flex-1 min-h-0">
             <MicroscopeViewer
               imageUrl={activeImageUrl}
-              detections={activeAnalysis.detections.filter(d => (d.imageRef ?? 'primary') === activeSlideRef)}
+              detections={activeDetections}
               selectedDetectionId={selectedDetectionId}
-              onSelectDetection={id => setSelectedDetectionId(id)}
+              onSelectDetection={setSelectedDetectionId}
               onToggleConfirm={handleToggleConfirm}
               onRejectDetection={handleRejectDetection}
               onAddManualDetection={handleAddManualDetection}
@@ -1561,9 +1575,9 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
               availableClasses={activeModel.classes}
               currentField={currentField}
               totalFields={totalFields}
-              onFieldChange={f => setCurrentField(f)}
-              onPreviousSlide={() => changeSlide(-1)}
-              onNextSlide={() => changeSlide(1)}
+              onFieldChange={setCurrentField}
+              onPreviousSlide={handlePreviousSlide}
+              onNextSlide={handleNextSlide}
               slideNavigationLabel={slidesLoading
                 ? 'loading images'
                 : slideChoices.length > 0
@@ -1582,7 +1596,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             analysis={activeAnalysis}
             patient={activePatient}
             sample={activeSample}
-            slideNames={Object.fromEntries(slideChoices.map(slide => [slide.id, slide.name]))}
+            slideNames={slideNames}
             activeSlideRef={activeSlideRef}
             evidenceImages={evidenceImages}
             onConfirmAll={handleConfirmAll}

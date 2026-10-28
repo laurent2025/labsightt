@@ -211,6 +211,7 @@ export default function App() {
       a => a.patientId === patientId && (!sampleId || a.sampleId === sampleId)
     );
     if (existingAna) {
+      setPendingMicroscopy(null);
       setSelectedAnalysisId(existingAna.id);
       setActiveTab('microscopy');
       return;
@@ -222,6 +223,7 @@ export default function App() {
       samples.find(s => s.id === sampleId) || samples.find(s => s.patientId === patientId);
 
     if (!sample) {
+      setPendingMicroscopy(null);
       setActiveTab('patients');
       return;
     }
@@ -231,10 +233,20 @@ export default function App() {
 
     try {
       const newAna = await createAndRunAnalysis(patientId, sample.id, defaultModel.id);
+      setPendingMicroscopy(null);
       setSelectedAnalysisId(newAna.id);
       setActiveTab('microscopy');
     } catch (err) {
       console.error(err);
+      // Keep the selected patient visible when inference fails so the operator
+      // can inspect the specimen, replace the image, or retry.
+      setPendingMicroscopy({
+        patientId,
+        sampleId: sample.id,
+        error: err instanceof Error ? err.message : 'Analysis could not be completed.',
+        scanning: false
+      });
+      setSelectedAnalysisId(null);
       setActiveTab('microscopy');
     }
   };
@@ -393,8 +405,8 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-cyan-100 dark:selection:bg-cyan-900/60 selection:text-cyan-900 dark:selection:text-cyan-200 antialiased transition-colors duration-200">
+    return (
+    <div className="app-shell min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-cyan-100 dark:selection:bg-cyan-900/60 selection:text-cyan-900 dark:selection:text-cyan-200 antialiased transition-colors duration-200">
       {/* Top Application Header */}
       <Header
         activeTab={effectiveTab}
@@ -410,7 +422,7 @@ export default function App() {
 
       {/* Main Clinical Content Body. Shares the header's max width and gutter
           so the content edges line up with the nav instead of sitting inset. */}
-      <main className="no-print flex-1 max-w-[1440px] w-full mx-auto gutter-x py-5 sm:py-6 lg:py-8">
+      <main className="app-main no-print flex-1 max-w-[1440px] w-full mx-auto gutter-x py-5 sm:py-6 lg:py-8">
         {connectionError && (
           <div role="alert" className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-900 p-3 rounded-xl text-xs">
             <span className="font-bold">Server unavailable:</span>
@@ -498,8 +510,14 @@ export default function App() {
             onOpenReportModal={report => setActiveReportModal(report)}
             onOpenNewPatientModal={() => setIsNewPatientModalOpen(true)}
             onSwitchPatient={(patientId, sampleId) => {
+              // Selecting an accession from the microscopy patient list must
+              // move the operator into the selected patient's workspace even
+              // when the current tab was opened from another workflow.
+              setActiveTab('microscopy');
+              setMicroscopyBrowseFilter(null);
               const existing = analyses.find(a => a.sampleId === sampleId);
               if (existing) {
+                setPendingMicroscopy(null);
                 setSelectedAnalysisId(existing.id);
               } else {
                 setPendingMicroscopy({ patientId, sampleId, error: '', scanning: false });

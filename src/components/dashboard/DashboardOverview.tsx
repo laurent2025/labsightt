@@ -72,9 +72,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     }
   }, []);
 
+  // Refresh server totals when records/statuses actually change, not whenever
+  // a parent recreates an equivalent array during a render. The dashboard
+  // previously issued five requests after every local object update.
+  const dashboardRefreshKey = useMemo(
+    () => [
+      patients.length,
+      analyses.map(analysis => `${analysis.id}:${analysis.status}`).join(','),
+      reports.map(report => `${report.id}:${report.status}`).join(',')
+    ].join('|'),
+    [patients, analyses, reports]
+  );
+
   useEffect(() => {
-    void loadDashboardCounts();
-  }, [loadDashboardCounts, patients, analyses, reports]);
+    const timer = window.setTimeout(() => {
+      void loadDashboardCounts();
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [loadDashboardCounts, dashboardRefreshKey]);
 
   const pendingReviewCount = dashboardCounts?.pendingReview ?? null;
 
@@ -170,7 +185,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const activePipeline = pipelinePresets[selectedQuickPipeline];
 
   return (
-    <div className="space-y-6">
+    <div className="dashboard-overview space-y-6">
       {/* Hero Welcome & Quick Launch Banner */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-200">
         <div className="space-y-1">
@@ -236,7 +251,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-busy={!dashboardCounts}>
+      <div className="dashboard-telemetry grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-busy={!dashboardCounts}>
         <button type="button" onClick={() => onNavigateTab('patients')} className="group w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Accessioned Patients</span>

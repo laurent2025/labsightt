@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
 
 return (
     <header
-      className={`no-print sticky top-0 z-40 safe-top transition-all duration-300 ${
+      className={`app-header no-print sticky top-0 z-40 safe-top transition-all duration-300 ${
         scrolled
           ? 'bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl shadow-lg shadow-slate-900/5 dark:shadow-black/40 border-b border-slate-200 dark:border-slate-800'
           : 'bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200/60 dark:border-slate-800/60'

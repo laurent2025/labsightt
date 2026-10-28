@@ -7,7 +7,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => (
-  <footer className="no-print border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-600 dark:text-slate-400 transition-colors duration-200">
+  <footer className="app-footer no-print border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-600 dark:text-slate-400 transition-colors duration-200">
     {/* Gradient accent line with shimmer */}
     <div className="relative h-px overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-500/70 dark:via-green-400/70 to-transparent animate-shimmer" />

@@ -96,7 +96,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label={mode === 'signin' ? 'Sign in to LenziAI' : 'Request a LenziAI account'}
-      className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden"
+      className="auth-panel relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-950/15 dark:shadow-black/50 overflow-hidden"
     >
       {onClose && (
         <button
@@ -109,23 +109,25 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
         </button>
       )}
 
-      <div className="px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800">
+      <div className="auth-panel-header px-6 pt-6 pb-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-green-50 via-white to-white dark:from-green-950/50 dark:via-slate-900 dark:to-slate-900">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 flex items-center justify-center">
-            <Microscope className="w-4.5 h-4.5 text-cyan-700 dark:text-cyan-400" />
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-600 to-green-800 border border-green-500/30 flex items-center justify-center shadow-lg shadow-green-900/20">
+            <Microscope className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-white">LenziAI</h1>
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
-              Laboratory microscopy workspace
-            </p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">LenziAI</h1>
+              <span className="rounded-full border border-green-200 bg-green-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">Clinical</span>
+            </div>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Laboratory intelligence workspace</p>
           </div>
         </div>
         <div className="mt-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-green-700 dark:text-green-300">Secure laboratory access</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             {mode === 'signin' ? 'Welcome back' : 'Create your account'}
           </h2>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
             {mode === 'signin'
               ? 'Sign in with your verified email.'
               : 'Enter your details — a verification email unlocks sign-in.'}
@@ -149,7 +151,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
           <button type="button" onClick={() => changeMode('signin')} className="w-full py-2 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-semibold touch-target">Return to sign in</button>
         </div>
       ) : (
-      <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3" noValidate style={{
+      <form onSubmit={handleSubmit} className="auth-panel-form px-6 py-5 space-y-4" noValidate style={{
         opacity: isLoaded ? 1 : 0,
         transform: isLoaded ? 'translateY(0)' : 'translateY(12px)',
         animation: isLoaded ? 'fadeInUp 0.4s ease-out forwards' : 'none'
@@ -179,7 +181,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
 
         {mode === 'signup' && <div>
           <label htmlFor="login-display-name" className="block text-xs font-bold text-slate-800 dark:text-slate-100 mb-1">Full name</label>
-          <input id="login-display-name" name="name" type="text" autoComplete="name" required maxLength={120} value={displayName} onChange={event => setDisplayName(event.target.value)} aria-invalid={Boolean(fieldErrors.displayName)} aria-describedby={fieldErrors.displayName ? 'login-name-error' : undefined} className="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+          <input id="login-display-name" name="name" type="text" autoComplete="name" required maxLength={120} value={displayName} onChange={event => setDisplayName(event.target.value)} aria-invalid={Boolean(fieldErrors.displayName)} aria-describedby={fieldErrors.displayName ? 'login-name-error' : undefined} className="auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30" />
           {fieldErrors.displayName && <p id="login-name-error" className="mt-0.5 text-xs font-medium text-rose-600">{fieldErrors.displayName}</p>}
         </div>}
 
@@ -202,7 +204,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
               setEmail(e.target.value);
               if (fieldErrors.email) setFieldErrors(f => ({ ...f, email: undefined }));
             }}
-            className={`w-full px-3 py-2 text-xs font-medium rounded-lg border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 ${
+            className={`auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30 ${
               fieldErrors.email
                 ? 'border-rose-400 focus:border-rose-500'
                 : 'border-slate-300 dark:border-slate-700 focus:border-cyan-500'
@@ -239,7 +241,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
                 setPassword(e.target.value);
                 if (fieldErrors.password) setFieldErrors(f => ({ ...f, password: undefined }));
               }}
-              className={`w-full pl-3 pr-10 py-2 text-xs font-medium rounded-lg border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 ${
+              className={`auth-input w-full pl-3 pr-10 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30 ${
                 fieldErrors.password
                   ? 'border-rose-400 focus:border-rose-500'
                   : 'border-slate-300 dark:border-slate-700 focus:border-cyan-500'
@@ -277,7 +279,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
           </div>
           <div>
             <label htmlFor="login-confirm-password" className="block text-xs font-bold text-slate-800 dark:text-slate-100 mb-1">Confirm password</label>
-            <input id="login-confirm-password" name="confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} aria-invalid={Boolean(fieldErrors.confirmPassword)} aria-describedby={fieldErrors.confirmPassword ? 'login-confirm-error' : undefined} className="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+          <input id="login-confirm-password" name="confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} aria-invalid={Boolean(fieldErrors.confirmPassword)} aria-describedby={fieldErrors.confirmPassword ? 'login-confirm-error' : undefined} className="auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30" />
             {fieldErrors.confirmPassword && <p id="login-confirm-error" className="mt-0.5 text-xs font-medium text-rose-600">{fieldErrors.confirmPassword}</p>}
           </div>
         </>}
@@ -285,7 +287,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-2 bg-cyan-700 hover:bg-cyan-800 disabled:bg-slate-300 disabled:hover:bg-slate-300 dark:bg-cyan-600 dark:hover:bg-cyan-500 dark:disabled:bg-slate-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition touch-target"
+          className="auth-submit w-full py-3 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-700 dark:disabled:to-slate-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-green-900/15 transition touch-target"
         >
           {submitting ? (
             <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin motion-reduce:animate-none" aria-hidden="true" />

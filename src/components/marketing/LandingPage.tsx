@@ -123,7 +123,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased transition-colors duration-200 selection:bg-cyan-200 dark:selection:bg-cyan-800">
+    <div className="landing-page min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased transition-colors duration-200 selection:bg-cyan-200 dark:selection:bg-cyan-800">
       {/* Marketing top bar */}
       <header className="no-print sticky top-0 z-40 safe-top bg-white/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80">
         <div className="max-w-[1440px] mx-auto gutter-x h-14 md:h-16 flex items-center justify-between gap-3 sm:gap-4">
@@ -219,7 +219,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
             <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-teal-500/5 dark:bg-teal-400/5 rounded-full blur-3xl animate-pulse [animation-delay:2s]" />
           </div>
 
-          <div className="relative max-w-[1440px] mx-auto gutter-x pt-14 pb-16 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          <div className="landing-hero relative max-w-[1440px] mx-auto gutter-x pt-14 pb-16 lg:pt-24 lg:pb-28 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             {/* Left column - text */}
             <div className="space-y-6" style={{
               opacity: isLoaded ? 1 : 0,

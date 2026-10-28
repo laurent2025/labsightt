@@ -84,7 +84,7 @@ function getColorForClass(className: string) {
   return { stroke: '#0284c7', fill: 'rgba(2, 132, 199, 0.15)', text: '#0369a1' };
 }
 
-export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
+const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   imageUrl,
   detections,
   selectedDetectionId,
@@ -1469,4 +1469,10 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
     </div>
   );
 };
+
+// Scan progress and elapsed-time updates happen in the parent workspace. The
+// optical canvas only needs to repaint when its actual image/review props
+// change, so memoization keeps long tile scans from doing unnecessary canvas
+// work on every progress tick.
+export const MicroscopeViewer = React.memo(MicroscopeViewerView);
 
