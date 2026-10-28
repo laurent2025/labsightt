@@ -8,10 +8,10 @@ import {
   LogOut,
   ShieldCheck,
   KeyRound,
-  ChevronDown,
-  Microscope
+  ChevronDown
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import microscopeLogo from '../../../microscope.png';
 
 type HeaderTab = 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans';
 
@@ -106,7 +106,7 @@ return (
             aria-label="LenziAI Dashboard"
           >
             <div className="relative w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center shadow-md shadow-green-600/25 group-hover:shadow-lg group-hover:shadow-green-600/35 group-hover:scale-105 transition-all duration-300">
-              <Microscope className="w-4 h-4 md:w-5 md:h-5 text-white" />
+              <img src={microscopeLogo} alt="" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
               <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-300 border-2 border-white dark:border-slate-950 animate-ping" />
             </div>
             <div className="flex flex-col">

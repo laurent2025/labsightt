@@ -27,6 +27,7 @@ import { LAB_METADATA, SLIDE_ASSETS, DEFAULT_AI_MODELS } from '../../lib/constan
 import { useTheme } from '../../context/ThemeContext';
 import { LoginPanel } from '../auth/LoginPanel';
 import { LegalModal } from '../legal/LegalModal';
+import microscopeLogo from '../../../microscope.png';
 
 interface LandingPageProps {
   onSubmit: (email: string, password: string) => Promise<void>;
@@ -129,7 +130,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
         <div className="max-w-[1440px] mx-auto gutter-x h-14 md:h-16 flex items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             <div className="relative w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center shadow-md shadow-green-600/25">
-              <Microscope className="w-4 h-4 md:w-5 md:h-5 text-white" />
+              <img src={microscopeLogo} alt="" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
               <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-300 border-2 border-white dark:border-slate-950" />
             </div>
             <div className="flex items-center gap-2 min-w-0">
