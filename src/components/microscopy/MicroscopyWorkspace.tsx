@@ -1557,7 +1557,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       </div>
 
 {/* Main Two-Column Stage - Responsive */}
-      <div className="microscopy-main-grid grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 min-h-0 xl:min-h-[600px] lg:min-h-[500px]">
+      <div className="microscopy-main-grid grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 min-h-0">
         {/* Left Column: Microscope Canvas */}
         <div className={`microscopy-field-pane xl:col-span-8 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'review' ? 'hidden xl:flex' : 'flex'}`}>
           <div className="flex-1 min-h-0">
