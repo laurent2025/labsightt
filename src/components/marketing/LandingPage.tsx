@@ -21,7 +21,9 @@ import {
   Server,
   Users,
   Award,
-  Globe2
+  Globe2,
+  Fingerprint,
+  UserCheck
 } from 'lucide-react';
 import { LAB_METADATA, SLIDE_ASSETS, DEFAULT_AI_MODELS } from '../../lib/constants';
 import { useTheme } from '../../context/ThemeContext';
@@ -106,11 +108,39 @@ const WORKFLOW = [
   }
 ];
 
-const STATS = [
-  { value: 'AES-256', label: 'PHI encryption at rest' },
-  { value: '2-person', label: 'Verification gate' },
-  { value: 'Hash chain', label: 'Append-only audit' },
-  { value: 'Server-side', label: 'Inference proxy' }
+const SECURITY_LAYERS = [
+  {
+    value: 'AES-256',
+    label: 'PHI encryption at rest',
+    detail: 'Sensitive patient fields are encrypted before they are stored.',
+    icon: Lock,
+    group: 'Protect',
+    accent: 'cyan'
+  },
+  {
+    value: '2-person',
+    label: 'Verification gate',
+    detail: 'A second operator verifies the report before clinical release.',
+    icon: UserCheck,
+    group: 'Govern',
+    accent: 'emerald'
+  },
+  {
+    value: 'Hash chain',
+    label: 'Append-only audit',
+    detail: 'Each workflow action is linked into a tamper-evident record.',
+    icon: Fingerprint,
+    group: 'Govern',
+    accent: 'violet'
+  },
+  {
+    value: 'Server-side',
+    label: 'Inference proxy',
+    detail: 'Model credentials stay behind the laboratory application boundary.',
+    icon: Server,
+    group: 'Isolate',
+    accent: 'amber'
+  }
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) => {
@@ -329,6 +359,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                   </div>
                 </div>
 
+                {/* Workflow status rail */}
+                <div className="grid grid-cols-4 gap-1 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/50 px-3 py-3">
+                  {[
+                    ['01', 'Accession', true],
+                    ['02', 'Scan', true],
+                    ['03', 'Review', true],
+                    ['04', 'Verify', false]
+                  ].map(([step, label, complete]) => (
+                    <div key={String(step)} className="relative flex min-w-0 flex-col items-center gap-1 text-center">
+                      <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-mono font-bold ${complete ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300' : 'border border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400'}`}>
+                        {step}
+                      </div>
+                      <span className="truncate text-[10px] font-semibold text-slate-600 dark:text-slate-400">{label}</span>
+                    </div>
+                  ))}
+                </div>
+
                 {/* Card footer */}
                 <div className="px-4 py-2.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
                   <span>Illustrative detection overlays not an analysed slide</span>
@@ -342,31 +389,71 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
           </div>
         </section>
 
-        {/* Stats bar */}
+        {/* Trust architecture */}
         <section
-          className="landing-trust-marquee border-y border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/40 backdrop-blur-sm"
-          aria-label="Security and workflow guarantees"
+          className="border-y border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60"
+          aria-labelledby="trust-architecture-title"
         >
-          <div className="overflow-hidden py-5 sm:py-7">
-            <div className="landing-trust-track flex w-max items-center">
-              {[0, 1].map(group => (
-                <div
-                  key={group}
-                  className="flex shrink-0 items-center"
-                  aria-hidden={group === 1}
-                >
-                  {STATS.map((stat, i) => (
-                    <div key={`${group}-${i}`} className="landing-trust-stat group flex w-[min(76vw,18rem)] shrink-0 items-center justify-center gap-3 px-4 text-center sm:w-[min(34vw,20rem)] lg:w-[min(25vw,22rem)]">
-                      <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-700 to-emerald-600 dark:from-cyan-400 dark:to-emerald-400 bg-clip-text text-transparent transition-transform group-hover:scale-105">
-                        {stat.value}
-                      </div>
-                      <div className="text-left text-[10px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider leading-snug">
-                        {stat.label}
-                      </div>
-                    </div>
-                  ))}
+          <div className="max-w-[1440px] mx-auto gutter-x py-10 sm:py-14">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-7 sm:mb-9">
+              <div className="max-w-xl space-y-2">
+                <div className="inline-flex items-center gap-2 text-[11px] font-mono font-bold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">
+                  <ShieldCheck className="w-4 h-4" />
+                  Trust architecture
                 </div>
-              ))}
+                <h2 id="trust-architecture-title" className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Safeguards built into the workflow
+                </h2>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  Protection, accountability, and controlled inference work together from accession to report release.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-start md:self-auto rounded-full border border-emerald-200 dark:border-emerald-900/70 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]" />
+                Designed for laboratory review
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+              {SECURITY_LAYERS.map((layer, index) => {
+                const Icon = layer.icon;
+                const accentClasses = {
+                  cyan: 'border-cyan-200 dark:border-cyan-900/70 bg-cyan-50/80 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300',
+                  emerald: 'border-emerald-200 dark:border-emerald-900/70 bg-emerald-50/80 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300',
+                  violet: 'border-violet-200 dark:border-violet-900/70 bg-violet-50/80 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300',
+                  amber: 'border-amber-200 dark:border-amber-900/70 bg-amber-50/80 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
+                }[layer.accent];
+
+                return (
+                  <article
+                    key={layer.value}
+                    className="group relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700"
+                    style={{
+                      opacity: isLoaded ? 1 : 0,
+                      transform: isLoaded ? 'translateY(0)' : 'translateY(14px)',
+                      animation: isLoaded ? `fadeInUp 0.5s ease-out ${250 + index * 70}ms forwards` : 'none'
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl border ${accentClasses}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="rounded-full border border-slate-200 dark:border-slate-700 px-2 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        {layer.group}
+                      </span>
+                    </div>
+                    <div className="mt-5">
+                      <div className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{layer.value}</div>
+                      <h3 className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">{layer.label}</h3>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{layer.detail}</p>
+                    </div>
+                    <div className="mt-4 flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Workflow control enabled
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>

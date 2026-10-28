@@ -110,6 +110,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   isScanning = false
 }: MicroscopeViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageObjRef = useRef<HTMLImageElement | null>(null);
 
@@ -144,12 +145,63 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
 
   // Touch gesture state
   const touchStartDistRef = useRef<number | null>(null);
+  const touchStartZoomRef = useRef<number>(1);
 
   const pxPerMicron = objective === '100x_oil' ? 6.0 : objective === '40x' ? 3.2 : 0.8;
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 6;
+
+  const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+
+  const clampPan = useCallback((nextPan: { x: number; y: number }, nextZoom: number) => {
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!viewport || !canvas || nextZoom <= MIN_ZOOM) return { x: 0, y: 0 };
+
+    const viewportWidth = viewport.clientWidth;
+    const viewportHeight = viewport.clientHeight;
+    const imageWidth = canvas.offsetWidth;
+    const imageHeight = canvas.offsetHeight;
+    const maxX = Math.max(0, (imageWidth * nextZoom - viewportWidth) / 2);
+    const maxY = Math.max(0, (imageHeight * nextZoom - viewportHeight) / 2);
+
+    return {
+      x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
+      y: Math.min(maxY, Math.max(-maxY, nextPan.y))
+    };
+  }, []);
+
+  const zoomAroundPoint = useCallback((requestedZoom: number, clientX?: number, clientY?: number) => {
+    const nextZoom = clampZoom(requestedZoom);
+    const previousZoom = zoom;
+    const viewport = viewportRef.current;
+
+    if (!viewport || nextZoom === previousZoom) return;
+
+    if (clientX === undefined || clientY === undefined) {
+      setZoom(nextZoom);
+      setPan(clampPan(pan, nextZoom));
+      return;
+    }
+
+    const rect = viewport.getBoundingClientRect();
+    const pointerX = clientX - (rect.left + rect.width / 2);
+    const pointerY = clientY - (rect.top + rect.height / 2);
+    const ratio = nextZoom / previousZoom;
+    const nextPan = {
+      x: pointerX - (pointerX - pan.x) * ratio,
+      y: pointerY - (pointerY - pan.y) * ratio
+    };
+
+    setZoom(nextZoom);
+    setPan(clampPan(nextPan, nextZoom));
+  }, [clampPan, pan, zoom]);
 
   // Load image
   useEffect(() => {
     let cancelled = false;
+    setZoom(MIN_ZOOM);
+    setPan({ x: 0, y: 0 });
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = imageUrl;
@@ -577,10 +629,10 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
     }
 
     if (isPanning) {
-      setPan({
+      setPan(clampPan({
         x: e.clientX - startPan.x,
         y: e.clientY - startPan.y
-      });
+      }, zoom));
     }
   };
 
@@ -613,6 +665,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       const coords = getCanvasCoords(touch.clientX, touch.clientY);
@@ -624,29 +677,39 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       touchStartDistRef.current = dist;
+      touchStartZoomRef.current = zoom;
+      setIsPanning(false);
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     if (e.touches.length === 1 && isPanning) {
       const touch = e.touches[0];
-      setPan({
+      setPan(clampPan({
         x: touch.clientX - startPan.x,
         y: touch.clientY - startPan.y
-      });
+      }, zoom));
     } else if (e.touches.length === 2 && touchStartDistRef.current !== null) {
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-      const scaleDelta = dist / touchStartDistRef.current;
-      setZoom(prev => Math.min(4, Math.max(0.5, prev * (scaleDelta > 1 ? 1.03 : 0.97))));
-      touchStartDistRef.current = dist;
+      const midpointX = (t1.clientX + t2.clientX) / 2;
+      const midpointY = (t1.clientY + t2.clientY) / 2;
+      const nextZoom = clampZoom(touchStartZoomRef.current * (dist / touchStartDistRef.current));
+      zoomAroundPoint(nextZoom, midpointX, midpointY);
     }
   };
 
   const handleTouchEnd = () => {
     setIsPanning(false);
     touchStartDistRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const direction = e.deltaY > 0 ? 0.9 : 1.1;
+    zoomAroundPoint(zoom * direction, e.clientX, e.clientY);
   };
 
   const handleCaptureSnapshot = () => {
@@ -671,7 +734,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   };
 
   const resetView = () => {
-    setZoom(1);
+    setZoom(MIN_ZOOM);
     setPan({ x: 0, y: 0 });
     setFocusOffset(0);
     setIrisAperture(75);
@@ -850,7 +913,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             <div className="flex items-center gap-1.5 bg-slate-900/70 rounded-xl border border-slate-800 p-1.5">
               <button
                 type="button"
-                onClick={() => setZoom(prev => Math.max(0.5, prev - 0.25))}
+                onClick={() => zoomAroundPoint(zoom - 0.25)}
                 className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
                 title="Zoom Out"
                 aria-label="Zoom Out"
@@ -864,13 +927,24 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setZoom(prev => Math.min(4, prev + 0.25))}
+                onClick={() => zoomAroundPoint(zoom + 0.25)}
                 className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
                 title="Zoom In"
                 aria-label="Zoom In"
               >
                 <ZoomIn className="w-4.5 h-4.5" />
               </button>
+              <input
+                type="range"
+                min={MIN_ZOOM}
+                max={MAX_ZOOM}
+                step="0.05"
+                value={zoom}
+                onChange={(e) => zoomAroundPoint(Number(e.target.value))}
+                className="hidden sm:block w-24 accent-cyan-400 cursor-pointer"
+                aria-label="Zoom level"
+                title="Adjust zoom level"
+              />
               <button
                 type="button"
                 onClick={resetView}
@@ -893,16 +967,18 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         }`}
       >
         <div
+          ref={viewportRef}
           className="relative w-fit max-w-full overflow-hidden rounded-lg"
-          style={{ maxHeight: 'min(78vh, 860px)' }}
+          style={{ maxHeight: 'min(78vh, 860px)', isolation: 'isolate' }}
         >
           <div
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
               transformOrigin: 'center center',
-              transition: isPanning ? 'none' : 'transform 0.1s cubic-bezier(0.16, 1, 0.3, 1)'
+              transition: isPanning ? 'none' : 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
+              willChange: 'transform'
             }}
-            className={`relative flex w-fit max-w-full items-center justify-center overflow-hidden rounded-lg cursor-default select-none ${
+            className={`relative flex w-fit max-w-full items-center justify-center overflow-visible rounded-lg cursor-default select-none ${
               imageUrl ? 'bg-slate-950' : 'bg-transparent'
             }`}
           >
@@ -924,6 +1000,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onWheel={handleWheel}
               style={{
                 width: 'auto',
                 height: 'auto',
