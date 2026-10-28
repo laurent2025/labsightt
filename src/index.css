@@ -263,6 +263,95 @@ html.dark {
   }
 }
 
+/* Microscopy workstation layout. The viewer is a hands-on instrument, so the
+   image gets the visual priority while controls become a compact dock on wide
+   screens and a bottom sheet on phones. */
+@layer components {
+  .microscopy-workspace {
+    --microscope-green: #16a34a;
+  }
+
+  .microscopy-command-bar {
+    position: relative;
+  }
+
+  .microscopy-command-actions > button,
+  .microscopy-command-actions > label {
+    min-height: 2.5rem;
+  }
+
+  .microscope-viewer-toolbar {
+    flex-shrink: 0;
+  }
+
+  .microscope-view-modes {
+    scrollbar-width: none;
+  }
+
+  .microscope-view-modes::-webkit-scrollbar {
+    display: none;
+  }
+
+  .microscope-viewer input[type='range'] {
+    accent-color: var(--microscope-green);
+  }
+
+  .microscopy-field-pane,
+  .microscopy-review-pane {
+    min-width: 0;
+  }
+
+  @media (max-width: 1023px) {
+    .microscope-viewer {
+      min-height: 0;
+    }
+
+    .microscope-viewer-toolbar > div {
+      gap: 0.75rem;
+    }
+
+    .microscope-viewer-toolbar .microscope-view-modes {
+      width: 100%;
+      padding-bottom: 0.125rem;
+    }
+
+    .microscope-viewer-toolbar .microscope-view-modes button {
+      min-height: 2.5rem;
+    }
+  }
+
+  @media (max-width: 639px) {
+    .microscopy-workspace {
+      margin-inline: -0.25rem;
+    }
+
+    .microscopy-command-bar {
+      border-radius: 1rem;
+    }
+
+    .microscopy-command-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      width: 100%;
+    }
+
+    .microscopy-command-actions > button,
+    .microscopy-command-actions > label {
+      justify-content: center;
+      width: 100%;
+      padding-inline: 0.625rem;
+    }
+
+    .microscopy-command-actions > button:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .microscopy-main-grid {
+      gap: 0.75rem;
+    }
+  }
+}
+
 html.dark {
   color-scheme: dark;
 }

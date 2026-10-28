@@ -1066,7 +1066,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
   const activeStepIndex = workflowSteps.findIndex(step => !step.done);
 
   return (
-    <div className="space-y-4">
+    <div className="microscopy-workspace space-y-4">
       {/* Visual Clinical Workflow Step Bar */}
       <div
         className="bg-white dark:bg-slate-900 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
@@ -1114,8 +1114,8 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       </div>
 
       {/* Top Session Ribbon */}
-      <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs transition-colors duration-200">
-        <div className="flex items-center gap-3">
+      <div className="microscopy-command-bar bg-white dark:bg-slate-900 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs transition-colors duration-200">
+        <div className="flex items-center gap-3 min-w-0">
           <div>
             <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
               SPECIMEN ACCESSION
@@ -1176,7 +1176,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         </div>
 
         {/* Inference Execution Actions */}
-        <div className="flex items-center gap-2">
+        <div className="microscopy-command-actions flex items-center gap-2 flex-wrap justify-end w-full xl:w-auto">
           {/* AI Consult Button */}
           <button
             type="button"
@@ -1543,9 +1543,9 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       </div>
 
 {/* Main Two-Column Stage - Responsive */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 min-h-0 xl:min-h-[500px] lg:min-h-[450px]">
+      <div className="microscopy-main-grid grid grid-cols-1 xl:grid-cols-12 gap-3 sm:gap-4 min-h-0 xl:min-h-[600px] lg:min-h-[500px]">
         {/* Left Column: Microscope Canvas */}
-        <div className={`xl:col-span-7 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'review' ? 'hidden xl:flex' : 'flex'}`}>
+        <div className={`microscopy-field-pane xl:col-span-8 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'review' ? 'hidden xl:flex' : 'flex'}`}>
           <div className="flex-1 min-h-0">
             <MicroscopeViewer
               imageUrl={activeImageUrl}
@@ -1576,7 +1576,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         </div>
 
         {/* Right Column: Technologist Findings Review */}
-        <div className={`xl:col-span-5 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'microscope' ? 'hidden xl:flex' : 'flex'}`}>
+        <div className={`microscopy-review-pane xl:col-span-4 lg:col-span-12 flex flex-col min-h-0 ${mobileActivePane === 'microscope' ? 'hidden xl:flex' : 'flex'}`}>
           <TechnologistReview
             key={activeAnalysis.id}
             analysis={activeAnalysis}

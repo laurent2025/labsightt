@@ -684,9 +684,9 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
   const selectedDetection = detections.find(d => d.id === selectedDetectionId);
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-md">
+    <div className="microscope-viewer flex flex-col h-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
       {/* Top Toolbar - Clean visual zones for Slide Info | View Modes | Tools */}
-      <div className="bg-slate-950/95 border-b border-slate-800 px-4 py-3">
+      <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-3">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
           {/* Left Zone: Slide Information & Field Stepper */}
           <div className="flex items-center gap-3">
@@ -738,13 +738,13 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
           {/* Center Zone: View Mode Filters - Prominent & Grouped */}
           <div className="flex-1 min-w-0 xl:max-w-lg">
             <div className="bg-slate-900/70 rounded-xl border border-slate-800 p-1.5">
-              <div className="flex items-center justify-center gap-1.5" role="group" aria-label="View filter modes">
+              <div className="microscope-view-modes flex items-center justify-start xl:justify-center gap-1.5 overflow-x-auto no-scrollbar" role="group" aria-label="View filter modes">
                 {['boxes', 'original', 'enhanced', 'darkfield', 'split'].map(mode => (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => setFilterMode(mode as ViewFilterMode)}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap cursor-pointer touch-target min-w-[90px] touch-target ${
+                    className={`px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer touch-target xl:min-w-[90px] ${
                       filterMode === mode
                         ? 'bg-cyan-500/30 text-cyan-300 shadow-sm border border-cyan-500/50'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -829,7 +829,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
             <button
               type="button"
               onClick={() => setShowControlsPanel(!showControlsPanel)}
-              className={`hidden lg:flex w-8 h-8 items-center justify-center rounded-lg transition cursor-pointer touch-target ${
+              className={`lg:hidden flex w-9 h-9 items-center justify-center rounded-lg transition cursor-pointer touch-target ${
                 showControlsPanel
                   ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -993,7 +993,7 @@ export const MicroscopeViewer: React.FC<MicroscopeViewerProps> = ({
         </div>
 
         {/* Consolidated Right Control Panel */}
-        <div className="absolute right-4 top-4 bottom-4 flex flex-col z-10 gap-3">
+        <div className="microscope-optical-dock absolute right-4 top-4 bottom-4 hidden lg:flex flex-col z-10 gap-3">
           <button
             type="button"
             onClick={() => setShowRightPanel(!showRightPanel)}

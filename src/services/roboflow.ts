@@ -93,8 +93,15 @@ export async function sliceImageTiles(
   source?: SourceImage
 ): Promise<ImageTile[] | null> {
   if (source?.bitmap && HAS_WORKER) {
+    // ImageBitmap is a transferable. Once it is posted to the worker the
+    // browser detaches it in this thread, so it must never be used by the
+    // caller again (for example by the whole-slide downscale fallback).
+    // Clear our reference before transferring ownership; all fallback paths
+    // below decode from the durable data URL instead.
+    const bitmap = source.bitmap;
+    source.bitmap = undefined;
     try {
-      return await sliceImageTilesViaWorkerFromBitmap(source.bitmap, config);
+      return await sliceImageTilesViaWorkerFromBitmap(bitmap, config);
     } catch {
       // Fall through to the url path.
     }
@@ -390,9 +397,13 @@ export async function downscaleImage(
 ): Promise<string> {
   let image: HTMLImageElement;
   if (bitmap) {
+    // Read dimensions before close(): browsers may report zero or throw when
+    // reading properties from a closed ImageBitmap.
+    const bitmapWidth = bitmap.width;
+    const bitmapHeight = bitmap.height;
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = bitmapWidth;
+    canvas.height = bitmapHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       bitmap.close();
@@ -400,10 +411,9 @@ export async function downscaleImage(
     }
     ctx.drawImage(bitmap, 0, 0);
     bitmap.close();
-    image = { naturalWidth: bitmap.width, naturalHeight: bitmap.height, src: '' } as unknown as HTMLImageElement;
     const src = canvas.toDataURL('image/jpeg', quality);
-    const { width, height } = scaledDimensions(bitmap.width, bitmap.height, maxEdge);
-    if (width === bitmap.width && height === bitmap.height) return src;
+    const { width, height } = scaledDimensions(bitmapWidth, bitmapHeight, maxEdge);
+    if (width === bitmapWidth && height === bitmapHeight) return src;
     const out = document.createElement('canvas');
     out.width = width;
     out.height = height;
