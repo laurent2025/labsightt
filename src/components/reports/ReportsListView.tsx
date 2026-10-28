@@ -73,6 +73,9 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
     }
   };
 
+  const isVerified = (report: LaboratoryReport) =>
+    report.status === 'verified' || report.status === 'released';
+
   const filteredReports = reports.filter(r => {
     const matchesSearch =
       r.reportNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,8 +87,6 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
 
     return matchesSearch && matchesStatus;
   });
-  const isVerified = (report: LaboratoryReport) =>
-    report.status === 'verified' || report.status === 'released';
   const verifiedCount = reports.filter(isVerified).length;
   const pendingCount = reports.filter(report => report.status === 'pending_verification').length;
   const reportFilters = [

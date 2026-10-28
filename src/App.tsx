@@ -516,11 +516,13 @@ export default function App() {
               setActiveTab('microscopy');
               setMicroscopyBrowseFilter(null);
               const existing = analyses.find(a => a.sampleId === sampleId);
+              // Keep the selected accession as the source of truth while the
+              // workspace resolves its analysis. This prevents the previous
+              // patient's analysis from winning during the same render.
+              setPendingMicroscopy({ patientId, sampleId, error: '', scanning: false });
               if (existing) {
-                setPendingMicroscopy(null);
                 setSelectedAnalysisId(existing.id);
               } else {
-                setPendingMicroscopy({ patientId, sampleId, error: '', scanning: false });
                 setSelectedAnalysisId(null);
               }
             }}
