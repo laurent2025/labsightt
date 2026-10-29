@@ -714,12 +714,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
     touchStartDistRef.current = null;
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const direction = e.deltaY > 0 ? 0.9 : 1.1;
-    zoomAroundPoint(zoom * direction, e.clientX, e.clientY);
-  };
-
   const handleCaptureSnapshot = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1076,7 +1070,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              onWheel={handleWheel}
               style={{
                 width: 'auto',
                 height: 'auto',

@@ -1069,7 +1069,7 @@ describe('inference proxy', () => {
   it('defaults to the configured hosted workflow endpoint', () => {
     vi.stubEnv('ROBOFLOW_ENDPOINT', '');
     expect(inferenceStatus().endpoint).toBe(
-'https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic'
+'https://serverless.roboflow.com/lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic'
     );
   });
 

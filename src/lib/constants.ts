@@ -25,14 +25,14 @@ export const SLIDE_ASSETS = {
 export const DEFAULT_AI_MODELS: AIModelConfig[] = [
   {
     id: "model-labsight-yolo26m-workflow",
-    name: "LenziAI vlabsight-3-yolo26m-t1 Logic",
+    name: "LenziAI Pro yolo26s-t1 Logic",
     category: "stool",
-    architecture: "YOLO26m Serverless Workflow",
+    architecture: "YOLO26s Serverless Workflow",
     version: "t1",
-    endpoint: "https://serverless.roboflow.com/laurent-kashinje-wjafp/workflows/labsight-vlabsight-wji6g-1-yolo26m-t1-logic",
-    roboflowWorkspace: "laurent-kashinje-wjafp",
-    roboflowWorkflowId: "labsight-vlabsight-wji6g-1-yolo26m-t1-logic",
-    roboflowModel: "labsight-vlabsight-wji6g-1-yolo26m-t1-logic",
+    endpoint: "https://serverless.roboflow.com/lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic",
+    roboflowWorkspace: "lenziai-pro",
+    roboflowWorkflowId: "lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic",
+    roboflowModel: "lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic",
     roboflowVersion: "1",
     isWorkflow: true,
     /*

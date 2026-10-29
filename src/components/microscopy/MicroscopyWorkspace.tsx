@@ -31,7 +31,7 @@ import { ApiError, detectionImagesApi, samplesApi, analysesApi } from '../../ser
 import { useMicroscopeCamera } from '../../hooks/useMicroscopeCamera';
 import { userFriendlyError } from '../../lib/userFriendlyError';
 
-// The Roboflow workflow id ("labsight-vlabsight-3-yolo26m-t1-logic") and the
+// The Roboflow workflow id ("lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic") and the
 // display name ("LenziAI vlabsight-3-yolo26m-t1 Logic") share one long token.
 // Merging the two longest words into that token keeps the pipeline picker a
 // small button-sized control; the full name and id live in the title tooltip.
@@ -1484,8 +1484,8 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           <pre className="max-h-48 overflow-y-auto text-[11px] text-slate-300 bg-slate-900 p-2.5 rounded border border-slate-800">
             {JSON.stringify(
               {
-                workflow_id: activeModel.roboflowWorkflowId || "labsight-vlabsight-3-yolo26m-t1-logic",
-                workspace: activeModel.roboflowWorkspace || "laurent-kashinje",
+                workflow_id: activeModel.roboflowWorkflowId || "lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic",
+                workspace: activeModel.roboflowWorkspace || "lenziai-pro",
                 timestamp: activeAnalysis.analyzedAt,
                 predictions: activeAnalysis.detections.map(d => ({
                   class: d.class,

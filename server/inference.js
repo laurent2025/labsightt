@@ -50,6 +50,9 @@ const SAME_OBJECT_IOU = 0.5;
  */
 const SAME_OBJECT_CONTAINMENT = 0.35;
 const DEFAULT_WORKFLOW_ENDPOINT =
+  // Keep the server fallback aligned with the active LenziAI Pro workflow.
+  // A Vercel deployment that omits ROBOFLOW_ENDPOINT must still call the
+  // intended workflow rather than silently falling back to an old model.
   'https://serverless.roboflow.com/lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic';
 
 /**
@@ -413,10 +416,16 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
           : null;
         const message = response.status === 402
           ? ''
-          : `Inference provider returned HTTP ${response.status}.`;
+          : response.status === 401 || response.status === 403
+          ? 'Roboflow rejected the server credential. Check ROBOFLOW_API_KEY.'
+          : response.status === 404
+          ? 'The configured Roboflow workflow endpoint was not found. Check ROBOFLOW_ENDPOINT.'
+          : response.status === 429
+          ? 'Roboflow is rate-limiting this scan. Wait a moment and try again.'
+          : `Roboflow is temporarily unavailable (HTTP ${response.status}).`;
         throw new InferenceError(
           message,
-          response.status === 402 ? 402 : 502,
+          response.status === 402 ? 402 : 503,
           retryable,
           retryAfterMs
         );
@@ -425,7 +434,7 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
       try {
         return await response.json();
       } catch {
-        throw new InferenceError('Inference provider returned invalid JSON.');
+        throw new InferenceError('Roboflow returned an invalid response. Try again shortly.', 503, true);
       }
     } catch (err) {
       if (err instanceof InferenceError) {
@@ -439,7 +448,7 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
           failure = new InferenceError(`Inference timed out after ${timeoutMs}ms.`, 504, true);
         }
       } else {
-        failure = new InferenceError('Could not reach the inference provider.', 502, true);
+        failure = new InferenceError('Could not reach Roboflow. Check the server connection and try again.', 503, true);
       }
     } finally {
       clearTimeout(timer);
