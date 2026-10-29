@@ -8,7 +8,8 @@ import {
   LogOut,
   ShieldCheck,
   KeyRound,
-  ChevronDown
+  ChevronDown,
+  Microscope
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -104,6 +105,9 @@ return (
             className="flex items-center gap-2.5 group whitespace-nowrap cursor-pointer bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950 rounded-lg"
             aria-label="LenziAI Dashboard"
           >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-green-300 bg-gradient-to-br from-green-500 to-emerald-700 text-white shadow-sm shadow-green-900/20 transition-transform duration-200 group-hover:scale-105 dark:border-green-700 dark:from-green-500 dark:to-green-800">
+              <Microscope className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+            </span>
             <div className="flex flex-col">
               <span className="text-sm md:text-base lg:text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent leading-tight">
                 LenziAI

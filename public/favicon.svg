@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>LenziAI microscope</title>
+  <rect width="64" height="64" rx="16" fill="#14532d"/>
+  <path d="M21 51h28M25 45h20M31 12h8l-2 5h-7zM34 17v11M29 28h11l6 7c3 4 1 10-4 10H28c-5 0-8-6-5-10l6-7z" fill="none" stroke="#86efac" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
+  <path d="M34 28c-7 0-12 5-12 12 0 4 2 7 5 9M45 45h-9" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="3"/>
+</svg>
