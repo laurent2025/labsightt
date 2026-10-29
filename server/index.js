@@ -55,6 +55,7 @@ import {
   getSupabaseSample,
   createSupabaseSample,
   listSupabaseSampleSlides,
+  listSupabaseSampleSlideMetadata,
   createSupabaseSampleSlide,
   deleteSupabaseSampleSlide,
   listSupabaseAnalyses,
@@ -151,7 +152,7 @@ function dropAlreadyFound(detections, priorDetections = []) {
  * window; a deployment that cannot can cut it short.
  */
 async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanToken = null) {
-  const concurrency = Math.max(1, Math.min(Number(process.env.INFERENCE_CONCURRENCY) || 6, passes.length));
+  const concurrency = Math.max(1, Math.min(Number(process.env.INFERENCE_CONCURRENCY) || 8, passes.length));
   const collected = new Array(passes.length);
   const failedTiles = [];
   let next = 0;
@@ -190,7 +191,11 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
         // A scan-level abort is expected; anything else is a real tile failure.
         if (scanController?.signal?.aborted) return;
         // Record the failure but continue processing other tiles
-        failedTiles.push({ index, error: 'A slide section could not be analysed.', status: err.status });
+        failedTiles.push({
+          index,
+          error: err?.message || 'A slide section could not be analysed.',
+          status: err.status
+        });
         collected[index] = [];
         if (scanToken) failTile(scanToken);
       } finally {
@@ -205,8 +210,29 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
     if (scanToken) endScan(scanToken);
   }
 
-  const successfulTiles = collected.filter(arr => arr && arr.length >= 0).length;
-  const totalDetections = collected.flat().length;
+  const processedTiles = collected.filter(Array.isArray).length;
+  const successfulTiles = Math.max(0, processedTiles - failedTiles.length);
+  const totalDetections = collected.filter(Array.isArray).flat().length;
+
+  // Do not turn an unavailable Roboflow service into a false, successful
+  // "zero detections" result. The caller must see the provider error so the
+  // operator can fix credentials/network/configuration and retry.
+  if (successfulTiles === 0 && failedTiles.length > 0) {
+    const firstFailure = failedTiles[0];
+    if (firstFailure.status === 402) {
+      throw new InferenceError('', 402, false);
+    }
+    throw new InferenceError(
+      firstFailure.status === 503
+        ? firstFailure.error
+        : 'Roboflow could not analyse this slide. Check the server connection and try again.',
+      firstFailure.status === 503 ? 503 : 502,
+      true
+    );
+  }
+  if (scanController?.signal.aborted && successfulTiles === 0) {
+    throw new InferenceError('Roboflow scan timed out before any slide section completed.', 504, true);
+  }
 
   /*
    * Suppress duplicates across the whole slide, not just within one tile.
@@ -1634,10 +1660,33 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
         ? await getSupabaseSample(supabase, req.params.id)
         : repo.getSample(db, req.params.id);
       if (!sample) return res.status(404).json({ error: 'This specimen could not be found.' });
-      const slides = supabase
-        ? await listSupabaseSampleSlides(supabase, req.params.id)
-        : repo.listSampleSlides(db, req.params.id);
+      const metadataOnly = req.query.metadata === '1';
+      const slides = metadataOnly
+        ? (supabase
+          ? await listSupabaseSampleSlideMetadata(supabase, req.params.id)
+          : repo.listSampleSlideMetadata(db, req.params.id))
+        : (supabase
+          ? await listSupabaseSampleSlides(supabase, req.params.id)
+          : repo.listSampleSlides(db, req.params.id));
       return res.json({ slides });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/api/samples/:sampleId/slides/:slideId', auth, async (req, res, next) => {
+    try {
+      const supabase = hasSupabaseDatabaseConfig() ? getSupabaseClient({ admin: true }) : null;
+      if (!(await canAccessSample(req, req.params.sampleId, supabase))) {
+        return res.status(403).json({ error: 'You can only view slide images for specimens you are authorized to access.' });
+      }
+      const slide = supabase
+        ? await getSupabaseSampleSlide(supabase, req.params.slideId)
+        : repo.getSampleSlide(db, req.params.slideId);
+      if (!slide || slide.sampleId !== req.params.sampleId) {
+        return res.status(404).json({ error: 'Slide image not found.' });
+      }
+      return res.json({ slide });
     } catch (err) {
       next(err);
     }
@@ -1935,7 +1984,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
             req.user,
             passes,
             Number(confidence) || DEFAULT_CONFIDENCE,
-            Number(process.env.INFERENCE_SCAN_TIMEOUT_MS) || 0,
+            Number(process.env.INFERENCE_SCAN_TIMEOUT_MS) || 180000,
             scanToken ?? analysisId
           );
         } catch (err) {
@@ -2090,7 +2139,7 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
           req.user,
           passes,
           Number(confidence) || DEFAULT_CONFIDENCE,
-          Number(process.env.INFERENCE_SCAN_TIMEOUT_MS) || 0,
+          Number(process.env.INFERENCE_SCAN_TIMEOUT_MS) || 180000,
           id
         );
       } catch (err) {
@@ -3720,7 +3769,12 @@ export function createApp({ dbPath = ':memory:', logger = () => {} } = {}) {
   // Special-case handlers first
   app.use((err, req, res, next) => {
     if (err instanceof InferenceError) {
-      return res.status(err.status).json({ error: err.status === 402 ? '' : 'The analysis service could not complete this request. Please try again.' });
+      const message = err.status === 402
+        ? ''
+        : err.status === 503 || err.status === 504
+          ? err.message
+          : 'The analysis service could not complete this request. Please try again.';
+      return res.status(err.status).json({ error: message });
     }
     if (err?.type === 'entity.too.large') {
       return res.status(413).json({ error: 'Request body is too large.' });

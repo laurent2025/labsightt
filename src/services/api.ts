@@ -391,8 +391,15 @@ export const samplesApi = {
   create: (payload: Partial<Sample> & { patientId: string; fieldsExamined: number }) =>
     request<{ sample: Sample }>('/samples', { method: 'POST', body: JSON.stringify(payload) }),
 
-  slides: (sampleId: string) =>
-    request<{ slides: SpecimenSlide[] }>(`/samples/${encodeURIComponent(sampleId)}/slides`),
+  slides: (sampleId: string, metadataOnly = false) =>
+    request<{ slides: SpecimenSlide[] }>(
+      `/samples/${encodeURIComponent(sampleId)}/slides${metadataOnly ? '?metadata=1' : ''}`
+    ),
+
+  slide: (sampleId: string, slideId: string) =>
+    request<{ slide: SpecimenSlide }>(
+      `/samples/${encodeURIComponent(sampleId)}/slides/${encodeURIComponent(slideId)}`
+    ),
 
   addSlide: (sampleId: string, payload: { name: string; imageData: string }) =>
     request<{ slide: SpecimenSlide }>(`/samples/${encodeURIComponent(sampleId)}/slides`, {
@@ -462,7 +469,7 @@ export const analysesApi = {
    * still in flight rather than waiting for the analysis id the server assigns.
    */
   scanProgress: (token: string) =>
-    request<{ running: boolean; total?: number; completed?: number; elapsedMs?: number }>(
+    request<{ running: boolean; total?: number; completed?: number; failed?: number; elapsedMs?: number; etaMs?: number | null }>(
       `/scan-progress/${encodeURIComponent(token)}`
     ),
 

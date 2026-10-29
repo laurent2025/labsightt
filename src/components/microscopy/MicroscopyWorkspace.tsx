@@ -55,7 +55,7 @@ interface MicroscopyWorkspaceProps {
   onToggleConfirmDetection: (analysisId: string, detectionId: string) => void;
   onRejectDetection: (analysisId: string, detectionId: string) => void;
   onConfirmAllDetections: (analysisId: string) => void;
-  onAddManualDetection: (analysisId: string, det: Omit<Detection, 'id'>) => void;
+  onAddManualDetection: (analysisId: string, det: Omit<Detection, 'id'>) => void | Promise<void>;
   onSaveAnalysisNotes: (analysisId: string, notes: string, impression: string) => void;
   onGenerateReport: (analysisId: string) => Promise<LaboratoryReport>;
   onOpenReportModal: (report: LaboratoryReport) => void;
@@ -108,6 +108,8 @@ export const MicroscopyWorkspace: React.FC<MicroscopyWorkspaceProps> = ({
   const [uploadedSlides, setUploadedSlides] = useState<{ id: string; name: string; dataUrl: string }[]>([]);
   const [slidesLoading, setSlidesLoading] = useState(false);
   const [isSavingSlides, setIsSavingSlides] = useState(false);
+  const [slideSaveProgress, setSlideSaveProgress] = useState<{ completed: number; total: number; failed: number } | null>(null);
+  const [loadingSlideId, setLoadingSlideId] = useState<string | null>(null);
   // Which uploaded image of the specimen is being reviewed. 'primary' is the
   // sample's stored slide; any other value is an uploaded slide id. Every
   // detection is tagged with this ref so the viewer can show only the boxes
@@ -130,7 +132,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
    * progress while the request is still in flight rather than waiting for the
    * analysis id the server assigns.
    */
-  const [tileProgress, setTileProgress] = useState<{ completed: number; total: number; elapsedMs: number } | null>(null);
+  const [tileProgress, setTileProgress] = useState<{ completed: number; total: number; elapsedMs: number; failed?: number; etaMs?: number | null } | null>(null);
   const tileProgressTokenRef = useRef<string | null>(null);
   const tilePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -152,10 +154,10 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
 
     const tick = () => {
       if (!current) return;
-      analysesApi.scanProgress(token).then(({ running, completed = 0, total = 0, elapsedMs = 0 }) => {
+      analysesApi.scanProgress(token).then(({ running, completed = 0, total = 0, elapsedMs = 0, failed = 0, etaMs = null }) => {
         if (!current) return;
         if (running) {
-          setTileProgress({ completed, total, elapsedMs });
+          setTileProgress({ completed, total, elapsedMs, failed, etaMs });
           if (completed !== lastCompleted) {
             lastCompleted = completed;
             lastChanged = Date.now();
@@ -449,13 +451,13 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         // network fetch below is the authoritative path.
       });
 
-    void samplesApi.slides(sampleId)
+    void samplesApi.slides(sampleId, true)
       .then(({ slides }) => {
         if (current) {
           const persistedSlides = slides.map(slide => ({
             id: slide.id,
             name: slide.name,
-            dataUrl: slide.imageData
+            dataUrl: slide.imageData || ''
           }));
           setUploadedSlides(previous => {
             const byId = new Map(persistedSlides.map(slide => [slide.id, slide]));
@@ -648,11 +650,20 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         const slide = queue[index];
         setScanProgress({ current: index + 1, total: queue.length });
         try {
+          let imageData = slide.dataUrl;
+          if (!imageData && slide.id !== 'primary') {
+            const loaded = await samplesApi.slide(activeSample.id, slide.id);
+            imageData = loaded.slide.imageData;
+            setUploadedSlides(previous => previous.map(item =>
+              item.id === slide.id ? { ...item, dataUrl: imageData } : item
+            ));
+            void writeCachedSlide(activeSample.id, slide.id, imageData);
+          }
           lastAnalysis = await onRunAnalysis(
             activePatient.id,
             activeSample.id,
             selectedModelId || activeModel.id,
-            slide.dataUrl,
+            imageData,
             slide.id
           );
         } catch (err) {
@@ -702,10 +713,13 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     }
     setInferenceError(null);
     setIsSavingSlides(true);
+    setSlideSaveProgress({ completed: 0, total: files.length, failed: 0 });
     const savedSlides: { id: string; name: string; dataUrl: string }[] = [];
     const uploadErrors: string[] = [];
     try {
-      for (const file of files) {
+      // Prepare and save independent images concurrently. Sequential uploads
+      // made selecting several fields feel like the application had stalled.
+      const results = await Promise.all(files.map(async file => {
         try {
           // Scaled before it is sent: a full photograph is several megabytes of
           // base64 before it is even encrypted, and the platform refuses that
@@ -713,13 +727,27 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           // at 640px and a technologist's screen.
           const dataUrl = await prepareImageForUpload(file);
           const { slide } = await samplesApi.addSlide(activeSample.id, { name: file.name, imageData: dataUrl });
-          const saved = { id: slide.id, name: slide.name, dataUrl: slide.imageData };
-          savedSlides.push(saved);
-          setUploadedSlides(prev => [...prev, saved]);
-          void writeCachedSlide(activeSample.id, saved.id, saved.dataUrl);
+          setSlideSaveProgress(previous => previous
+            ? { ...previous, completed: previous.completed + 1 }
+            : previous);
+          return { ok: true as const, saved: { id: slide.id, name: slide.name, dataUrl: slide.imageData } };
         } catch (err) {
-          uploadErrors.push(`${file.name}: ${userFriendlyError(err, 'upload could not be completed')}`);
+          setSlideSaveProgress(previous => previous
+            ? { ...previous, completed: previous.completed + 1, failed: previous.failed + 1 }
+            : previous);
+          return { ok: false as const, message: `${file.name}: ${userFriendlyError(err, 'upload could not be completed')}` };
         }
+      }));
+      for (const result of results) {
+        if (result.ok) {
+          savedSlides.push(result.saved);
+          void writeCachedSlide(activeSample.id, result.saved.id, result.saved.dataUrl);
+        } else {
+          uploadErrors.push(result.message);
+        }
+      }
+      if (savedSlides.length > 0) {
+        setUploadedSlides(prev => [...prev, ...savedSlides]);
       }
 
       if (savedSlides.length > 0) {
@@ -738,13 +766,31 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       setInferenceError(userFriendlyError(err, 'Failed to save slide images.'));
     } finally {
       setIsSavingSlides(false);
+      setSlideSaveProgress(null);
     }
   };
 
-  const selectSlide = (slide: { id: string; name: string; dataUrl: string }) => {
-    setCustomSlideDataUrl(slide.dataUrl);
-    setActiveSlideRef(slide.id);
+  const selectSlide = async (slide: { id: string; name: string; dataUrl: string }) => {
     setInferenceError(null);
+    if (slide.dataUrl) {
+      setCustomSlideDataUrl(slide.dataUrl);
+      setActiveSlideRef(slide.id);
+      return;
+    }
+    if (!activeSample) return;
+    setLoadingSlideId(slide.id);
+    try {
+      const { slide: loaded } = await samplesApi.slide(activeSample.id, slide.id);
+      const dataUrl = loaded.imageData;
+      setUploadedSlides(prev => prev.map(item => item.id === slide.id ? { ...item, dataUrl } : item));
+      void writeCachedSlide(activeSample.id, slide.id, dataUrl);
+      setCustomSlideDataUrl(dataUrl);
+      setActiveSlideRef(slide.id);
+    } catch (err) {
+      setInferenceError(userFriendlyError(err, 'Could not load this slide image.'));
+    } finally {
+      setLoadingSlideId(null);
+    }
   };
 
   const removeSlide = async (id: string) => {
@@ -996,10 +1042,11 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                             setCustomSlideDataUrl(null);
                             setActiveSlideRef('primary');
                           } else {
-                            selectSlide(slide);
+                            void selectSlide(slide);
                           }
                         }}
                         aria-pressed={slide.id === activeSlideRef}
+                        disabled={isAnalyzing || loadingSlideId !== null}
                         title={`Select ${slide.name}`}
                         className={`shrink-0 rounded-lg border-2 p-1 text-left ${
                           slide.id === activeSlideRef
@@ -1007,7 +1054,13 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                             : 'border-slate-200 dark:border-slate-700'
                         }`}
                       >
-                        <img src={slide.dataUrl} alt="" className="h-14 w-20 rounded object-cover" loading="lazy" />
+                        {slide.dataUrl ? (
+                          <img src={slide.dataUrl} alt="" className="h-14 w-20 rounded object-cover" loading="lazy" />
+                        ) : (
+                          <span className="flex h-14 w-20 items-center justify-center rounded bg-slate-100 text-[9px] font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                            {loadingSlideId === slide.id ? 'Loading…' : 'Select to load'}
+                          </span>
+                        )}
                         <span className="mt-1 block max-w-20 truncate text-[10px] text-slate-600 dark:text-slate-300">
                           {index + 1}. {slide.name}
                         </span>
@@ -1244,7 +1297,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             <button
               type="button"
               onClick={() => void handleScanAllImages()}
-              disabled={isAnalyzing || isSavingSlides}
+              disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null}
               title="Scan every loaded image of this specimen and combine the findings into one report"
               className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
             >
@@ -1262,7 +1315,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             <button
               type="button"
               onClick={() => void handleScanAndNext()}
-              disabled={isAnalyzing || isSavingSlides}
+              disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null}
               title="Scan this image, then move to the next unscanned one"
               className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-cyan-500 dark:hover:border-cyan-500 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
             >
@@ -1274,7 +1327,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           <button
             type="button"
             onClick={() => void handleTriggerAnalysis()}
-            disabled={isAnalyzing || isSavingSlides}
+            disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null || !activeImageUrl}
             className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
           >
             {isAnalyzing ? (
@@ -1325,7 +1378,8 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                 <div key={slide.id} className="shrink-0">
                   <button
                     type="button"
-                    onClick={() => selectSlide(slide)}
+                    onClick={() => void selectSlide(slide)}
+                    disabled={isAnalyzing || loadingSlideId !== null}
                     title={`Use ${slide.name} as the active slide`}
                     className={`relative block w-16 h-12 overflow-hidden rounded-lg border-2 transition ${
                       isActive
@@ -1333,7 +1387,18 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                         : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
                     }`}
                   >
-                    <img src={slide.dataUrl} alt={slide.name} className="w-full h-full object-cover" loading="lazy" />
+                    {slide.dataUrl ? (
+                      <img src={slide.dataUrl} alt={slide.name} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center bg-slate-100 text-[9px] font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                        {loadingSlideId === slide.id ? 'Loading…' : 'Select to load'}
+                      </span>
+                    )}
+                    {loadingSlideId === slide.id && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-slate-950/55 text-[9px] font-bold text-white">
+                        Loading…
+                      </span>
+                    )}
                     {hasFindings && (
                       <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900" title="Findings recorded for this slide" />
                     )}
@@ -1580,6 +1645,28 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         </div>
       </div>
 
+      {/* Image save progress stays separate from AI scan progress: saving is a
+          storage operation and should never look like a stalled inference. */}
+      {slideSaveProgress && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-cyan-200 dark:border-cyan-900/70 px-3 py-2.5 text-xs shadow-xs" role="status" aria-live="polite">
+          <div className="flex items-center justify-between gap-3 mb-1.5">
+            <span className="font-semibold text-slate-700 dark:text-slate-200">
+              Saving slide images
+            </span>
+            <span className="font-mono tabular-nums text-slate-500 dark:text-slate-400">
+              {slideSaveProgress.completed}/{slideSaveProgress.total}
+              {slideSaveProgress.failed > 0 ? ` · ${slideSaveProgress.failed} failed` : ''}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+            <div
+              className="h-full rounded-full bg-cyan-500 transition-all duration-300"
+              style={{ width: `${Math.min(100, (slideSaveProgress.completed / slideSaveProgress.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Scan progress + one-line result summary */}
       {(isAnalyzing || scanSummary) && (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs shadow-xs">
@@ -1597,8 +1684,10 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                       style={{ width: `${Math.min(100, (tileProgress.completed / tileProgress.total) * 100)}%` }}
                     />
                   </div>
-                  <span className="font-mono text-slate-500 dark:text-slate-400 tabular-nums">
+                    <span className="font-mono text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
                     {tileProgress.completed}/{tileProgress.total}
+                      {tileProgress.etaMs && tileProgress.etaMs > 1000 ? ` · ~${Math.ceil(tileProgress.etaMs / 1000)}s` : ''}
+                      {tileProgress.failed ? ` · ${tileProgress.failed} failed` : ''}
                   </span>
                 </div>
               )}

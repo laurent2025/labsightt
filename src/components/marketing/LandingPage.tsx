@@ -29,7 +29,6 @@ import { LAB_METADATA, SLIDE_ASSETS, DEFAULT_AI_MODELS } from '../../lib/constan
 import { useTheme } from '../../context/ThemeContext';
 import { LoginPanel } from '../auth/LoginPanel';
 import { LegalModal } from '../legal/LegalModal';
-import microscopeLogo from '../../../microscope.png';
 
 interface LandingPageProps {
   onSubmit: (email: string, password: string) => Promise<void>;
@@ -159,10 +158,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
       <header className="no-print sticky top-0 z-40 safe-top bg-white/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80">
         <div className="max-w-[1440px] mx-auto gutter-x h-14 md:h-16 flex items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <div className="relative w-8 h-8 md:w-9 md:h-9 rounded-xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center shadow-md shadow-green-600/25">
-              <img src={microscopeLogo} alt="" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
-              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-300 border-2 border-white dark:border-slate-950" />
-            </div>
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm md:text-base font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
                 LenziAI
@@ -386,6 +381,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSubmit, onSignup }) 
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Fast product promise: a visual pause between the hero and the
+            detailed trust architecture. */}
+        <section className="border-y border-slate-200 bg-white/75 dark:border-slate-800 dark:bg-slate-950/55" aria-label="Workflow promise">
+          <div className="mx-auto grid max-w-[1440px] grid-cols-1 divide-y divide-slate-200 px-4 py-4 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:px-6 lg:px-8 dark:divide-slate-800">
+            {[
+              { value: '01', label: 'One chain of custody', detail: 'From accession to release' },
+              { value: 'Every', label: 'Candidate reviewed', detail: 'Confirm, reject, or annotate' },
+              { value: '02', label: 'Operators to release', detail: 'Verification before reporting' }
+            ].map(item => (
+              <div key={item.value} className="flex items-center gap-3 px-2 py-3 sm:px-5 sm:py-2">
+                <span className="font-mono text-lg font-bold text-green-700 dark:text-green-400">{item.value}</span>
+                <span>
+                  <span className="block text-xs font-bold text-slate-900 dark:text-white">{item.label}</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-slate-400">{item.detail}</span>
+                </span>
+              </div>
+            ))}
           </div>
         </section>
 

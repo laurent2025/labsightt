@@ -6,7 +6,11 @@ import {
   FileCheck2,
   Clock,
   ArrowRight,
-  Play
+  Play,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowUpRight
 } from 'lucide-react';
 import { SLIDE_ASSETS } from '../../lib/constants';
 import { useLabStore } from '../../store/labStore';
@@ -236,6 +240,57 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </button>
           )}
         </div>
+      </section>
+
+      {/* Compact operational pulse: the next useful decision before the full
+          telemetry grid. */}
+      <section aria-label="Workspace pulse" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => onNavigateTab('microscopy', pendingReviewCount ? 'in_review' : null)}
+          className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-amber-700"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${pendingReviewCount ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' : 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300'}`}>
+              {pendingReviewCount ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Review queue</span>
+              <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">
+                {pendingReviewCount === null ? 'Syncing queue…' : pendingReviewCount ? `${pendingReviewCount} case${pendingReviewCount === 1 ? '' : 's'} need review` : 'Queue is clear'}
+              </span>
+            </span>
+          </span>
+          <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-amber-600" />
+        </button>
+
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${activePipeline.configured ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+              <Activity className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Inference status</span>
+              <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{activePipeline.configured ? 'Selected pipeline ready' : 'Pipeline configuration required'}</span>
+            </span>
+          </span>
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${activePipeline.configured ? 'bg-green-500 shadow-[0_0_0_4px_rgba(34,197,94,0.14)]' : 'bg-slate-400'}`} aria-label={activePipeline.configured ? 'Ready' : 'Not configured'} />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigateTab('reports', 'verified')}
+          className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-green-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-green-700"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300"><FileCheck2 className="h-4 w-4" /></span>
+            <span className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Release gate</span>
+              <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{dashboardCounts?.verifiedReports ?? '—'} verified report{dashboardCounts?.verifiedReports === 1 ? '' : 's'}</span>
+            </span>
+          </span>
+          <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-green-600" />
+        </button>
       </section>
 
       {/* Primary Telemetry Stat Cards */}

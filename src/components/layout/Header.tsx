@@ -11,7 +11,6 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import microscopeLogo from '../../../microscope.png';
 
 type HeaderTab = 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans';
 
@@ -97,7 +96,7 @@ return (
       }`}
     >
       <div className="max-w-[1440px] mx-auto gutter-x h-14 md:h-16 xl:h-[72px] flex items-center justify-between gap-2 sm:gap-3">
-        {/* Zone 1: Logo / wordmark */}
+        {/* Zone 1: Wordmark */}
         <div className="flex items-center gap-2.5 lg:gap-3 shrink-0" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
           <button
             type="button"
@@ -105,10 +104,6 @@ return (
             className="flex items-center gap-2.5 group whitespace-nowrap cursor-pointer bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950 rounded-lg"
             aria-label="LenziAI Dashboard"
           >
-            <div className="relative w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center shadow-md shadow-green-600/25 group-hover:shadow-lg group-hover:shadow-green-600/35 group-hover:scale-105 transition-all duration-300">
-              <img src={microscopeLogo} alt="" className="w-5 h-5 md:w-6 md:h-6 object-contain" />
-              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-300 border-2 border-white dark:border-slate-950 animate-ping" />
-            </div>
             <div className="flex flex-col">
               <span className="text-sm md:text-base lg:text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent leading-tight">
                 LenziAI

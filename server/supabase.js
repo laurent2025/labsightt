@@ -677,6 +677,22 @@ export async function listSupabaseSampleSlides(supabase, sampleId) {
   return (data ?? []).map(mapSupabaseSlide);
 }
 
+export async function listSupabaseSampleSlideMetadata(supabase, sampleId) {
+  const { data, error } = await supabase
+    .from('sample_slides')
+    .select('id, sample_id, name, created_at')
+    .eq('sample_id', sampleId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => ({
+    id: row.id,
+    sampleId: row.sample_id,
+    name: row.name,
+    imageData: '',
+    createdAt: row.created_at
+  }));
+}
+
 export async function createSupabaseSampleSlide(supabase, { id, sampleId, name, imageData, createdAt, createdBy }) {
   const { data, error } = await supabase
     .from('sample_slides')

@@ -18,7 +18,9 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  SlidersHorizontal
+  SlidersHorizontal,
+  LocateFixed,
+  ScanSearch
 } from 'lucide-react';
 import { playShutterSnapshot, playTurretClick } from '../../lib/audioOpticalFeedback';
 
@@ -29,7 +31,7 @@ interface MicroscopeViewerProps {
   onSelectDetection?: (id: string | null) => void;
   onToggleConfirm?: (id: string) => void;
   onRejectDetection?: (id: string) => void;
-  onAddManualDetection?: (detection: Omit<Detection, 'id'>) => void;
+  onAddManualDetection?: (detection: Omit<Detection, 'id'>) => void | Promise<void>;
   manualNote?: string;
   manualConfidence?: number;
   setManualNote?: (note: string) => void;
@@ -134,10 +136,17 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const [rulerPoints, setRulerPoints] = useState<Array<{ x: number; y: number }>>([]);
   const [mouseCoords, setMouseCoords] = useState<{ x: number; y: number } | null>(null);
   const [snapshotFeedback, setSnapshotFeedback] = useState<boolean>(false);
+  const [isSavingLabel, setIsSavingLabel] = useState<boolean>(false);
   // Consolidated Right Control Panel
   const [showRightPanel, setShowRightPanel] = useState<boolean>(true);
   // Mobile controls panel
   const [showControlsPanel, setShowControlsPanel] = useState<boolean>(false);
+
+  const activeTool = isAddingBox
+    ? 'label'
+    : isMeasuring
+    ? 'measure'
+    : 'inspect';
 
   // Mechanical Stage Vernier Coordinates (in millimeters, simulating real Leica/Olympus mechanical stage)
   const [stageVernierX, setStageVernierX] = useState<number>(42.5);
@@ -200,8 +209,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   // Load image
   useEffect(() => {
     let cancelled = false;
-    setZoom(MIN_ZOOM);
-    setPan({ x: 0, y: 0 });
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = imageUrl;
@@ -644,7 +651,8 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       const h = Math.abs(dragCurrent.y - dragStart.y);
 
       if (w > 20 && h > 20) {
-        onAddManualDetection?.({
+        setIsSavingLabel(true);
+        Promise.resolve(onAddManualDetection?.({
           class: selectedClassToAdd,
           confidence: internalConfidence,
           x: x1 + w / 2,
@@ -653,7 +661,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           height: h,
           confirmed: true,
           note: internalNote || 'Manually verified target'
-        });
+        })).finally(() => setIsSavingLabel(false));
       }
       setDragStart(null);
       setDragCurrent(null);
@@ -727,10 +735,10 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const translateMechanicalStage = (dxMm: number, dyMm: number) => {
     setStageVernierX(prev => parseFloat(Math.min(75, Math.max(10, prev + dxMm)).toFixed(2)));
     setStageVernierY(prev => parseFloat(Math.min(50, Math.max(5, prev + dyMm)).toFixed(2)));
-    setPan(prev => ({
+    setPan(prev => clampPan({
       x: prev.x - dxMm * 15,
       y: prev.y - dyMm * 15
-    }));
+    }, zoom));
   };
 
   const resetView = () => {
@@ -743,6 +751,50 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
     setIsMeasuring(false);
     setShowReticleGrid(false);
   };
+
+  // Keep the workstation usable without reaching for the toolbar. These
+  // shortcuts deliberately ignore form fields so class names, notes and
+  // optical settings remain safe to edit.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
+
+      if (event.key === 'Escape') {
+        setIsAddingBox(false);
+        setIsMeasuring(false);
+        setDragStart(null);
+        setDragCurrent(null);
+        setRulerPoints([]);
+        return;
+      }
+
+      if (event.key === '0') {
+        event.preventDefault();
+        resetView();
+      } else if (event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        setIsMeasuring(true);
+        setIsAddingBox(false);
+        setRulerPoints([]);
+      } else if (event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        setIsAddingBox(true);
+        setIsMeasuring(false);
+        setDragStart(null);
+        setDragCurrent(null);
+      } else if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        zoomAroundPoint(zoom + 0.25);
+      } else if (event.key === '-' || event.key === '_') {
+        event.preventDefault();
+        zoomAroundPoint(zoom - 0.25);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [zoom, zoomAroundPoint]);
 
   const selectedDetection = detections.find(d => d.id === selectedDetectionId);
 
@@ -850,6 +902,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 type="button"
                 onClick={() => {
                   setIsMeasuring(!isMeasuring);
+                  setIsAddingBox(false);
                   setRulerPoints([]);
                 }}
                     className={`shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
@@ -954,6 +1007,29 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               >
                 <RotateCcw className="w-4.5 h-4.5" />
               </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-2 text-[10px] sm:text-[11px]">
+            <div className="flex items-center gap-2 text-slate-400">
+              {activeTool === 'label' ? (
+                <PlusCircle className="h-3.5 w-3.5 text-cyan-300" />
+              ) : activeTool === 'measure' ? (
+                <Ruler className="h-3.5 w-3.5 text-amber-300" />
+              ) : (
+                <LocateFixed className="h-3.5 w-3.5 text-emerald-300" />
+              )}
+              <span className="uppercase tracking-[0.14em] text-slate-500">Active tool</span>
+              <span className="font-semibold text-slate-200">
+                {activeTool === 'label' ? 'Label target' : activeTool === 'measure' ? 'Measure field' : 'Inspect field'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-500">
+              <ScanSearch className="h-3.5 w-3.5 text-cyan-400" />
+              <span>Wheel / pinch zoom</span>
+              <span className="hidden sm:inline">·</span>
+              <span className="hidden sm:inline">Drag to pan</span>
+              <span className="hidden md:inline font-mono text-slate-600">M measure · L label · 0 reset</span>
             </div>
           </div>
         </div>
@@ -1275,22 +1351,23 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           {!isAddingBox ? (
             <button
               type="button"
+              disabled={isSavingLabel}
               onClick={() => {
                 setIsAddingBox(true);
                 setIsMeasuring(false);
                 setDragStart(null);
                 setDragCurrent(null);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm transition cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 disabled:cursor-wait text-white font-semibold text-sm transition cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Label Cell / Organism</span>
+              <span>{isSavingLabel ? 'Saving label…' : 'Label Cell / Organism'}</span>
               <span className="text-[10px] bg-cyan-800/40 px-1.5 py-0.5 rounded">L</span>
             </button>
           ) : (
             <div className="flex items-center gap-3 px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-cyan-300 font-semibold">Select & Drag</span>
+                <span className="text-sm text-cyan-300 font-semibold">{isSavingLabel ? 'Saving label…' : 'Select & Drag'}</span>
                 <select
                   value={selectedClassToAdd}
                   onChange={e => setSelectedClassToAdd(e.target.value)}

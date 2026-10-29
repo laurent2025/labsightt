@@ -283,6 +283,16 @@ html.dark {
    image gets the visual priority while controls become a compact dock on wide
    screens and a bottom sheet on phones. */
 @layer components {
+  .auth-screen-grid {
+    background-image: linear-gradient(rgba(22, 101, 52, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(22, 101, 52, 0.045) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(to bottom right, black, transparent 72%);
+  }
+
+  html.dark .auth-screen-grid {
+    background-image: linear-gradient(rgba(134, 239, 172, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(134, 239, 172, 0.045) 1px, transparent 1px);
+  }
+
   .microscopy-workspace {
     --microscope-green: #16a34a;
   }

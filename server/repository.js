@@ -206,6 +206,21 @@ export function listSampleSlides(db, sampleId) {
   `).all(sampleId).map(mapSampleSlide);
 }
 
+export function listSampleSlideMetadata(db, sampleId) {
+  return db.prepare(`
+    SELECT id, sample_id, name, created_at
+    FROM sample_slides
+    WHERE sample_id = ?
+    ORDER BY created_at, id
+  `).all(sampleId).map(row => ({
+    id: row.id,
+    sampleId: row.sample_id,
+    name: row.name,
+    imageData: '',
+    createdAt: row.created_at
+  }));
+}
+
 function mapSampleSlide(row) {
   return {
     id: row.id,

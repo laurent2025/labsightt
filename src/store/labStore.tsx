@@ -715,6 +715,10 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
           )
         );
         handleError(err, 'The manual finding could not be saved. Try again.');
+        // Let the workspace close its saving state only after the write has
+        // genuinely completed. The optimistic rollback above keeps the canvas
+        // honest while the caller can present a retryable failure.
+        throw err;
       }
     },
     [requantify, handleError, captureEvidence]

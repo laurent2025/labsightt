@@ -94,8 +94,8 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
     <div
       ref={panelRef}
       tabIndex={-1}
-      role="dialog"
-      aria-modal="true"
+      role={onClose ? 'dialog' : undefined}
+      aria-modal={onClose ? 'true' : undefined}
       aria-label={mode === 'signin' ? 'Sign in to LenziAI' : 'Request a LenziAI account'}
       className="auth-panel relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-950/15 dark:shadow-black/50 overflow-hidden"
     >

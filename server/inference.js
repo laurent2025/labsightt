@@ -7,7 +7,9 @@
  */
 import { appendAudit } from './audit.js';
 
-const DEFAULT_TIMEOUT_MS = 60_000;
+// Keep a failed field responsive. A provider call that is already slow should
+// not be retried twice for every tile in a large slide.
+const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 250;
 /**
@@ -100,10 +102,14 @@ export const inferenceMetrics = new InferenceMetrics();
  * returned to clients.
  */
 function envConfig() {
+  const configuredTimeout = Number(process.env.ROBOFLOW_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout >= 5_000
+    ? Math.min(configuredTimeout, 120_000)
+    : DEFAULT_TIMEOUT_MS;
   return {
     endpoint: process.env.ROBOFLOW_ENDPOINT || DEFAULT_WORKFLOW_ENDPOINT,
     apiKey: process.env.ROBOFLOW_API_KEY || '',
-    timeoutMs: Number(process.env.ROBOFLOW_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+    timeoutMs
   };
 }
 
@@ -118,11 +124,12 @@ export function inferenceStatus() {
 }
 
 class InferenceError extends Error {
-  constructor(message, status = 502, retryable = false) {
+  constructor(message, status = 502, retryable = false, retryAfterMs = null) {
     super(message);
     this.name = 'InferenceError';
     this.status = status;
     this.retryable = retryable;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -229,13 +236,26 @@ export async function runInference(
   }
 
   const providerImage = imageBase64.replace(/^data:[^,]*;base64,/i, '');
-  const payload = await requestWorkflow(endpoint, apiKey, providerImage, timeoutMs, scanSignal);
+  let payload;
+  try {
+    payload = await requestWorkflow(endpoint, apiKey, providerImage, timeoutMs, scanSignal);
+  } catch (err) {
+    inferenceMetrics.record(Date.now() - startedAt, false);
+    throw err;
+  }
 
   const predictions = extractPredictions(payload);
 
   // Confidence floor. Providers report either 0-1 or 0-100, so the threshold
   // is compared against the same scale as the raw value before normalising.
-  const threshold = confidence > 1 ? confidence / 100 : confidence;
+  const rawThreshold = Number(confidence);
+  const threshold = Number.isFinite(rawThreshold)
+    ? Math.min(1, Math.max(0, rawThreshold > 1 ? rawThreshold / 100 : rawThreshold))
+    : DEFAULT_CONFIDENCE;
+  const rawIou = Number(iou);
+  const nmsThreshold = Number.isFinite(rawIou)
+    ? Math.min(1, Math.max(0, rawIou))
+    : SAME_OBJECT_IOU;
 
   const candidates = predictions
     .map(p => toDetection(p, offsetX, offsetY))
@@ -245,11 +265,11 @@ export async function runInference(
     // viewer but still counts as a detection in the report.
     .filter(d => d.width > 0 && d.height > 0);
 
-  const nmsApplied = applyNMS(candidates);
+  const nmsApplied = applyNMS(candidates, nmsThreshold);
   const { detections: reclassified, corrections } = reclassifyHelminthOva(nmsApplied);
   // Different raw labels can resolve to the same organism after morphology
   // correction, so run suppression once more on the final class labels.
-  const detections = applyNMS(reclassified);
+  const detections = applyNMS(reclassified, nmsThreshold);
 
   const suppressed = candidates.length - detections.length;
   if (audit) {
@@ -259,7 +279,7 @@ export async function runInference(
       action: 'INFERENCE_EXECUTED',
       entity: 'analysis',
       details: `proposed ${detections.length} candidate(s) above confidence ${threshold}`
-        + `${suppressed > 0 ? ` (${suppressed} overlapping box(es) suppressed by NMS at IoU ${iou})` : ''}`
+        + `${suppressed > 0 ? ` (${suppressed} overlapping box(es) suppressed by NMS at IoU ${nmsThreshold})` : ''}`
         + `${corrections > 0 ? ` (${corrections} class(es) corrected by ovum morphology)` : ''}`
         + `${offsetX || offsetY ? ` (tile offset ${Math.round(offsetX ?? 0)},${Math.round(offsetY ?? 0)})` : ''}`
     });
@@ -321,8 +341,8 @@ function containment(a, b) {
  * parasites occupying almost the same patch of field are reported as one; on a
  * stool microscopy field that is far rarer than one ovum carrying two labels.
  */
-function isSameOrganism(a, b) {
-  return iou(a, b) >= SAME_OBJECT_IOU
+function isSameOrganism(a, b, iouThreshold = SAME_OBJECT_IOU) {
+  return iou(a, b) >= iouThreshold
     || containment(a, b) >= SAME_OBJECT_CONTAINMENT;
 }
 
@@ -336,12 +356,12 @@ function isSameOrganism(a, b) {
  * dropped when it describes the same object as one already kept, even if the
  * detector assigned it a different class.
  */
-function applyNMS(detections) {
+function applyNMS(detections, iouThreshold = SAME_OBJECT_IOU) {
   const ranked = [...detections].sort((a, b) => b.confidence - a.confidence);
   const kept = [];
 
   for (const candidate of ranked) {
-    const isDuplicate = kept.some(other => isSameOrganism(other, candidate));
+    const isDuplicate = kept.some(other => isSameOrganism(other, candidate, iouThreshold));
     if (!isDuplicate) kept.push(candidate);
   }
 
@@ -387,13 +407,18 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
 
       if (!response.ok) {
         const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+        const retryAfter = response.headers?.get?.('retry-after');
+        const retryAfterMs = retryAfter && /^\d+(?:\.\d+)?$/.test(retryAfter)
+          ? Math.min(30_000, Number(retryAfter) * 1000)
+          : null;
         const message = response.status === 402
           ? ''
           : `Inference provider returned HTTP ${response.status}.`;
         throw new InferenceError(
           message,
           response.status === 402 ? 402 : 502,
-          retryable
+          retryable,
+          retryAfterMs
         );
       }
 
@@ -422,10 +447,37 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
     }
 
     if (!failure.retryable || attempt === MAX_RETRIES) throw failure;
-    await new Promise(resolve => setTimeout(resolve, RETRY_BASE_DELAY_MS * (2 ** attempt)));
+    const retryDelay = failure.retryAfterMs ?? Math.min(
+      5_000,
+      RETRY_BASE_DELAY_MS * (2 ** attempt)
+    );
+    await waitForRetry(retryDelay, scanSignal);
   }
 
   throw new InferenceError('Inference request failed.', 502);
+}
+
+/**
+ * Backoff that can be interrupted by the scan-level abort signal. A cancelled
+ * scan should release its worker immediately rather than sleeping through the
+ * remainder of a retry window.
+ */
+function waitForRetry(delayMs, scanSignal) {
+  if (!scanSignal) return new Promise(resolve => setTimeout(resolve, delayMs));
+  if (scanSignal.aborted) return Promise.reject(new InferenceError('Scan aborted.', 504, true));
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      scanSignal.removeEventListener('abort', onAbort);
+      resolve();
+    }, delayMs);
+    const onAbort = () => {
+      clearTimeout(timer);
+      scanSignal.removeEventListener('abort', onAbort);
+      reject(new InferenceError('Scan aborted.', 504, true));
+    };
+    scanSignal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**
@@ -462,12 +514,16 @@ function extractPredictions(payload) {
 function isPrediction(node) {
   const hasClass =
     typeof node.class === 'string' ||
+    typeof node.class_name === 'string' ||
     typeof node.prediction === 'string' ||
     typeof node.label === 'string';
   const hasConfidence =
     typeof node.confidence === 'number' ||
     typeof node.confidence === 'string' ||
-    typeof node.score === 'number';
+    typeof node.score === 'number' ||
+    typeof node.score === 'string' ||
+    typeof node.probability === 'number' ||
+    typeof node.probability === 'string';
   return hasClass && hasConfidence;
 }
 
@@ -486,8 +542,8 @@ function isPrediction(node) {
  * overlay, report quantification, dedupe key) sees one shape only.
  */
 function toDetection(node, offsetX = 0, offsetY = 0) {
-  const className = node.class ?? node.prediction ?? node.label;
-  const rawConfidence = Number(node.confidence ?? node.score);
+  const className = node.class ?? node.class_name ?? node.prediction ?? node.label;
+  const rawConfidence = Number(node.confidence ?? node.score ?? node.probability);
   if (!Number.isFinite(rawConfidence) || !className) return null;
 
   let x = num(node.x);
@@ -497,10 +553,10 @@ function toDetection(node, offsetX = 0, offsetY = 0) {
 
   // Corner form: derive centre and size from the two opposite corners.
   if (x === null || y === null || width === null || height === null) {
-    const xMin = num(node.x_min ?? node.xmin ?? node.left);
-    const yMin = num(node.y_min ?? node.ymin ?? node.top);
-    const xMax = num(node.x_max ?? node.xmax ?? node.right);
-    const yMax = num(node.y_max ?? node.ymax ?? node.bottom);
+    const xMin = num(node.x_min ?? node.xmin ?? node.x1 ?? node.left);
+    const yMin = num(node.y_min ?? node.ymin ?? node.y1 ?? node.top);
+    const xMax = num(node.x_max ?? node.xmax ?? node.x2 ?? node.right);
+    const yMax = num(node.y_max ?? node.ymax ?? node.y2 ?? node.bottom);
     if (xMin === null || yMin === null || xMax === null || yMax === null) return null;
     width = Math.abs(xMax - xMin);
     height = Math.abs(yMax - yMin);
