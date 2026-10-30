@@ -1568,13 +1568,15 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             <span className="font-bold block text-white">
               {/not configured/i.test(inferenceError)
                 ? 'Inference is not configured'
-                : /scan could not be completed/i.test(inferenceError)
-                  ? 'Scan not completed'
-                  : /could not save microscope capture/i.test(inferenceError)
-                    ? 'Microscope capture could not be saved'
-                    : /camera|microscope/i.test(inferenceError)
-                      ? 'Microscope camera issue'
-                  : 'AI analysis failed'}
+                : /endpoint was not found/i.test(inferenceError)
+                  ? 'Workflow endpoint not found'
+                  : /scan could not be completed/i.test(inferenceError)
+                    ? 'Scan not completed'
+                    : /could not save microscope capture/i.test(inferenceError)
+                      ? 'Microscope capture could not be saved'
+                      : /camera|microscope/i.test(inferenceError)
+                        ? 'Microscope camera issue'
+                    : 'AI analysis failed'}
             </span>
             <p className="leading-relaxed mt-0.5 text-slate-300 break-words">{inferenceError}</p>
             {/not configured/i.test(inferenceError) && (
@@ -1582,6 +1584,13 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                 The server has no LenziAI inference credentials. Ask a Lab Director to add
                 the inference credentials to the server <span className="font-mono text-amber-300">.env</span> file (or the
                 deployment's environment) and restart.
+              </p>
+            )}
+            {/endpoint was not found/i.test(inferenceError) && (
+              <p className="leading-relaxed mt-1 text-slate-400">
+                The Roboflow workflow endpoint returned 404. Verify the
+                <span className="font-mono text-amber-300"> ROBOFLOW_ENDPOINT</span> environment
+                variable points to a published workflow, or remove it to use the server default with automatic fallback.
               </p>
             )}
           </div>

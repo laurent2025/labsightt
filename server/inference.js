@@ -55,6 +55,7 @@ const DEFAULT_WORKFLOW_ENDPOINT =
   // intended workflow rather than silently falling back to an old model.
   'https://serverless.roboflow.com/lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic';
 
+
 /**
  * Inference metrics collector for operational visibility.
  * Tracks throughput, error rates, and latency percentiles.
@@ -419,7 +420,7 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
           : response.status === 401 || response.status === 403
           ? 'LenziAI rejected the server credential. Ask a Lab Director to check the inference configuration.'
           : response.status === 404
-          ? 'The configured LenziAI workflow endpoint was not found. Ask a Lab Director to check the inference configuration.'
+          ? `The configured LenziAI workflow endpoint was not found (${endpoint}). Ask a Lab Director to check the inference configuration.`
           : response.status === 429
           ? 'LenziAI is rate-limiting this scan. Wait a moment and try again.'
           : `LenziAI is temporarily unavailable (HTTP ${response.status}).`;

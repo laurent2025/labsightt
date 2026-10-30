@@ -454,8 +454,8 @@ html.dark {
      jumping when a long control list is moved up or down. */
   @media (min-width: 1024px) {
     .microscope-stage {
-      height: min(68vh, 760px);
-      min-height: 520px;
+      height: min(54vh, 560px);
+      min-height: 380px;
       padding: 0.25rem;
       background:
         radial-gradient(circle at 50% 48%, rgba(51, 65, 85, 0.46), transparent 54%),

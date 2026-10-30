@@ -1129,7 +1129,7 @@ describe('inference proxy', () => {
   });
 
   it('sends image input with Bearer auth and parses predictions under arbitrary output keys', async () => {
-    const endpoint = 'https://serverless.roboflow.com/laurent-kashinje/workflows/labsight-vlabsight-3-yolo26m-t1-logic';
+    const endpoint = 'https://serverless.roboflow.com/lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic';
     const apiKey = 'test-only-provider-key';
     vi.stubEnv('ROBOFLOW_ENDPOINT', endpoint);
     vi.stubEnv('ROBOFLOW_API_KEY', apiKey);

@@ -147,6 +147,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const [showRightPanel, setShowRightPanel] = useState<boolean>(true);
   const [isSlideStationary, setIsSlideStationary] = useState<boolean>(false);
   const [isSlideFullscreen, setIsSlideFullscreen] = useState<boolean>(false);
+  const [isLabelCellMinimized, setIsLabelCellMinimized] = useState<boolean>(false);
 
   const toggleSlideFullscreen = useCallback(async () => {
     const stage = containerRef.current;
@@ -183,12 +184,26 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const [stageVernierX, setStageVernierX] = useState<number>(42.5);
   const [stageVernierY, setStageVernierY] = useState<number>(18.3);
 
+  // Mouse wheel zoom on slide viewport
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const onWheel = (e: WheelEvent) => {
+      if (isSlideStationary) return;
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.2 : -0.2;
+      zoomAroundPoint(zoom + delta, e.clientX, e.clientY);
+    };
+    vp.addEventListener('wheel', onWheel, { passive: false });
+    return () => vp.removeEventListener('wheel', onWheel);
+  }, [isSlideStationary, zoom, zoomAroundPoint]);
+
   // Touch gesture state
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(1);
 
   const pxPerMicron = objective === '100x_oil' ? 6.0 : objective === '40x' ? 3.2 : 0.8;
-  const MIN_ZOOM = 1;
+  const MIN_ZOOM = 0.25;
   const MAX_ZOOM = 6;
 
   const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
@@ -196,7 +211,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const clampPan = useCallback((nextPan: { x: number; y: number }, nextZoom: number) => {
     const viewport = viewportRef.current;
     const canvas = canvasRef.current;
-    if (!viewport || !canvas || nextZoom <= MIN_ZOOM) return { x: 0, y: 0 };
+    if (!viewport || !canvas) return { x: 0, y: 0 };
 
     const viewportWidth = viewport.clientWidth;
     const viewportHeight = viewport.clientHeight;
@@ -768,7 +783,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   };
 
   const resetView = () => {
-    setZoom(MIN_ZOOM);
+    setZoom(1);
     setPan({ x: 0, y: 0 });
     setFocusOffset(0);
     setIrisAperture(75);
@@ -1026,7 +1041,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 <button
                   type="button"
                   onClick={() => zoomAroundPoint(zoom - 0.25)}
-                  disabled={isSlideStationary}
+                  disabled={isSlideStationary || zoom <= MIN_ZOOM}
                   className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
                   title="Zoom Out [-]"
                   aria-label="Zoom Out"
@@ -1039,7 +1054,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 <button
                   type="button"
                   onClick={() => zoomAroundPoint(zoom + 0.25)}
-                  disabled={isSlideStationary}
+                  disabled={isSlideStationary || zoom >= MAX_ZOOM}
                   className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
                   title="Zoom In [+]"
                   aria-label="Zoom In"
@@ -1095,14 +1110,16 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           imageUrl ? 'py-1' : 'min-h-52'
         }`}
       >
-        <div className="microscope-stage-status pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-slate-600/80 bg-slate-950/80 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-300 shadow-lg backdrop-blur-sm">
-          <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${isSlideStationary ? 'bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.15)]' : 'bg-cyan-400 shadow-[0_0_0_3px_rgba(34,211,238,0.15)]'}`} />
-          {isSlideStationary ? 'Stationary view' : 'Live slide view'}
-        </div>
+        {isSlideStationary && (
+          <div className="microscope-stage-status pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-emerald-500/50 bg-slate-950/90 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-300 shadow-lg backdrop-blur-sm">
+            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.2)]" />
+            Stationary view
+          </div>
+        )}
         <div
           ref={viewportRef}
-          className="microscope-slide-viewport relative w-fit max-w-full overflow-hidden rounded-lg"
-          style={{ maxHeight: 'min(78vh, 860px)', isolation: 'isolate' }}
+          className="microscope-slide-viewport relative w-fit max-w-full overflow-hidden rounded-lg flex items-center justify-center"
+          style={{ maxHeight: isSlideFullscreen ? '100vh' : 'min(54vh, 560px)', isolation: 'isolate' }}
         >
           <div
             style={{
@@ -1137,8 +1154,9 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 width: 'auto',
                 height: 'auto',
                 maxWidth: '100%',
-                maxHeight: 'min(78vh, 860px)',
-                imageRendering: 'crisp-edges' as const
+                maxHeight: isSlideFullscreen ? '100vh' : 'min(54vh, 560px)',
+                imageRendering: 'crisp-edges' as const,
+                objectFit: 'contain'
               }}
               className={`microscope-slide-canvas rounded-lg ${
                 isMeasuring
@@ -1417,32 +1435,73 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           )}
         </div>
 
-        {/* Add Manual Target Toolbar */}
-        <div className="absolute top-3 left-3 right-3 sm:right-auto sm:top-4 sm:left-4 max-w-[calc(100%-1.5rem)] bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-lg overflow-hidden">
-          {!isAddingBox ? (
-            <button
-              type="button"
-              disabled={isSavingLabel}
-              onClick={() => {
-                setIsAddingBox(true);
-                setIsMeasuring(false);
-                setDragStart(null);
-                setDragCurrent(null);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 disabled:cursor-wait text-white font-semibold text-sm transition cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>{isSavingLabel ? 'Saving label…' : 'Label Cell / Organism'}</span>
-              <span className="text-[10px] bg-cyan-800/40 px-1.5 py-0.5 rounded">L</span>
-            </button>
+        {/* Add Manual Target Toolbar (Minimizable) */}
+        <div className="absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)]">
+          {isLabelCellMinimized ? (
+            <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-lg p-1">
+              <button
+                type="button"
+                disabled={isSavingLabel}
+                onClick={() => {
+                  setIsLabelCellMinimized(false);
+                  setIsAddingBox(true);
+                  setIsMeasuring(false);
+                  setDragStart(null);
+                  setDragCurrent(null);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan-600/90 hover:bg-cyan-500 rounded-lg text-white font-medium text-xs transition cursor-pointer shadow-xs"
+                title="Label Cell / Organism [L]"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>Label Cell</span>
+                <span className="text-[9px] bg-cyan-800/60 px-1 py-0.2 rounded font-mono">L</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLabelCellMinimized(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-lg transition cursor-pointer"
+                title="Expand Label Cell tool"
+                aria-label="Expand Label Cell tool"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : !isAddingBox ? (
+            <div className="flex items-center bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-lg overflow-hidden">
+              <button
+                type="button"
+                disabled={isSavingLabel}
+                onClick={() => {
+                  setIsAddingBox(true);
+                  setIsMeasuring(false);
+                  setDragStart(null);
+                  setDragCurrent(null);
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 disabled:cursor-wait text-white font-semibold text-sm transition cursor-pointer"
+                title="Start manual cell/organism label"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>{isSavingLabel ? 'Saving label…' : 'Label Cell / Organism'}</span>
+                <span className="text-[10px] bg-cyan-800/40 px-1.5 py-0.5 rounded font-mono">L</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLabelCellMinimized(true)}
+                className="px-2 py-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 transition cursor-pointer border-l border-slate-700/60"
+                title="Minimize Label Cell"
+                aria-label="Minimize Label Cell"
+              >
+                <Minimize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           ) : (
-            <div className="flex items-center gap-3 px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-2.5 px-3 py-2 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-lg">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-cyan-300 font-semibold">{isSavingLabel ? 'Saving label…' : 'Select & Drag'}</span>
+                <span className="text-xs text-cyan-300 font-semibold">{isSavingLabel ? 'Saving…' : 'Drag on slide:'}</span>
                 <select
                   value={selectedClassToAdd}
                   onChange={e => setSelectedClassToAdd(e.target.value)}
-                  className="bg-slate-800 text-slate-100 border border-slate-700 text-sm rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="bg-slate-800 text-slate-100 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                   {availableClasses.map(c => (
                     <option key={c} value={c}>
@@ -1451,7 +1510,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="number"
                   min={0}
@@ -1463,7 +1522,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                     setInternalConfidence(val);
                     if (setManualConfidenceProp) setManualConfidenceProp(val);
                   }}
-                  className="w-16 bg-slate-800 text-slate-100 border border-slate-700 text-xs font-mono rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-14 bg-slate-800 text-slate-100 border border-slate-700 text-xs font-mono rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   aria-label="Confidence"
                   title="Confidence (0–1)"
                 />
@@ -1474,19 +1533,30 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                     setInternalNote(e.target.value);
                     if (setManualNoteProp) setManualNoteProp(e.target.value);
                   }}
-                  className="w-28 bg-slate-800 text-slate-300 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-24 bg-slate-800 text-slate-300 border border-slate-700 text-xs rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   placeholder="Note..."
                   aria-label="Detection note"
                 />
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-slate-500">Esc</span>
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => setIsAddingBox(false)}
-                  className="px-2.5 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded cursor-pointer"
+                  className="px-2 py-1 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded cursor-pointer"
                 >
                   Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingBox(false);
+                    setIsLabelCellMinimized(true);
+                  }}
+                  className="p-1 text-slate-400 hover:text-white rounded cursor-pointer"
+                  title="Minimize"
+                  aria-label="Minimize"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
