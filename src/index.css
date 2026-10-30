@@ -330,20 +330,87 @@ html.dark {
     accent-color: var(--microscope-green);
   }
 
+  /* The viewer toolbar stays dark in both themes. Brighten its secondary
+     status text and inactive tool icons so the light application theme does
+     not produce low-contrast instructions. */
+  .microscope-viewer-toolbar .text-slate-400,
+  .microscope-viewer-toolbar .text-slate-500,
+  .microscope-viewer-toolbar .text-slate-600 {
+    color: #dbe3ec !important;
+  }
+
+  .microscope-viewer-toolbar button:not(:disabled) {
+    color: #dbe3ec;
+  }
+
+  .microscope-viewer-toolbar button:not(:disabled):hover {
+    color: #ffffff;
+  }
+
+  @media (min-width: 1024px) {
+    .microscope-viewer-toolbar {
+      padding: 0.625rem 0.75rem !important;
+    }
+
+    .microscope-viewer-toolbar > div {
+      gap: 0.5rem;
+    }
+
+    .microscope-viewer-toolbar .microscope-view-modes {
+      gap: 0.25rem;
+      padding: 0.25rem;
+    }
+
+    .microscope-viewer-toolbar .microscope-view-modes button,
+    .microscope-viewer-toolbar .microscope-command-actions button {
+      min-height: 2rem !important;
+      padding-block: 0.375rem !important;
+      font-size: 0.6875rem !important;
+    }
+
+    .microscope-viewer-toolbar .microscope-command-actions {
+      gap: 0.375rem;
+    }
+
+    .microscope-viewer-toolbar .microscope-command-actions > button {
+      height: 2rem !important;
+      min-width: 2rem !important;
+    }
+
+    .microscope-viewer-toolbar button.touch-target {
+      width: 2rem !important;
+      height: 2rem !important;
+      min-width: 2rem !important;
+      min-height: 2rem !important;
+    }
+  }
+
   /* Desktop microscope stage: the slide gets a stable viewport while the
      optical dock owns its own vertical scroll. This keeps the image from
      jumping when a long control list is moved up or down. */
   @media (min-width: 1024px) {
-    .microscope-viewer {
-      height: min(760px, calc(100vh - 2rem));
-      min-height: 0;
+    .microscope-stage {
+      height: min(68vh, 760px);
+      min-height: 520px;
+      padding: 0.25rem;
+      background:
+        radial-gradient(circle at 50% 48%, rgba(51, 65, 85, 0.46), transparent 54%),
+        linear-gradient(135deg, #0b1220 0%, #111c2b 48%, #080d15 100%);
     }
 
-    .microscope-stage {
-      flex: 1 1 auto;
-      height: auto;
-      min-height: 0;
-      padding: 0.25rem;
+    .microscope-stage-stationary {
+      position: sticky;
+      top: 1rem;
+      z-index: 5;
+      align-self: flex-start;
+    }
+
+    .microscope-stage:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      min-height: 100vh;
+      border-radius: 0;
+      background: #080d15;
     }
 
     .microscope-slide-viewport {
@@ -355,6 +422,7 @@ html.dark {
     .microscope-slide-viewport > div {
       max-width: 100%;
       max-height: 100%;
+      filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.38));
     }
 
     .microscope-slide-canvas {
@@ -369,6 +437,7 @@ html.dark {
 
     .microscope-optical-dock > div > div:last-child {
       overscroll-behavior: contain;
+      scrollbar-width: thin;
     }
   }
 
@@ -380,7 +449,14 @@ html.dark {
   @media (max-width: 1023px) {
     .microscope-viewer {
       min-height: 0;
-      height: auto;
+    }
+
+    .microscope-stage:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      min-height: 100vh;
+      border-radius: 0;
+      background: #080d15;
     }
 
     .microscope-viewer-toolbar > div {

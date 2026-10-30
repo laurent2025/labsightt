@@ -21,6 +21,10 @@ import {
   SlidersHorizontal,
   Minimize2,
   Maximize2,
+  Maximize,
+  Minimize,
+  LockKeyhole,
+  UnlockKeyhole,
   LocateFixed,
   ScanSearch
 } from 'lucide-react';
@@ -141,6 +145,31 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const [isSavingLabel, setIsSavingLabel] = useState<boolean>(false);
   // Consolidated Right Control Panel
   const [showRightPanel, setShowRightPanel] = useState<boolean>(true);
+  const [isSlideStationary, setIsSlideStationary] = useState<boolean>(false);
+  const [isSlideFullscreen, setIsSlideFullscreen] = useState<boolean>(false);
+
+  const toggleSlideFullscreen = useCallback(async () => {
+    const stage = containerRef.current;
+    if (!stage) return;
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (stage.requestFullscreen) {
+        await stage.requestFullscreen();
+      }
+    } catch {
+      // Fullscreen can be denied by browser policy; the normal viewer remains usable.
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsSlideFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
   // Mobile controls panel
   const [showControlsPanel, setShowControlsPanel] = useState<boolean>(false);
 
@@ -795,7 +824,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const selectedDetection = detections.find(d => d.id === selectedDetectionId);
 
   return (
-    <div className="microscope-viewer self-start w-full flex min-h-0 flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+    <div className="microscope-viewer self-start w-full flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
       {/* Top Toolbar - Clean visual zones for Slide Info | View Modes | Tools */}
       <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-3.5">
         <div className="flex flex-col gap-3 xl:gap-4">
@@ -874,6 +903,30 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           </div>
 
           {/* Right Zone: Primary Optical Controls - Grouped by function */}
+          <button
+            type="button"
+            onClick={() => setIsSlideStationary(current => !current)}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+              isSlideStationary
+                ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-300'
+                : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+            title={isSlideStationary ? 'Unlock slide movement' : 'Lock slide position'}
+            aria-label={isSlideStationary ? 'Unlock slide movement' : 'Lock slide position'}
+            aria-pressed={isSlideStationary}
+          >
+            {isSlideStationary ? <LockKeyhole className="h-4 w-4" /> : <UnlockKeyhole className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => void toggleSlideFullscreen()}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
+            title={isSlideFullscreen ? 'Exit fullscreen slide view' : 'Open fullscreen slide view'}
+            aria-label={isSlideFullscreen ? 'Exit fullscreen slide view' : 'Open fullscreen slide view'}
+            aria-pressed={isSlideFullscreen}
+          >
+            {isSlideFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+          </button>
           <div className="w-full flex flex-wrap items-center justify-start gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 px-1">Tools</span>
             {/* Imaging Controls */}
@@ -963,6 +1016,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               <button
                 type="button"
                 onClick={() => zoomAroundPoint(zoom - 0.25)}
+                disabled={isSlideStationary}
                 className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
                 title="Zoom Out"
                 aria-label="Zoom Out"
@@ -977,6 +1031,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               <button
                 type="button"
                 onClick={() => zoomAroundPoint(zoom + 0.25)}
+                disabled={isSlideStationary}
                 className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
                 title="Zoom In"
                 aria-label="Zoom In"
@@ -990,6 +1045,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 step="0.05"
                 value={zoom}
                 onChange={(e) => zoomAroundPoint(Number(e.target.value))}
+                disabled={isSlideStationary}
                 className="hidden sm:block w-24 accent-cyan-400 cursor-pointer"
                 aria-label="Zoom level"
                 title="Adjust zoom level"
@@ -1034,10 +1090,14 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       {/* Main Optical Canvas Stage */}
       <div
         ref={containerRef}
-        className={`microscope-stage relative w-full overflow-hidden flex items-center justify-center ${
+        className={`microscope-stage relative w-full flex-none overflow-hidden flex items-center justify-center ${isSlideStationary ? 'microscope-stage-stationary' : ''} ${
           imageUrl ? 'py-1' : 'min-h-52'
         }`}
       >
+        <div className="microscope-stage-status pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-slate-600/80 bg-slate-950/80 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-300 shadow-lg backdrop-blur-sm">
+          <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${isSlideStationary ? 'bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.15)]' : 'bg-cyan-400 shadow-[0_0_0_3px_rgba(34,211,238,0.15)]'}`} />
+          {isSlideStationary ? 'Stationary view' : 'Live slide view'}
+        </div>
         <div
           ref={viewportRef}
           className="microscope-slide-viewport relative w-fit max-w-full overflow-hidden rounded-lg"
@@ -1066,12 +1126,12 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             ) : null}
             <canvas
               ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              onMouseDown={isSlideStationary ? undefined : handleMouseDown}
+              onMouseMove={isSlideStationary ? undefined : handleMouseMove}
+              onMouseUp={isSlideStationary ? undefined : handleMouseUp}
+              onTouchStart={isSlideStationary ? undefined : handleTouchStart}
+              onTouchMove={isSlideStationary ? undefined : handleTouchMove}
+              onTouchEnd={isSlideStationary ? undefined : handleTouchEnd}
               style={{
                 width: 'auto',
                 height: 'auto',
