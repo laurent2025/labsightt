@@ -81,7 +81,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">1. Intended Purpose & Clinical Scope</h3>
                 <p>
-                  LenziAI is designed for laboratory medicine professionals to aid in the examination of biological fluids, stool wet mounts, stained peripheral blood films, and urinary sediments. The integrated Roboflow serverless vision engine executes object detection for preliminary candidate classification.
+                  LenziAI is designed for laboratory medicine professionals to aid in the examination of biological fluids, stool wet mounts, stained peripheral blood films, and urinary sediments. The integrated LenziAI serverless vision engine executes object detection for preliminary candidate classification.
                 </p>
               </div>
 
@@ -105,9 +105,9 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               </div>
 
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">4. Roboflow Serverless Workflow Utilization</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">4. LenziAI Serverless Workflow Utilization</h3>
                 <p>
-                  Image inferences are transmitted via authenticated REST calls to the specified Roboflow workspace (<code>lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic</code>). Users are responsible for maintaining valid API credentials and monitoring inference latency and availability.
+                  Image inferences are transmitted via authenticated REST calls to the specified LenziAI workspace (<code>lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic</code>). Users are responsible for maintaining valid API credentials and monitoring inference latency and availability.
                 </p>
               </div>
 
@@ -136,7 +136,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">1. De-Identification at the Optical Edge</h3>
                 <p>
-                  When slides are analyzed via the Roboflow vision endpoint, only raw image pixels and temporary pseudonymous slide identifiers (e.g. <code>SLD-49201</code>) are processed. Patient names, Medical Record Numbers (MRNs), dates of birth, and clinician identifiers remain strictly isolated within local browser storage or secure institutional EHR/LIS databases.
+                  When slides are analyzed via the LenziAI vision endpoint, only raw image pixels and temporary pseudonymous slide identifiers (e.g. <code>SLD-49201</code>) are processed. Patient names, Medical Record Numbers (MRNs), dates of birth, and clinician identifiers remain strictly isolated within local browser storage or secure institutional EHR/LIS databases.
                 </p>
               </div>
 
@@ -146,7 +146,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
                   In accordance with medical ethical standards:
                 </p>
                 <ul className="list-disc pl-5 mt-1.5 space-y-1 text-slate-600 dark:text-slate-400">
-                  <li><strong>Provider retention is outside this app's control:</strong> Specimen images are sent to the configured Roboflow endpoint. What that provider retains, and whether images contribute to training, is governed by the account holder's agreement with Roboflow, not by this application. Verify before sending any real specimen.</li>
+                  <li><strong>Provider retention is outside this app's control:</strong> Specimen images are sent to the configured LenziAI endpoint. What that provider retains, and whether images contribute to training, is governed by the account holder's agreement with LenziAI, not by this application. Verify before sending any real specimen.</li>
                   <li><strong>Encrypted Transport:</strong> All data in transit uses TLS 1.3 cipher suites.</li>
                   <li><strong>Institutional Privacy:</strong> API credentials are stored locally in the authenticated workstation browser session and are never hardcoded in the application source.</li>
                 </ul>
@@ -159,7 +159,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
                 </p>
                 <ul className="list-disc pl-5 mt-1.5 space-y-1 text-slate-600 dark:text-slate-400">
                   <li>Specimen accession and barcode creation</li>
-                  <li>Automated Roboflow inference execution and returned raw detection count</li>
+                  <li>Automated LenziAI inference execution and returned raw detection count</li>
                   <li>Manual technologist edits, additions, and false-positive rejections</li>
                   <li>Pathologist electronic signature and report verification timestamps</li>
                 </ul>

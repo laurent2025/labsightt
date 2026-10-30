@@ -314,7 +314,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       ctx.fillStyle = '#ffffff';
       ctx.font = '12px "Plus Jakarta Sans", sans-serif';
       ctx.fillText('Original Slide', splitX - 110, 40);
-      ctx.fillText('Roboflow YOLO', splitX + 20, 40);
+      ctx.fillText('LenziAI YOLO', splitX + 20, 40);
       ctx.restore();
     }
 
@@ -1120,7 +1120,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             <div className="absolute top-4 inset-x-0 flex items-center justify-center">
               <div className="bg-slate-950/90 border border-cyan-500/60 px-4 py-2 rounded-xl text-cyan-300 font-mono text-xs flex items-center gap-2 shadow-2xl">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-                <span>ROBOFLOW SERVERLESS INFERENCE ACTIVE · EXTRACTING MORPHOLOGY</span>
+                <span>LENZIAI SERVERLESS INFERENCE ACTIVE · EXTRACTING MORPHOLOGY</span>
               </div>
             </div>
           </div>

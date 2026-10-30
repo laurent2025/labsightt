@@ -233,7 +233,7 @@ export async function runInference(
   if (!endpoint || !apiKey) {
     inferenceMetrics.record(Date.now() - startedAt, false);
     throw new InferenceError(
-      'Inference is not configured on the server. Set ROBOFLOW_API_KEY; set ROBOFLOW_ENDPOINT only to override the default workflow.',
+      'Inference is not configured on the server. Ask a Lab Director to configure the server inference credentials.',
       503
     );
   }
@@ -417,12 +417,12 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
         const message = response.status === 402
           ? ''
           : response.status === 401 || response.status === 403
-          ? 'Roboflow rejected the server credential. Check ROBOFLOW_API_KEY.'
+          ? 'LenziAI rejected the server credential. Ask a Lab Director to check the inference configuration.'
           : response.status === 404
-          ? 'The configured Roboflow workflow endpoint was not found. Check ROBOFLOW_ENDPOINT.'
+          ? 'The configured LenziAI workflow endpoint was not found. Ask a Lab Director to check the inference configuration.'
           : response.status === 429
-          ? 'Roboflow is rate-limiting this scan. Wait a moment and try again.'
-          : `Roboflow is temporarily unavailable (HTTP ${response.status}).`;
+          ? 'LenziAI is rate-limiting this scan. Wait a moment and try again.'
+          : `LenziAI is temporarily unavailable (HTTP ${response.status}).`;
         throw new InferenceError(
           message,
           response.status === 402 ? 402 : 503,
@@ -434,7 +434,7 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
       try {
         return await response.json();
       } catch {
-        throw new InferenceError('Roboflow returned an invalid response. Try again shortly.', 503, true);
+        throw new InferenceError('LenziAI returned an invalid response. Try again shortly.', 503, true);
       }
     } catch (err) {
       if (err instanceof InferenceError) {
@@ -448,7 +448,7 @@ async function requestWorkflow(endpoint, apiKey, imageBase64, timeoutMs, scanSig
           failure = new InferenceError(`Inference timed out after ${timeoutMs}ms.`, 504, true);
         }
       } else {
-        failure = new InferenceError('Could not reach Roboflow. Check the server connection and try again.', 503, true);
+        failure = new InferenceError('Could not reach LenziAI. Check the server connection and try again.', 503, true);
       }
     } finally {
       clearTimeout(timer);

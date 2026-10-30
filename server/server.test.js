@@ -1098,7 +1098,7 @@ describe('inference proxy', () => {
     });
 
     expect(res.status).toBe(503);
-    expect(res.body.error).toMatch(/ROBOFLOW_API_KEY/i);
+    expect(res.body.error).toMatch(/server inference credentials/i);
     expect(db.prepare('SELECT COUNT(*) AS count FROM analyses WHERE sample_id = ?').get(sample.id).count).toBe(0);
   });
 

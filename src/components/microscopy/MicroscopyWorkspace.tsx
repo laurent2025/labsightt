@@ -755,7 +755,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         setActiveSlideRef(savedSlides[0].id);
         setScanSummary(
           savedSlides.length === 1
-            ? `Image saved to this specimen as ${savedSlides[0].name}. Run "Scan Field with Roboflow" to analyse it.`
+            ? `Image saved to this specimen as ${savedSlides[0].name}. Run "Scan Field with LenziAI" to analyse it.`
             : `${savedSlides.length} images saved to this specimen. Select a thumbnail to choose the active slide, then scan it.`
         );
       }
@@ -1135,7 +1135,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
   const activeStepIndex = workflowSteps.findIndex(step => !step.done);
 
   return (
-    <div className="microscopy-workspace space-y-4">
+    <div className="microscopy-workspace space-y-5">
       {/* Visual Clinical Workflow Step Bar */}
       <div
         className="bg-white dark:bg-slate-900 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
@@ -1182,8 +1182,55 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
         </ol>
       </div>
 
+      {/* Session identity and clinical context */}
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900" aria-labelledby="microscopy-session-title">
+        <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-emerald-400 via-cyan-500 to-indigo-500" aria-hidden="true" />
+        <div className="flex flex-col gap-4 p-4 pl-5 sm:p-5 sm:pl-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+              <span>Active microscopy session</span>
+              <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
+              <span className="text-slate-500 dark:text-slate-400">{activeSample.slideLabel || 'Specimen review'}</span>
+            </div>
+            <h1 id="microscopy-session-title" className="truncate text-xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+              {activePatient.fullName}
+            </h1>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-mono">{activePatient.patientNumber}</span>
+              <span aria-hidden="true">·</span>
+              <span className="capitalize">{activeSample.sampleType}</span>
+              <span aria-hidden="true">·</span>
+              <span>{activeSample.stainMethod || 'Unstained preparation'}</span>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-stretch sm:gap-3">
+            <div className="min-w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Magnification</span>
+              <span className="mt-1 block text-sm font-bold text-slate-800 dark:text-slate-100">{activeSample.totalMagnification || '—'}</span>
+            </div>
+            <div className="min-w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Fields</span>
+              <span className="mt-1 block text-sm font-bold text-slate-800 dark:text-slate-100">{activeSample.fieldsExamined || 0}</span>
+            </div>
+            <div className="min-w-24 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 dark:border-cyan-900/70 dark:bg-cyan-950/30">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">Candidates</span>
+              <span className="mt-1 block text-sm font-bold text-cyan-900 dark:text-cyan-100">{totalDets}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Top Session Ribbon */}
-      <div className="microscopy-command-bar bg-white dark:bg-slate-900 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs transition-colors duration-200">
+      <div className="microscopy-command-bar overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950/40">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" aria-hidden="true" />
+            Examination controls
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Choose a slide, then scan</span>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-3.5 text-xs">
         <div className="flex items-center gap-3 min-w-0">
           <div>
             <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
@@ -1227,7 +1274,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
 
           <div className="hidden md:block border-l border-slate-200 dark:border-slate-800 pl-3">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
-              ACTIVE ROBOFLOW PIPELINE
+              ACTIVE LENZIAI PIPELINE
             </span>
             <select
               value={selectedModelId}
@@ -1262,7 +1309,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             type="button"
             onClick={() => setShowRawInspector(!showRawInspector)}
             className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-mono flex items-center gap-1 transition cursor-pointer"
-            title="Inspect Roboflow Serverless JSON output"
+            title="Inspect LenziAI Serverless JSON output"
           >
             <Code2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span className="hidden sm:inline">JSON</span>
@@ -1342,10 +1389,11 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current text-cyan-400 dark:text-white" />
-                <span>Scan Field with Roboflow</span>
+                <span>Scan Field with LenziAI</span>
               </>
             )}
           </button>
+        </div>
         </div>
       </div>
 
@@ -1452,7 +1500,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-cyan-400" />
               <span className="text-cyan-400 font-bold">
-                Roboflow Serverless Response Inspector · {activeModel.endpoint}
+                LenziAI Serverless Response Inspector · {activeModel.endpoint}
               </span>
             </div>
             <button
@@ -1540,9 +1588,8 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             <p className="leading-relaxed mt-0.5 text-slate-300 break-words">{inferenceError}</p>
             {/not configured/i.test(inferenceError) && (
               <p className="leading-relaxed mt-1 text-slate-400">
-                The server has no Roboflow API key. Ask a Lab Director to add
-                <span className="font-mono text-amber-300"> ROBOFLOW_API_KEY</span> to the
-                server <span className="font-mono text-amber-300">.env</span> file (or the
+                The server has no LenziAI inference credentials. Ask a Lab Director to add
+                the inference credentials to the server <span className="font-mono text-amber-300">.env</span> file (or the
                 deployment's environment) and restart.
               </p>
             )}
@@ -1592,9 +1639,9 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       )}
 
       {/* Microscope stage followed by the full-width findings review. */}
-      <div className="microscopy-main-grid flex flex-col gap-4 min-h-0">
-        <div className="microscopy-field-pane flex flex-col min-h-0 w-full">
-        <div className="min-h-0 self-start w-full">
+      <div className="microscopy-main-grid grid min-h-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+        <div className="microscopy-field-pane flex min-h-0 w-full flex-col xl:sticky xl:top-4">
+        <div className="min-h-0 w-full">
             <MicroscopeViewer
               imageUrl={activeImageUrl}
               detections={activeDetections}
@@ -1623,7 +1670,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
           </div>
         </div>
 
-        <div className="microscopy-review-pane flex flex-col min-h-0 w-full">
+        <div className="microscopy-review-pane flex min-h-0 w-full flex-col">
           <TechnologistReview
             key={activeAnalysis.id}
             analysis={activeAnalysis}

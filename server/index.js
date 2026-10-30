@@ -225,13 +225,13 @@ async function readSlide(db, actor, passes, confidence, scanTimeoutMs = 0, scanT
     throw new InferenceError(
       firstFailure.status === 503
         ? firstFailure.error
-        : 'Roboflow could not analyse this slide. Check the server connection and try again.',
+        : 'LenziAI could not analyse this slide. Check the server connection and try again.',
       firstFailure.status === 503 ? 503 : 502,
       true
     );
   }
   if (scanController?.signal.aborted && successfulTiles === 0) {
-    throw new InferenceError('Roboflow scan timed out before any slide section completed.', 504, true);
+    throw new InferenceError('LenziAI scan timed out before any slide section completed.', 504, true);
   }
 
   /*

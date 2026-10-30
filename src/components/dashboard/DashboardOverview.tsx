@@ -10,7 +10,10 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  ArrowUpRight
+  ArrowUpRight,
+  ShieldCheck,
+  Settings2,
+  ClipboardCheck
 } from 'lucide-react';
 import { SLIDE_ASSETS } from '../../lib/constants';
 import { useLabStore } from '../../store/labStore';
@@ -51,6 +54,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const [dashboardCounts, setDashboardCounts] = useState<DashboardCounts | null>(null);
   const [dashboardCountsError, setDashboardCountsError] = useState<string | null>(null);
   const { user } = useLabStore();
+  const isAdmin = Boolean(user?.isAdmin);
   const canSeeModelDetails = Boolean(user);
 
   const loadDashboardCounts = useCallback(async () => {
@@ -192,11 +196,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   return (
     <div className="dashboard-overview space-y-7 sm:space-y-8">
       {/* Hero Welcome & Quick Launch Banner */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-white via-white to-green-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-green-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5 transition-colors duration-200">
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-green-50/70 p-4 shadow-sm transition-colors duration-200 dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-green-950/30 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-400/5" aria-hidden="true" />
+        <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
         <div className="relative min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
-              Pathology &amp; Clinical Microscopy Workstation
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${isAdmin
+              ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300'
+              : 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900/70 dark:bg-cyan-950/40 dark:text-cyan-300'
+            }`}>
+              {isAdmin ? <ShieldCheck className="h-3.5 w-3.5" /> : <ClipboardCheck className="h-3.5 w-3.5" />}
+              {isAdmin ? 'Administrator workspace' : 'Clinical workspace'}
             </span>
             <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
               {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -206,11 +216,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             Welcome back, {user?.name ?? 'Operator'}
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-            {pendingReviewCount === null
-              ? 'Loading the current review queue...'
-              : pendingReviewCount > 0
-              ? `${pendingReviewCount} analysis${pendingReviewCount === 1 ? '' : 'es'} awaiting review. Open one below to continue adjudication.`
-              : 'No analyses are awaiting review. Accession a specimen to start a new microscopy workflow.'}
+            {isAdmin
+              ? pendingReviewCount === null
+                ? 'Loading laboratory operations and governance status...'
+                : pendingReviewCount > 0
+                  ? `${pendingReviewCount} case${pendingReviewCount === 1 ? '' : 's'} need clinical review. Monitor the queue, access controls, and audit trail from this workspace.`
+                  : 'The review queue is clear. Use the operational panels below to monitor the laboratory and manage access.'
+              : pendingReviewCount === null
+                ? 'Loading your current review queue...'
+                : pendingReviewCount > 0
+                  ? `${pendingReviewCount} analysis${pendingReviewCount === 1 ? '' : 'es'} are ready for your attention. Open the queue below to continue adjudication.`
+                  : 'No analyses are awaiting review. Accession a specimen to start a new microscopy workflow.'}
           </p>
         </div>
 
@@ -240,11 +256,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </button>
           )}
         </div>
+        </div>
       </section>
 
       {/* Compact operational pulse: the next useful decision before the full
           telemetry grid. */}
-      <section aria-label="Workspace pulse" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section aria-label="Workspace pulse" className={`grid grid-cols-1 gap-3 ${isAdmin ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}>
         <button
           type="button"
           onClick={() => onNavigateTab('microscopy', pendingReviewCount ? 'in_review' : null)}
@@ -291,7 +308,37 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </span>
           <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-green-600" />
         </button>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => onNavigateTab('users')}
+            className="group flex items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-md dark:border-violet-900/70 dark:bg-violet-950/20 dark:hover:border-violet-700"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300"><Settings2 className="h-4 w-4" /></span>
+              <span className="min-w-0">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-400">Admin center</span>
+                <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">Manage access &amp; roles</span>
+              </span>
+            </span>
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-violet-500 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </button>
+        )}
       </section>
+
+      {isAdmin && (
+        <section aria-labelledby="dashboard-admin-heading" className="space-y-3">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-400">Governance &amp; access</p>
+              <h2 id="dashboard-admin-heading" className="text-lg font-bold text-slate-900 dark:text-white">Administration at a glance</h2>
+            </div>
+            <span className="hidden text-xs text-slate-500 dark:text-slate-400 sm:inline">Restricted to administrators</span>
+          </div>
+          <AdminOversight onNavigateTab={onNavigateTab} />
+        </section>
+      )}
 
       {/* Primary Telemetry Stat Cards */}
       {dashboardCountsError && (
@@ -681,9 +728,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
       )}
-
-      {/* Administrative oversight: account, chain, and activity summary — admin only */}
-      {user?.isAdmin && <AdminOversight onNavigateTab={onNavigateTab} />}
 
       {/* Recent Analyses Activity Queue — administrative oversight; admin only */}
       {user?.isAdmin && (
