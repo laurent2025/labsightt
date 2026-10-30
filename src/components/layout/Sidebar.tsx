@@ -97,9 +97,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">LenziAI</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="System Online" />
                 </div>
-                <span className="text-[10px] font-mono font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mt-0.5">
-                  Clinical Workspace
-                </span>
               </div>
             )}
           </button>
@@ -203,15 +200,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-2.5 border-t border-slate-200 dark:border-slate-800 space-y-2 shrink-0">
           {/* Active Model & Engine Status */}
           {!isCollapsed ? (
-            <div className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-[11px] font-mono flex items-center justify-between text-slate-600 dark:text-slate-400">
-              <span className="flex items-center gap-1.5 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-slate-800 dark:text-slate-200">LENZIAI</span>
-              </span>
-              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase">Online</span>
+            <div className="flex justify-end px-2.5 py-1.5" title="System status" aria-label="System status: online">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
           ) : (
-            <div className="flex justify-center" title="LENZIAI Inference Engine: Online">
+            <div className="flex justify-center" title="System status">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
           )}

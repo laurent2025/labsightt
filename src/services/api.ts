@@ -43,11 +43,35 @@ export function onSessionExpired(listener: Listener): () => void {
  * a genuinely stale response never hides a later mutation.
  */
 const inflight = new Map<string, Promise<unknown>>();
+const responseCache = new Map<string, { value: unknown; expiresAt: number }>();
+const GET_CACHE_TTL_MS = 5_000;
 const inflightKey = (path: string, init: RequestInit = {}) =>
   `${init.method ?? 'GET'}|${path}|${JSON.stringify(init.body ?? '')}`;
 
+/**
+ * Clears cached reads after a write or session change. The cache is deliberately
+ * small and in-memory: it speeds up tab navigation without persisting PHI in
+ * browser storage or allowing an old user's data to survive sign-out.
+ */
+export function clearApiCache(): void {
+  responseCache.clear();
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const key = inflightKey(path, init);
+  const method = (init.method ?? 'GET').toUpperCase();
+  const isRead = method === 'GET';
+
+  if (isRead) {
+    const cached = responseCache.get(key);
+    if (cached) {
+      if (cached.expiresAt > Date.now()) return cached.value as T;
+      responseCache.delete(key);
+    }
+  } else {
+    clearApiCache();
+  }
+
   if (inflight.has(key)) return inflight.get(key) as Promise<T>;
 
   const promise = (async () => {
@@ -91,17 +115,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
     if (!response.ok) {
       if (response.status === 401 && path !== '/auth/login') {
+        clearApiCache();
         for (const listener of sessionListeners) listener(true);
         throw new SessionExpiredError();
       }
       throw new ApiError(response.status, String(payload.error ?? `Request failed (${response.status})`), payload);
     }
 
-    return payload as T;
+    const result = payload as T;
+    if (isRead) {
+      responseCache.set(key, { value: result, expiresAt: Date.now() + GET_CACHE_TTL_MS });
+    }
+    return result;
   })();
 
   const timer = setTimeout(() => inflight.delete(key), 10_000);
-  promise.finally(() => clearTimeout(timer));
+  promise.then(() => clearTimeout(timer), () => clearTimeout(timer));
   inflight.set(key, promise);
   return promise;
 }
@@ -130,6 +159,7 @@ async function requestFile(
 
   if (!response.ok) {
     if (response.status === 401) {
+      clearApiCache();
       for (const listener of sessionListeners) listener(true);
       throw new SessionExpiredError();
     }
