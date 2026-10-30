@@ -184,20 +184,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const [stageVernierX, setStageVernierX] = useState<number>(42.5);
   const [stageVernierY, setStageVernierY] = useState<number>(18.3);
 
-  // Mouse wheel zoom on slide viewport
-  useEffect(() => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-    const onWheel = (e: WheelEvent) => {
-      if (isSlideStationary) return;
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 0.2 : -0.2;
-      zoomAroundPoint(zoom + delta, e.clientX, e.clientY);
-    };
-    vp.addEventListener('wheel', onWheel, { passive: false });
-    return () => vp.removeEventListener('wheel', onWheel);
-  }, [isSlideStationary, zoom, zoomAroundPoint]);
-
   // Touch gesture state
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(1);
@@ -251,6 +237,20 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
     setZoom(nextZoom);
     setPan(clampPan(nextPan, nextZoom));
   }, [clampPan, pan, zoom]);
+
+  // Mouse wheel zoom on slide viewport
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const onWheel = (e: WheelEvent) => {
+      if (isSlideStationary) return;
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.2 : -0.2;
+      zoomAroundPoint(zoom + delta, e.clientX, e.clientY);
+    };
+    vp.addEventListener('wheel', onWheel, { passive: false });
+    return () => vp.removeEventListener('wheel', onWheel);
+  }, [isSlideStationary, zoom, zoomAroundPoint]);
 
   // Load image
   useEffect(() => {
