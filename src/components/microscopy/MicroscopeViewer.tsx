@@ -25,8 +25,7 @@ import {
   Minimize,
   LockKeyhole,
   UnlockKeyhole,
-  LocateFixed,
-  ScanSearch
+  LocateFixed
 } from 'lucide-react';
 import { playShutterSnapshot, playTurretClick } from '../../lib/audioOpticalFeedback';
 
@@ -884,7 +883,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             {/* Center/Right: View Filter Modes + Slide Lock & Fullscreen */}
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
               <div className="bg-slate-900/80 rounded-lg border border-slate-800 p-0.5 flex items-center gap-0.5" role="group" aria-label="View filter modes">
-                {(['boxes', 'original', 'enhanced', 'darkfield', 'split']).map(mode => (
+                {(['boxes', 'original', 'enhanced', 'darkfield', 'split'] as ViewFilterMode[]).map(mode => (
                   <button
                     key={mode}
                     type="button"

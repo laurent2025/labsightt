@@ -124,6 +124,10 @@ export default function App() {
    *  browser confirm() so the action is keyboard-reachable and styled like the
    *  rest of the interface. */
   const [pendingDeletePatient, setPendingDeletePatient] = useState<Patient | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const toggleSidebarCollapsed = () => setSidebarCollapsed(current => !current);
 
   const switchTab = (tab: 'dashboard' | 'patients' | 'microscopy' | 'reports' | 'audit' | 'users' | 'scans', filter?: string | null) => {
     setActiveTab(tab);

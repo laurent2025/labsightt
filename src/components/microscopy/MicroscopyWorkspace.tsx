@@ -1425,7 +1425,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
               Specimen
             </button>
 
-            {uploadedSlides.map((slide, index) => {
+            {uploadedSlides.map(slide => {
               const isActive = activeSlideRef === slide.id;
               const hasFindings = analyses.some(analysis =>
                 analysis.sampleId === activeSample?.id &&
