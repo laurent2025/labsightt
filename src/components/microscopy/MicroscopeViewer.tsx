@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
+  Minimize2,
+  Maximize2,
   LocateFixed,
   ScanSearch
 } from 'lucide-react';
@@ -1158,23 +1160,39 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           <button
             type="button"
             onClick={() => setShowRightPanel(!showRightPanel)}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl shadow-lg border transition-colors ${
+            className={`min-h-10 flex items-center justify-center gap-1.5 rounded-xl px-3 shadow-lg border transition-colors ${
               showRightPanel
                 ? 'bg-cyan-500/30 text-cyan-300 border-cyan-500/50'
                 : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
             }`}
-            title={showRightPanel ? 'Hide controls panel' : 'Show controls panel'}
-            aria-label="Toggle controls panel"
+            title={showRightPanel ? 'Minimize optical controls' : 'Restore optical controls'}
+            aria-label={showRightPanel ? 'Minimize optical controls' : 'Restore optical controls'}
+            aria-expanded={showRightPanel}
           >
-            <SlidersHorizontal className="w-5 h-5" />
+            {showRightPanel ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <span className="hidden xl:inline text-[10px] font-bold uppercase tracking-wider">{showRightPanel ? 'Minimize' : 'Controls'}</span>
           </button>
 
           {showRightPanel && (
             <div className="flex-1 w-64 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
               {/* Panel Header */}
-              <div className="px-3 py-2.5 border-b border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Optical Controls</span>
-                <span className="text-[10px] font-mono text-cyan-400">{objective}</span>
+              <div className="px-3 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="block text-xs font-semibold text-slate-200 uppercase tracking-wider">Optical Controls</span>
+                  <span className="block mt-0.5 text-[10px] text-slate-400">Adjust the simulated viewing conditions</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-mono text-cyan-400">{objective}</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowRightPanel(false)}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white cursor-pointer"
+                    title="Minimize optical controls"
+                    aria-label="Minimize optical controls"
+                  >
+                    <Minimize2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {/* Iris Aperture */}

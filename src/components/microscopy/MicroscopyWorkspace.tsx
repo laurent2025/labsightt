@@ -1135,7 +1135,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
   const activeStepIndex = workflowSteps.findIndex(step => !step.done);
 
   return (
-    <div className="microscopy-workspace space-y-5">
+    <div className="microscopy-workspace min-w-0 space-y-5 bg-slate-50/70 text-slate-900 dark:bg-transparent dark:text-slate-100">
       {/* Visual Clinical Workflow Step Bar */}
       <div
         className="bg-white dark:bg-slate-900 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
@@ -1639,8 +1639,8 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       )}
 
       {/* Microscope stage followed by the full-width findings review. */}
-      <div className="microscopy-main-grid grid min-h-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-        <div className="microscopy-field-pane flex min-h-0 w-full flex-col xl:sticky xl:top-4">
+      <div className="microscopy-main-grid grid min-h-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.7fr)]">
+        <div className="microscopy-field-pane flex min-h-0 w-full flex-col lg:sticky lg:top-4">
         <div className="min-h-0 w-full">
             <MicroscopeViewer
               imageUrl={activeImageUrl}
