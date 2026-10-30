@@ -5,7 +5,8 @@
 
 import { lazy, Suspense, useState, useEffect } from 'react';
 import { useLabStore } from './store/labStore';
-import { Header } from './components/layout/Header';
+import { Sidebar } from './components/layout/Sidebar';
+import { TopBar } from './components/layout/TopBar';
 import { Footer } from './components/layout/Footer';
 import { PatientFormModal } from './components/patients/PatientFormModal';
 import { PatientEditModal } from './components/patients/PatientEditModal';
@@ -407,9 +408,9 @@ export default function App() {
   }
 
     return (
-    <div className="app-shell min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-cyan-100 dark:selection:bg-cyan-900/60 selection:text-cyan-900 dark:selection:text-cyan-200 antialiased transition-colors duration-200">
-      {/* Top Application Header */}
-      <Header
+    <div className="app-shell flex h-screen overflow-hidden bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-cyan-100 dark:selection:bg-cyan-900/60 selection:text-cyan-900 dark:selection:text-cyan-200 antialiased transition-colors duration-200">
+      {/* Maximizable / Minimizable & Scrollable Clinical Sidebar */}
+      <Sidebar
         activeTab={effectiveTab}
         onSelectTab={tab => switchTab(tab)}
         onOpenNewPatient={() => setIsNewPatientModalOpen(true)}
@@ -420,11 +421,23 @@ export default function App() {
         onLogout={() => void logout()}
         onChangePassword={() => setIsChangePasswordOpen(true)}
         pendingReviewCount={analyses.filter(a => a.status === 'in_review').length}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapsed}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
-      {/* Main Clinical Content Body. Shares the header's max width and gutter
-          so the content edges line up with the nav instead of sitting inset. */}
-      <main className="app-main no-print flex-1 max-w-[1440px] w-full mx-auto gutter-x py-5 sm:py-6 lg:py-8">
+      {/* Main Clinical Content Column */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <TopBar
+          activeTab={effectiveTab}
+          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+          onOpenNewPatient={() => setIsNewPatientModalOpen(true)}
+          pendingReviewCount={analyses.filter(a => a.status === 'in_review').length}
+        />
+
+        <div className="flex-1 overflow-y-auto overscroll-contain flex flex-col">
+          <main className="app-main no-print flex-1 max-w-[1440px] w-full mx-auto gutter-x py-4 sm:py-5 lg:py-6">
         {connectionError && (
           <div role="alert" className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-900 p-3 rounded-xl text-xs">
             <span className="font-bold">Server unavailable:</span>
@@ -582,6 +595,8 @@ export default function App() {
 
       {/* High-Elegance Clinical Footer */}
       <Footer onOpenLegal={handleOpenLegal} />
+        </div>
+      </div>
 
       {/* Accession Patient Modal */}
       {isNewPatientModalOpen && (
