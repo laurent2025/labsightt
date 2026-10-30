@@ -1138,10 +1138,10 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     <div className="microscopy-workspace min-w-0 space-y-5 bg-slate-50/70 text-slate-900 dark:bg-transparent dark:text-slate-100">
       {/* Visual Clinical Workflow Step Bar */}
       <div
-        className="bg-white dark:bg-slate-900 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
+        className="bg-white dark:bg-slate-900 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors duration-200"
         aria-label="Clinical workflow progress"
       >
-        <ol className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5">
+        <ol className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
           {workflowSteps.map((step, index) => {
             const isActive = index === activeStepIndex;
             return (
@@ -1149,32 +1149,32 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                 {index > 0 && (
                   <span
                     aria-hidden
-                    className={`h-0.5 w-4 sm:w-7 rounded-full transition-colors ${
-                      workflowSteps[index - 1].done ? 'bg-green-600' : 'bg-slate-200 dark:bg-slate-700'
+                    className={`h-0.5 w-3 sm:w-5 rounded-full transition-colors ${
+                      workflowSteps[index - 1].done ? 'bg-emerald-600' : 'bg-slate-200 dark:bg-slate-800'
                     }`}
                   />
                 )}
                 <span
-                  className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-full pl-1 pr-3 sm:pr-3.5 py-1 border text-xs sm:text-sm font-bold transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-full pl-1 pr-2.5 py-0.5 border text-xs font-semibold transition-colors ${
                     step.done
-                      ? 'bg-green-600 border-green-600 text-white shadow-sm'
+                      ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
                       : isActive
-                        ? 'bg-white dark:bg-slate-900 border-green-500 text-green-800 dark:text-green-300 ring-2 ring-green-200 dark:ring-green-900/60'
-                        : 'bg-transparent border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-200 dark:ring-emerald-900/60'
+                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
                   }`}
                 >
                   <span
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
                       step.done
-                        ? 'bg-white/25'
+                        ? 'bg-white/25 text-white'
                         : isActive
-                          ? 'bg-green-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                     }`}
                   >
-                    {step.done ? <Check className="w-3 h-3" /> : index + 1}
+                    {step.done ? <Check className="w-2.5 h-2.5" /> : index + 1}
                   </span>
-                  {step.label}
+                  <span>{step.label}</span>
                 </span>
               </li>
             );
@@ -1183,19 +1183,19 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       </div>
 
       {/* Session identity and clinical context */}
-      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900" aria-labelledby="microscopy-session-title">
+      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900" aria-labelledby="microscopy-session-title">
         <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-emerald-400 via-cyan-500 to-indigo-500" aria-hidden="true" />
-        <div className="flex flex-col gap-4 p-4 pl-5 sm:p-5 sm:pl-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 p-3.5 pl-4 sm:p-4 sm:pl-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+            <div className="mb-0.5 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
               <span>Active microscopy session</span>
               <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden="true" />
               <span className="text-slate-500 dark:text-slate-400">{activeSample.slideLabel || 'Specimen review'}</span>
             </div>
-            <h1 id="microscopy-session-title" className="truncate text-xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-2xl">
+            <h1 id="microscopy-session-title" className="truncate text-lg sm:text-xl font-bold tracking-tight text-slate-950 dark:text-white">
               {activePatient.fullName}
             </h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 dark:text-slate-400">
               <span className="font-mono">{activePatient.patientNumber}</span>
               <span aria-hidden="true">·</span>
               <span className="capitalize">{activeSample.sampleType}</span>
@@ -1204,218 +1204,227 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-stretch sm:gap-3">
-            <div className="min-w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">Magnification</span>
-              <span className="mt-1 block text-sm font-bold text-slate-800 dark:text-slate-100">{activeSample.totalMagnification || '—'}</span>
+          <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-950/60 min-w-[76px]">
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">MAG</span>
+              <span className="block text-xs font-bold font-mono text-slate-800 dark:text-slate-100">{activeSample.totalMagnification || '—'}</span>
             </div>
-            <div className="min-w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">Fields</span>
-              <span className="mt-1 block text-sm font-bold text-slate-800 dark:text-slate-100">{activeSample.fieldsExamined || 0}</span>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-950/60 min-w-[76px]">
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">HPF</span>
+              <span className="block text-xs font-bold font-mono text-slate-800 dark:text-slate-100">{activeSample.fieldsExamined || 0} fields</span>
             </div>
-            <div className="min-w-24 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 dark:border-cyan-900/70 dark:bg-cyan-950/30">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">Candidates</span>
-              <span className="mt-1 block text-sm font-bold text-cyan-900 dark:text-cyan-100">{totalDets}</span>
+            <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 px-2.5 py-1.5 dark:border-cyan-900/60 dark:bg-cyan-950/30 min-w-[80px]">
+              <span className="block text-[9px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400">Targets</span>
+              <span className="block text-xs font-bold font-mono text-cyan-900 dark:text-cyan-100">{totalDets} candidates</span>
             </div>
           </div>
         </div>
       </section>
 
       {/* Top Session Ribbon */}
-      <div className="microscopy-command-bar overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950/40">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" aria-hidden="true" />
-            Examination controls
-          </div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">Choose a slide, then scan</span>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-3.5 text-xs">
-        <div className="flex items-center gap-3 min-w-0">
-          <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
-              SPECIMEN ACCESSION
-            </label>
-            <select
-              value={activePatient?.id ?? ''}
-              onChange={e => {
-                const patientId = e.target.value;
-                if (!patientId) return;
-                const patientSamples = samples
-                  .filter(s => s.patientId === patientId)
-                  .sort((a, b) => (a.collectionDatetime < b.collectionDatetime ? -1 : 1));
-                const sample = patientSamples[0] || samples.find(s => s.patientId === patientId);
-                if (sample) {
-                  void onSwitchPatient(patientId, sample.id);
-                }
-              }}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-cyan-500"
-            >
-              <option value="">Select a patient…</option>
-              {patients.map(p => {
-                const hasSpecimen = samples.some(s => s.patientId === p.id);
-                return (
-                  <option key={p.id} value={p.id} disabled={!hasSpecimen}>
-                    {p.fullName} · {p.patientNumber}{!hasSpecimen ? ' (no specimen)' : ''}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+      <div className="microscopy-command-bar overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 sm:p-3 text-xs">
+          {/* Left Zone: Patient, Specimen, Pipeline selectors */}
+          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider mb-0.5">
+                Specimen Accession
+              </label>
+              <select
+                value={activePatient?.id ?? ''}
+                onChange={e => {
+                  const patientId = e.target.value;
+                  if (!patientId) return;
+                  const patientSamples = samples
+                    .filter(s => s.patientId === patientId)
+                    .sort((a, b) => (a.collectionDatetime < b.collectionDatetime ? -1 : 1));
+                  const sample = patientSamples[0] || samples.find(s => s.patientId === patientId);
+                  if (sample) {
+                    void onSwitchPatient(patientId, sample.id);
+                  }
+                }}
+                className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              >
+                <option value="">Select a patient…</option>
+                {patients.map(p => {
+                  const hasSpecimen = samples.some(s => s.patientId === p.id);
+                  return (
+                    <option key={p.id} value={p.id} disabled={!hasSpecimen}>
+                      {p.fullName} · {p.patientNumber}{!hasSpecimen ? ' (no specimen)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
 
-          <div className="hidden sm:block border-l border-slate-200 dark:border-slate-800 pl-3">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
-              SPECIMEN MATRIX
-            </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
-              {activeSample.sampleType} ({activeSample.totalMagnification})
-            </span>
-          </div>
-
-          <div className="hidden md:block border-l border-slate-200 dark:border-slate-800 pl-3">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block uppercase">
-              ACTIVE LENZIAI PIPELINE
-            </span>
-            <select
-              value={selectedModelId}
-              onChange={e => setSelectedModelId(e.target.value)}
-              title={`${activeModel.name} (${activeModel.roboflowWorkflowId || activeModel.roboflowModel})`}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-xs font-mono max-w-[150px] cursor-pointer"
-            >
-              {models.map(m => (
-                <option key={m.id} value={m.id}>
-                  {compactPipelineLabel(m.roboflowWorkflowId || m.roboflowModel)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Inference Execution Actions */}
-        <div className="microscopy-command-actions flex items-center gap-2 flex-wrap justify-end w-full xl:w-auto">
-          {/* AI Consult Button */}
-          <button
-            type="button"
-            onClick={handleAiConsultation}
-            className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-sm font-bold flex items-center gap-1.5 transition cursor-pointer"
-            title="Summarise the detections you have adjudicated"
-          >
-            <Bot className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span className="hidden sm:inline">Adjudication Summary</span>
-          </button>
-
-          {/* Toggle raw JSON inspector */}
-          <button
-            type="button"
-            onClick={() => setShowRawInspector(!showRawInspector)}
-            className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-mono flex items-center gap-1 transition cursor-pointer"
-            title="Inspect LenziAI Serverless JSON output"
-          >
-            <Code2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-            <span className="hidden sm:inline">JSON</span>
-          </button>
-
-          {/* Upload new slide photos (one or more at a time) */}
-          <label
-            aria-disabled={slidesLoading || isSavingSlides}
-            className={`px-3 py-1.5 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition flex items-center gap-1.5 ${
-              slidesLoading || isSavingSlides ? 'opacity-50 cursor-wait' : 'cursor-pointer'
-            }`}
-            title="Load one or more slide photos"
-          >
-            <Upload className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-            <span className="hidden sm:inline">Load Slide</span>
-            <input type="file" accept="image/*" multiple onChange={handleCustomUpload} disabled={isSavingSlides || slidesLoading} className="hidden" />
-          </label>
-
-          {/* Capture from microscope camera */}
-          <button
-            type="button"
-            onClick={() => void camera.openCamera()}
-            disabled={isAnalyzing || isSavingSlides}
-            className="px-3 py-1.5 border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-            title="Capture live frame from connected microscope camera"
-          >
-            <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="hidden sm:inline">Capture from Microscope</span>
-          </button>
-
-          {slideChoices.length > 1 && (
-            <button
-              type="button"
-              onClick={() => void handleScanAllImages()}
-              disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null}
-              title="Scan every loaded image of this specimen and combine the findings into one report"
-              className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
-            >
-              <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>
-                Scan All Images
-                <span className="ml-1 font-mono text-[10px] font-normal text-slate-500 dark:text-slate-400">
-                  ({slideChoices.length})
-                </span>
+            <div className="hidden sm:block border-l border-slate-200 dark:border-slate-800 pl-2.5">
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider mb-0.5">
+                Matrix
               </span>
-            </button>
-          )}
+              <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize text-xs">
+                {activeSample.sampleType} ({activeSample.totalMagnification})
+              </span>
+            </div>
 
-          {slideChoices.length > 1 && (
+            <div className="hidden md:block border-l border-slate-200 dark:border-slate-800 pl-2.5">
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider mb-0.5">
+                LenziAI Model
+              </span>
+              <select
+                value={selectedModelId}
+                onChange={e => setSelectedModelId(e.target.value)}
+                title={`${activeModel.name} (${activeModel.roboflowWorkflowId || activeModel.roboflowModel})`}
+                className="bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-xs font-mono max-w-[140px] cursor-pointer"
+              >
+                {models.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {compactPipelineLabel(m.roboflowWorkflowId || m.roboflowModel)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Right Zone: Action Controls */}
+          <div className="microscopy-command-actions flex items-center gap-1.5 flex-wrap justify-end w-full xl:w-auto">
+            {/* AI Summary Button */}
             <button
               type="button"
-              onClick={() => void handleScanAndNext()}
-              disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null}
-              title="Scan this image, then move to the next unscanned one"
-              className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-cyan-500 dark:hover:border-cyan-500 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
+              onClick={handleAiConsultation}
+              className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+              title="Summarise adjudicated findings"
             >
-              <ArrowRight className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-              <span>Scan &amp; Next</span>
+              <Bot className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span className="hidden sm:inline">Summary</span>
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={() => void handleTriggerAnalysis()}
-            disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null || !activeImageUrl}
-            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
-          >
-            {isAnalyzing ? (
-              <>
-                <RotateCcw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+            {/* Toggle raw JSON inspector */}
+            <button
+              type="button"
+              onClick={() => setShowRawInspector(!showRawInspector)}
+              className="px-2 py-1 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-mono flex items-center gap-1 transition cursor-pointer"
+              title="Inspect LenziAI Serverless JSON output"
+            >
+              <Code2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span>JSON</span>
+            </button>
+
+            {/* Upload new slide photos */}
+            <label
+              aria-disabled={slidesLoading || isSavingSlides}
+              className={`px-2.5 py-1 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                slidesLoading || isSavingSlides ? 'opacity-50 cursor-wait' : 'cursor-pointer'
+              }`}
+              title="Load one or more slide photos"
+            >
+              <Upload className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span className="hidden sm:inline">Load Slide</span>
+              <input type="file" accept="image/*" multiple onChange={handleCustomUpload} disabled={isSavingSlides || slidesLoading} className="hidden" />
+            </label>
+
+            {/* Capture from microscope camera */}
+            <button
+              type="button"
+              onClick={() => void camera.openCamera()}
+              disabled={isAnalyzing || isSavingSlides}
+              className="px-2.5 py-1 border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+              title="Capture live frame from connected microscope camera"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden sm:inline">Capture</span>
+            </button>
+
+            {slideChoices.length > 1 && (
+              <button
+                type="button"
+                onClick={() => void handleScanAllImages()}
+                disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null}
+                title="Scan every loaded image of this specimen and combine the findings into one report"
+                className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>
-                  {scanProgress
-                    ? `Scanning image ${scanProgress.current} of ${scanProgress.total}…`
-                    : 'Invoking Serverless YOLO...'}
+                  Scan All
+                  <span className="ml-1 font-mono text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                    ({slideChoices.length})
+                  </span>
                 </span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current text-cyan-400 dark:text-white" />
-                <span>Scan Field with LenziAI</span>
-              </>
+              </button>
             )}
-          </button>
-        </div>
+
+            {slideChoices.length > 1 && (
+              <button
+                type="button"
+                onClick={() => void handleScanAndNext()}
+                disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null}
+                title="Scan this image, then move to the next unscanned one"
+                className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-cyan-500 dark:hover:border-cyan-500 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                <ArrowRight className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>Scan &amp; Next</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void handleTriggerAnalysis()}
+              disabled={isAnalyzing || isSavingSlides || loadingSlideId !== null || !activeImageUrl}
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-cyan-600 dark:hover:bg-cyan-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition disabled:opacity-50 cursor-pointer"
+            >
+              {isAnalyzing ? (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                  <span>
+                    {scanProgress
+                      ? `Image ${scanProgress.current}/${scanProgress.total}…`
+                      : 'Scanning…'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current text-cyan-400 dark:text-white" />
+                  <span>Scan Field</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Uploaded slide thumbnails — click to select the active slide */}
       {uploadedSlides.length > 0 && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2 shadow-xs">
-          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 shrink-0">
-              {slidesLoading ? 'Loading saved slides…' : isSavingSlides ? 'Saving images…' : `Saved Slides (${uploadedSlides.length})`}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 shrink-0 px-1">
+              {slidesLoading ? 'Loading…' : isSavingSlides ? 'Saving…' : `Slides (${uploadedSlides.length})`}
             </span>
+
+            {/* Left navigation arrow */}
+            <button
+              type="button"
+              onClick={() => changeSlide(-1)}
+              aria-label="Previous slide"
+              title="Previous specimen image"
+              className="shrink-0 w-6 h-10 flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-800 text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-30 cursor-pointer transition-colors"
+              disabled={slideChoices.length < 2}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Primary specimen image button */}
             <button
               type="button"
               onClick={() => { setActiveSlideRef('primary'); setCustomSlideDataUrl(null); setInferenceError(null); }}
               title="Switch back to the specimen's stored slide image"
-              className={`shrink-0 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border transition ${
+              className={`shrink-0 px-2 py-1.5 h-10 rounded-lg text-[10px] font-bold uppercase tracking-wider border flex items-center justify-center transition cursor-pointer ${
                 activeSlideRef === 'primary'
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
-                  : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-400'
               }`}
             >
-              Specimen image
+              Specimen
             </button>
+
             {uploadedSlides.map((slide, index) => {
               const isActive = activeSlideRef === slide.id;
               const hasFindings = analyses.some(analysis =>
@@ -1423,71 +1432,53 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                 analysis.detections.some(d => d.imageRef === slide.id)
               );
               return (
-                <div key={slide.id} className="shrink-0">
+                <div key={slide.id} className="shrink-0 flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => void selectSlide(slide)}
                     disabled={isAnalyzing || loadingSlideId !== null}
-                    title={`Use ${slide.name} as the active slide`}
-                    className={`relative block w-16 h-12 overflow-hidden rounded-lg border-2 transition ${
+                    title={`Use ${slide.name} as active slide`}
+                    className={`relative block w-14 h-10 overflow-hidden rounded-lg border transition cursor-pointer ${
                       isActive
                         ? 'border-emerald-500 ring-2 ring-emerald-500/30'
-                        : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'
                     }`}
                   >
                     {slide.dataUrl ? (
                       <img src={slide.dataUrl} alt={slide.name} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
-                      <span className="flex h-full w-full items-center justify-center bg-slate-100 text-[9px] font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                        {loadingSlideId === slide.id ? 'Loading…' : 'Select to load'}
-                      </span>
-                    )}
-                    {loadingSlideId === slide.id && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-slate-950/55 text-[9px] font-bold text-white">
-                        Loading…
+                      <span className="flex h-full w-full items-center justify-center bg-slate-100 text-[8px] font-semibold text-slate-400 dark:bg-slate-800">
+                        {loadingSlideId === slide.id ? '…' : 'Load'}
                       </span>
                     )}
                     {hasFindings && (
-                      <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900" title="Findings recorded for this slide" />
+                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-slate-900" title="Findings recorded" />
                     )}
                   </button>
-                  <div className="relative w-16 mt-0.5">
-                    <span className="block text-[9px] text-slate-500 dark:text-slate-400 text-center truncate">
-                      {index + 1}. {slide.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void removeSlide(slide.id)}
-                      disabled={hasFindings || isSavingSlides || isAnalyzing}
-                      aria-label={`Remove ${slide.name}`}
-                      title={hasFindings ? 'This slide has saved scan findings and cannot be removed.' : 'Remove this saved slide'}
-                      className="absolute top-0 right-0 w-3.5 h-3.5 bg-slate-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center cursor-pointer"
-                    >
-                      <X className="w-2 h-2" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void removeSlide(slide.id)}
+                    disabled={hasFindings || isSavingSlides || isAnalyzing}
+                    aria-label={`Remove ${slide.name}`}
+                    title={hasFindings ? 'Has saved scan findings' : 'Remove image'}
+                    className="w-4 h-4 bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 rounded-full flex items-center justify-center disabled:opacity-20 cursor-pointer transition-colors"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
                 </div>
               );
             })}
+
+            {/* Right navigation arrow */}
             <button
               type="button"
               onClick={() => changeSlide(1)}
               aria-label="Next slide"
               title="Next specimen image"
-              className="shrink-0 w-7 h-12 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-40"
+              className="shrink-0 w-6 h-10 flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-800 text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-30 cursor-pointer transition-colors"
               disabled={slideChoices.length < 2}
             >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => changeSlide(-1)}
-              aria-label="Previous slide"
-              title="Previous specimen image"
-              className="shrink-0 w-7 h-12 flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-40"
-              disabled={slideChoices.length < 2}
-            >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

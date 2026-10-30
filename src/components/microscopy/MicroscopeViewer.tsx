@@ -723,13 +723,13 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (e.touches.length === 1 && isPanning) {
+    if (e.touches.length === 1 && isPanning && !isSlideStationary) {
       const touch = e.touches[0];
       setPan(clampPan({
         x: touch.clientX - startPan.x,
         y: touch.clientY - startPan.y
       }, zoom));
-    } else if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+    } else if (e.touches.length === 2 && touchStartDistRef.current !== null && !isSlideStationary) {
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -758,6 +758,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   };
 
   const translateMechanicalStage = (dxMm: number, dyMm: number) => {
+    if (isSlideStationary) return;
     setStageVernierX(prev => parseFloat(Math.min(75, Math.max(10, prev + dxMm)).toFixed(2)));
     setStageVernierY(prev => parseFloat(Math.min(50, Math.max(5, prev + dyMm)).toFixed(2)));
     setPan(prev => clampPan({
@@ -824,69 +825,70 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const selectedDetection = detections.find(d => d.id === selectedDetectionId);
 
   return (
-    <div className="microscope-viewer self-start w-full flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+    <div className={`microscope-viewer self-start w-full flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md ${isSlideStationary ? "microscope-viewer-stationary" : ""}`}>
       {/* Top Toolbar - Clean visual zones for Slide Info | View Modes | Tools */}
-      <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-3.5">
-        <div className="flex flex-col gap-3 xl:gap-4">
-          {/* Left Zone: Slide Information & Field Stepper */}
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="flex items-center gap-2 font-mono text-cyan-300 font-semibold bg-slate-900/80 px-3 py-2 rounded-lg border border-cyan-900/60 shadow-sm">
-              <Crosshair className="w-5 h-5" />
-              <span className="truncate max-w-[160px] sm:max-w-none text-sm sm:text-base">{slideLabel}</span>
-            </div>
-            <div className="flex items-center gap-2 px-1 sm:px-2 text-[11px] sm:text-xs">
-              <span className="font-mono text-slate-400 text-sm">OBJ: {objective}</span>
-              <span className="text-slate-600 dark:text-slate-400">·</span>
-              <span className="font-mono text-slate-400 text-sm">MAG: {totalMagnification}</span>
-            </div>
-            {/* Multi-field Scan Stepper - Compact & Prominent */}
-            <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-700">
-              <span className="text-slate-300 text-xs font-semibold">HPF:</span>
-              <button
-                type="button"
-                onClick={() => {
-                  playTurretClick();
-                  onFieldChange?.(Math.max(1, currentField - 1));
-                }}
-                disabled={currentField <= 1}
-                className="flex items-center justify-center w-8 h-8 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer transition-colors touch-target"
-                aria-label="Previous field"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-2 px-2">
-                <span className="text-cyan-200 font-mono font-bold text-base min-w-[4ch] text-center">
+      <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-2.5">
+        <div className="flex flex-col gap-2">
+          {/* Row 1: Slide Context, HPF Stepper, View Modes, and Viewport Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Left: Specimen & Field Context */}
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 font-mono text-cyan-300 font-semibold bg-slate-900/90 px-2.5 py-1.5 rounded-lg border border-cyan-900/60 shadow-sm text-xs sm:text-sm">
+                <Crosshair className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span className="truncate max-w-[140px] sm:max-w-[200px]">{slideLabel}</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/60 border border-slate-800 text-[11px] font-mono text-slate-300">
+                <span className="text-slate-400">{objective}</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-cyan-400 font-bold">{totalMagnification}</span>
+              </div>
+              {/* Multi-field Scan Stepper - Compact & Prominent */}
+              <div className="flex items-center gap-1.5 bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-700/80 shadow-xs">
+                <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">HPF:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTurretClick();
+                    onFieldChange?.(Math.max(1, currentField - 1));
+                  }}
+                  disabled={currentField <= 1}
+                  className="flex items-center justify-center w-6 h-6 rounded text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
+                  aria-label="Previous field"
+                  title="Previous field of view"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-cyan-200 font-mono font-bold text-xs min-w-[3.5ch] text-center">
                   {currentField}/{totalFields}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playTurretClick();
+                    onFieldChange?.(Math.min(totalFields, currentField + 1));
+                  }}
+                  disabled={currentField >= totalFields}
+                  className="flex items-center justify-center w-6 h-6 rounded text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
+                  aria-label="Next field"
+                  title="Next field of view"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  playTurretClick();
-                  onFieldChange?.(Math.min(totalFields, currentField + 1));
-                }}
-                disabled={currentField >= totalFields}
-                className="flex items-center justify-center w-8 h-8 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer transition-colors touch-target"
-                aria-label="Next field"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
             </div>
-          </div>
 
-          {/* Center Zone: View Mode Filters - Prominent & Grouped */}
-          <div className="w-full min-w-0 xl:max-w-none">
-            <div className="bg-slate-900/70 rounded-xl border border-slate-800 p-1.5">
-              <div className="microscope-view-modes flex items-center justify-start gap-1.5 overflow-x-auto no-scrollbar" role="group" aria-label="View filter modes">
-                {['boxes', 'original', 'enhanced', 'darkfield', 'split'].map(mode => (
+            {/* Center/Right: View Filter Modes + Slide Lock & Fullscreen */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <div className="bg-slate-900/80 rounded-lg border border-slate-800 p-0.5 flex items-center gap-0.5" role="group" aria-label="View filter modes">
+                {(['boxes', 'original', 'enhanced', 'darkfield', 'split']).map(mode => (
                   <button
                     key={mode}
                     type="button"
-                    onClick={() => setFilterMode(mode as ViewFilterMode)}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer touch-target ${
+                    onClick={() => setFilterMode(mode)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all whitespace-nowrap cursor-pointer ${
                       filterMode === mode
                         ? 'bg-cyan-500/25 text-cyan-200 shadow-sm border border-cyan-500/40'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
                     }`}
                     aria-pressed={filterMode === mode}
                   >
@@ -898,189 +900,189 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                   </button>
                 ))}
               </div>
+
+              <div className="flex items-center gap-1 border-l border-slate-800 pl-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSlideStationary(current => !current)}
+                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer ${
+                    isSlideStationary
+                      ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-300'
+                      : 'border-slate-800 bg-slate-900/70 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                  title={isSlideStationary ? 'Unlock slide movement' : 'Lock slide position'}
+                  aria-label={isSlideStationary ? 'Unlock slide movement' : 'Lock slide position'}
+                  aria-pressed={isSlideStationary}
+                >
+                  {isSlideStationary ? <LockKeyhole className="h-3.5 w-3.5" /> : <UnlockKeyhole className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void toggleSlideFullscreen()}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-800 bg-slate-900/70 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
+                  title={isSlideFullscreen ? 'Exit fullscreen slide view' : 'Open fullscreen slide view'}
+                  aria-label={isSlideFullscreen ? 'Exit fullscreen slide view' : 'Open fullscreen slide view'}
+                  aria-pressed={isSlideFullscreen}
+                >
+                  {isSlideFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Right Zone: Primary Optical Controls - Grouped by function */}
-          <button
-            type="button"
-            onClick={() => setIsSlideStationary(current => !current)}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-              isSlideStationary
-                ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-300'
-                : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-            title={isSlideStationary ? 'Unlock slide movement' : 'Lock slide position'}
-            aria-label={isSlideStationary ? 'Unlock slide movement' : 'Lock slide position'}
-            aria-pressed={isSlideStationary}
-          >
-            {isSlideStationary ? <LockKeyhole className="h-4 w-4" /> : <UnlockKeyhole className="h-4 w-4" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => void toggleSlideFullscreen()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
-            title={isSlideFullscreen ? 'Exit fullscreen slide view' : 'Open fullscreen slide view'}
-            aria-label={isSlideFullscreen ? 'Exit fullscreen slide view' : 'Open fullscreen slide view'}
-            aria-pressed={isSlideFullscreen}
-          >
-            {isSlideFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-          </button>
-          <div className="w-full flex flex-wrap items-center justify-start gap-2">
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 px-1">Tools</span>
-            {/* Imaging Controls */}
-            <div className="flex items-center gap-1.5 bg-slate-900/70 rounded-xl border border-slate-700 p-1.5 overflow-x-auto max-w-full flex-1 min-w-0">
-              <button
-                type="button"
-                onClick={() => setShowReticleGrid(!showReticleGrid)}
-                    className={`shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
-                  showReticleGrid
-                    ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-                title="Toggle Concentric Ocular Reticle Graticule"
-                aria-pressed={showReticleGrid}
-                aria-label="Reticle Grid"
-              >
-                <Compass className="w-4.5 h-4.5" />
-                <span className="text-[11px] font-semibold whitespace-nowrap">Reticle</span>
-              </button>
+          {/* Row 2: Optical Tools, Zoom Bar, and Active Status */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-xs">
+            {/* Imaging Tools Segmented Group */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 pr-1">Tools</span>
+              <div className="flex items-center gap-1 bg-slate-900/80 rounded-lg border border-slate-800 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowReticleGrid(!showReticleGrid)}
+                  className={`h-7 px-2.5 flex items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                    showReticleGrid
+                      ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+                  }`}
+                  title="Toggle Concentric Ocular Reticle Graticule"
+                  aria-pressed={showReticleGrid}
+                  aria-label="Reticle Grid"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Reticle</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMeasuring(!isMeasuring);
-                  setIsAddingBox(false);
-                  setRulerPoints([]);
-                }}
-                    className={`shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
-                  isMeasuring
-                    ? 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-                title="Micrometer Caliper"
-                aria-pressed={isMeasuring}
-                aria-label="Measurement Tool"
-              >
-                <Ruler className="w-4.5 h-4.5" />
-                <span className="text-[11px] font-semibold whitespace-nowrap">Measure</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMeasuring(!isMeasuring);
+                    setIsAddingBox(false);
+                    setRulerPoints([]);
+                  }}
+                  className={`h-7 px-2.5 flex items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                    isMeasuring
+                      ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+                  }`}
+                  title="Micrometer Caliper [M]"
+                  aria-pressed={isMeasuring}
+                  aria-label="Measurement Tool"
+                >
+                  <Ruler className="w-3.5 h-3.5" />
+                  <span>Measure</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setIsEyepieceMask(!isEyepieceMask)}
-                    className={`shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg transition cursor-pointer touch-target ${
-                  isEyepieceMask
-                    ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                }`}
-                title="Circular Eyepiece Aperture"
-                aria-pressed={isEyepieceMask}
-                aria-label="Eyepiece Mask"
-              >
-                <Sun className="w-4.5 h-4.5" />
-                <span className="text-[11px] font-semibold whitespace-nowrap">Eyepiece</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEyepieceMask(!isEyepieceMask)}
+                  className={`h-7 px-2.5 flex items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition cursor-pointer ${
+                    isEyepieceMask
+                      ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+                  }`}
+                  title="Circular Eyepiece Aperture"
+                  aria-pressed={isEyepieceMask}
+                  aria-label="Eyepiece Mask"
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span>Eyepiece</span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={handleCaptureSnapshot}
+                  className="h-7 px-2.5 flex items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 border border-transparent transition cursor-pointer"
+                  title="Capture Field Photomicrograph"
+                  aria-label="Capture Snapshot"
+                >
+                  <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Capture</span>
+                </button>
+              </div>
+
+              {/* Mobile Controls Button (compact) */}
               <button
                 type="button"
-                onClick={handleCaptureSnapshot}
-                className="shrink-0 min-h-10 min-w-10 px-2 flex items-center justify-center gap-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
-                title="Capture Field Photomicrograph"
-                aria-label="Capture Snapshot"
+                onClick={() => setShowControlsPanel(!showControlsPanel)}
+                className={`lg:hidden flex h-7 px-2 items-center justify-center gap-1 rounded-md border text-[11px] font-semibold transition cursor-pointer ${
+                  showControlsPanel
+                    ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/40'
+                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200'
+                }`}
+                title="Optical Controls"
+                aria-label="Optical Controls"
+                aria-expanded={showControlsPanel}
+                aria-controls="mobile-controls-panel"
               >
-                <Camera className="w-4.5 h-4.5" />
-                <span className="text-[11px] font-semibold whitespace-nowrap">Capture</span>
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Optics</span>
               </button>
             </div>
 
-            {/* Mobile Controls Panel Toggle - Only on mobile/tablet */}
-            <button
-              type="button"
-              onClick={() => setShowControlsPanel(!showControlsPanel)}
-              className={`lg:hidden flex w-9 h-9 items-center justify-center rounded-lg transition cursor-pointer touch-target ${
-                showControlsPanel
-                  ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-              title="Optical Controls"
-              aria-label="Optical Controls"
-              aria-expanded={showControlsPanel}
-              aria-controls="mobile-controls-panel"
-            >
-              <SlidersHorizontal className="w-4.5 h-4.5" />
-            </button>
-
-            <div className="flex items-center gap-1.5 bg-slate-900/70 rounded-xl border border-slate-800 p-1.5">
-              <button
-                type="button"
-                onClick={() => zoomAroundPoint(zoom - 0.25)}
-                disabled={isSlideStationary}
-                className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
-                title="Zoom Out"
-                aria-label="Zoom Out"
-              >
-                <ZoomOut className="w-4.5 h-4.5" />
-              </button>
-              <div className="flex items-center justify-center px-1.5 text-center">
-                <span className="font-mono text-xs text-slate-300 whitespace-nowrap">
+            {/* Zoom and Navigation Quick Tools */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-1 bg-slate-900/80 rounded-lg border border-slate-800 px-1.5 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => zoomAroundPoint(zoom - 0.25)}
+                  disabled={isSlideStationary}
+                  className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
+                  title="Zoom Out [-]"
+                  aria-label="Zoom Out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-mono text-[11px] font-semibold text-slate-300 w-11 text-center">
                   {Math.round(zoom * 100)}%
                 </span>
+                <button
+                  type="button"
+                  onClick={() => zoomAroundPoint(zoom + 0.25)}
+                  disabled={isSlideStationary}
+                  className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
+                  title="Zoom In [+]"
+                  aria-label="Zoom In"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <input
+                  type="range"
+                  min={MIN_ZOOM}
+                  max={MAX_ZOOM}
+                  step="0.05"
+                  value={zoom}
+                  onChange={(e) => zoomAroundPoint(Number(e.target.value))}
+                  disabled={isSlideStationary}
+                  className="hidden sm:block w-20 h-1.5 accent-cyan-400 cursor-pointer ml-1"
+                  aria-label="Zoom level"
+                  title="Adjust zoom level"
+                />
+                <button
+                  type="button"
+                  onClick={resetView}
+                  className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors ml-0.5"
+                  title="Reset View [0]"
+                  aria-label="Reset View"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => zoomAroundPoint(zoom + 0.25)}
-                disabled={isSlideStationary}
-                className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
-                title="Zoom In"
-                aria-label="Zoom In"
-              >
-                <ZoomIn className="w-4.5 h-4.5" />
-              </button>
-              <input
-                type="range"
-                min={MIN_ZOOM}
-                max={MAX_ZOOM}
-                step="0.05"
-                value={zoom}
-                onChange={(e) => zoomAroundPoint(Number(e.target.value))}
-                disabled={isSlideStationary}
-                className="hidden sm:block w-24 accent-cyan-400 cursor-pointer"
-                aria-label="Zoom level"
-                title="Adjust zoom level"
-              />
-              <button
-                type="button"
-                onClick={resetView}
-                className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors touch-target"
-                title="Reset All Controls"
-                aria-label="Reset View"
-              >
-                <RotateCcw className="w-4.5 h-4.5" />
-              </button>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-2 text-[10px] sm:text-[11px]">
-            <div className="flex items-center gap-2 text-slate-400">
-              {activeTool === 'label' ? (
-                <PlusCircle className="h-3.5 w-3.5 text-cyan-300" />
-              ) : activeTool === 'measure' ? (
-                <Ruler className="h-3.5 w-3.5 text-amber-300" />
-              ) : (
-                <LocateFixed className="h-3.5 w-3.5 text-emerald-300" />
-              )}
-              <span className="uppercase tracking-[0.14em] text-slate-500">Active tool</span>
-              <span className="font-semibold text-slate-200">
-                {activeTool === 'label' ? 'Label target' : activeTool === 'measure' ? 'Measure field' : 'Inspect field'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-slate-500">
-              <ScanSearch className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Wheel / pinch zoom</span>
-              <span className="hidden sm:inline">·</span>
-              <span className="hidden sm:inline">Drag to pan</span>
-              <span className="hidden md:inline font-mono text-slate-600">M measure · L label · 0 reset</span>
+              {/* Active Tool Badge */}
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/50 border border-slate-800 text-[10px] text-slate-400 font-mono">
+                {activeTool === 'label' ? (
+                  <PlusCircle className="h-3 w-3 text-cyan-400" />
+                ) : activeTool === 'measure' ? (
+                  <Ruler className="h-3 w-3 text-amber-400" />
+                ) : (
+                  <LocateFixed className="h-3 w-3 text-emerald-400" />
+                )}
+                <span className="text-slate-300 font-medium">
+                  {activeTool === 'label' ? 'Labeling' : activeTool === 'measure' ? 'Measuring' : 'Inspecting'}
+                </span>
+                <span className="text-slate-600 hidden md:inline">· M/L/0</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1181,7 +1183,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             <div className="absolute top-4 inset-x-0 flex items-center justify-center">
               <div className="bg-slate-950/90 border border-cyan-500/60 px-4 py-2 rounded-xl text-cyan-300 font-mono text-xs flex items-center gap-2 shadow-2xl">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-                <span>LENZIAI SERVERLESS INFERENCE ACTIVE · EXTRACTING MORPHOLOGY</span>
+                <span className="font-semibold tracking-wide">LENZIAI YOLO ACTIVE · SCANNING FIELD</span>
               </div>
             </div>
           </div>
@@ -1499,7 +1501,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
 
         {/* Selected Box Quick Inspector Card */}
         {selectedDetection && (
-          <div className="absolute top-16 sm:top-4 right-3 lg:right-64 bg-slate-900/98 backdrop-blur-md border border-cyan-500/40 p-3 sm:p-4 rounded-xl shadow-2xl w-[min(20rem,calc(100%-1.5rem))] text-slate-200 text-sm z-10">
+          <div className={`absolute top-14 sm:top-4 right-3 ${showRightPanel ? "lg:right-72" : "lg:right-16"} bg-slate-900/98 backdrop-blur-md border border-cyan-500/40 p-3 sm:p-4 rounded-xl shadow-2xl w-[min(20rem,calc(100%-1.5rem))] text-slate-200 text-sm z-10`}>
             <div className="flex items-start justify-between border-b border-slate-800 pb-2.5 mb-2.5">
               <div>
                 <span className="font-semibold text-cyan-300 text-sm block mb-1">

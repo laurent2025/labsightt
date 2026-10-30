@@ -196,7 +196,7 @@ export const TechnologistReview = React.memo(
   return (
     <div className="technologist-review clinical-form flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-sm transition-colors duration-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-cyan-50/50 px-4 py-4 dark:border-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/20 sm:px-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-cyan-50/50 px-4 py-3 dark:border-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/20 sm:px-5">
         <div>
           <div className="mb-1.5 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-700 dark:border-cyan-900/70 dark:bg-cyan-950/40 dark:text-cyan-300">
@@ -209,7 +209,7 @@ export const TechnologistReview = React.memo(
           </div>
           <div className="flex items-center gap-2">
             <h2 className="max-w-full break-words text-lg font-bold tracking-tight text-slate-950 dark:text-white sm:text-xl">
-              Laboratory Findings & Technologist Review
+              Laboratory Findings & Review
             </h2>
           </div>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
@@ -279,7 +279,7 @@ export const TechnologistReview = React.memo(
         )}
 
         {/* Patient Demographics Banner */}
-        <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-xs dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-2 sm:p-4">
+        <div className="grid grid-cols-1 gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 text-sm shadow-xs dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-2 sm:p-3">
           <div className="flex min-w-0 items-start gap-2.5">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300">
               <UserRound className="h-4 w-4" />
@@ -477,7 +477,7 @@ export const TechnologistReview = React.memo(
             </div>
           </div>
 
-          <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 sm:max-h-72">
+          <div className="space-y-1.5 max-h-72 sm:max-h-80 lg:max-h-[28rem] overflow-y-auto pr-1">
             {filteredDetections.length === 0 ? (
               <p className="text-xs text-slate-400 italic">No targets matching confidence filter.</p>
             ) : (

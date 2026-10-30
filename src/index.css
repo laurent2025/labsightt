@@ -1434,3 +1434,21 @@ label {
     display: none;
   }
 }
+
+/* Stationary microscope viewer: pinned when scrolling workspace */
+.microscope-viewer-stationary {
+  position: sticky !important;
+  top: 0.75rem !important;
+  z-index: 25 !important;
+}
+
+.microscope-stage.is-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  border-radius: 0 !important;
+  background: #080d15 !important;
+}
