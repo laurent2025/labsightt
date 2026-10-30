@@ -161,7 +161,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const pipelinePresets = {
     stool: {
       name: "Enteric Parasite & Protozoa Pipeline",
-      model: "LENZIAI PRO vlenziai-pro-1-yolo26s-t1 Logic",
+      model: "LENZIAI",
       configured: true,
       stain: "Lugol's Iodine Wet Mount",
       mag: "400x (High Dry 40x)",

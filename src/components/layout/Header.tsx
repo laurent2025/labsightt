@@ -84,115 +84,123 @@ export const Header: React.FC<HeaderProps> = ({
 
   const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
 
-  // Staggered entrance animation for tabs
-  const [tabsMounted, setTabsMounted] = useState(false);
-  useEffect(() => {
-    setTabsMounted(true);
-  }, [visibleTabs.length]);
-
-return (
+  return (
     <header
-      className={`app-header no-print sticky top-0 z-40 safe-top transition-all duration-300 ${
+      className={`app-header no-print sticky top-0 z-40 safe-top transition-all duration-200 ${
         scrolled
-          ? 'bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl shadow-lg shadow-slate-900/5 dark:shadow-black/40 border-b border-slate-200 dark:border-slate-800'
-          : 'bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200/60 dark:border-slate-800/60'
+          ? 'bg-white/95 dark:bg-slate-950/95 backdrop-blur-md shadow-sm border-b border-slate-200 dark:border-slate-800'
+          : 'bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm border-b border-slate-200/70 dark:border-slate-800/70'
       }`}
     >
-      <div className="max-w-[1440px] mx-auto gutter-x h-14 md:h-16 xl:h-[72px] flex items-center justify-between gap-2 sm:gap-3">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 h-13 sm:h-14 flex items-center justify-between gap-2">
         {/* Zone 1: Wordmark */}
-        <div className="flex items-center gap-2.5 lg:gap-3 shrink-0" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => handleTabClick('dashboard')}
-            className="flex items-center gap-2.5 group whitespace-nowrap cursor-pointer bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950 rounded-lg"
+            className="flex items-center gap-2 group whitespace-nowrap cursor-pointer bg-transparent border-none p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
             aria-label="LenziAI Dashboard"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-green-300 bg-gradient-to-br from-green-500 to-emerald-700 text-white shadow-sm shadow-green-900/20 transition-transform duration-200 group-hover:scale-105 dark:border-green-700 dark:from-green-500 dark:to-green-800">
-              <Microscope className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+            <span className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-400/40 bg-gradient-to-br from-emerald-500 to-teal-700 text-white shadow-xs">
+              <Microscope className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
             </span>
-            <div className="flex flex-col">
-              <span className="text-sm md:text-base lg:text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent leading-tight">
-                LenziAI
-              </span>
-              <span className="hidden sm:inline-block text-[9px] font-mono font-semibold text-green-700 dark:text-green-300 tracking-wider uppercase leading-tight">
-                AI Clinical
+            <div className="flex flex-col text-left">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+                  LenziAI
+                </span>
+                <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="System Online" />
+              </div>
+              <span className="hidden sm:inline-block text-[9px] font-mono font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mt-0.5">
+                Clinical
               </span>
             </div>
           </button>
         </div>
 
-{/*
-         * Zone 2: Desktop navigation.
-         *
-         * Shown from lg up, but allowed to scroll horizontally inside its own
-         * box: an administrator sees seven tabs, and at exactly 1024px those
-         * plus the action cluster no longer fit beside the wordmark. Scrolling
-         * degrades gracefully where shrinking or clipping would not.
-         */}
-        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 text-sm font-bold min-w-0 flex-1 justify-center no-scrollbar overflow-x-auto py-1" role="navigation" aria-label="Main navigation">
-          {visibleTabs.map((tab, index) => (
-            <button
-              key={tab.tab}
-              type="button"
-              onClick={() => handleTabClick(tab.tab)}
-              aria-current={activeTab === tab.tab ? 'page' : undefined}
-              className={`relative px-2.5 xl:px-3 py-2 min-h-[40px] rounded-lg transition-all duration-200 whitespace-nowrap cursor-pointer shrink-0 touch-target ${
-                activeTab === tab.tab
-                  ? 'text-green-800 dark:text-green-200 bg-green-50 dark:bg-green-950/50 ring-1 ring-inset ring-green-200 dark:ring-green-900'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/70'
-              }`}
-              style={{
-                animationDelay: tabsMounted ? `${index * 50}ms` : '0ms',
-                opacity: tabsMounted ? 1 : 0,
-                transform: tabsMounted ? 'translateY(0)' : 'translateY(-8px)',
-                animation: tabsMounted ? 'fadeInUp 0.4s ease-out forwards' : 'none'
-              }}
-            >
-              <span className="flex items-center gap-1.5">
+        {/* Zone 2: Compact Desktop navigation */}
+        <nav
+          className="hidden lg:flex items-center gap-0.5 sm:gap-1 text-xs font-semibold shrink-0"
+          role="navigation"
+          aria-label="Main navigation"
+        >
+          {visibleTabs.map(tab => {
+            const isActive = activeTab === tab.tab;
+            return (
+              <button
+                key={tab.tab}
+                type="button"
+                onClick={() => handleTabClick(tab.tab)}
+                aria-current={isActive ? 'page' : undefined}
+                className={`relative px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
+                  isActive
+                    ? 'text-emerald-900 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/60 ring-1 ring-emerald-300 dark:ring-emerald-800'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
                 <span>{tab.label}</span>
                 {tab.tab === 'microscopy' && pendingReviewCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950 shadow-xs animate-pulse">
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-amber-500 text-slate-950 shadow-2xs">
                     {pendingReviewCount}
                   </span>
                 )}
-              </span>
-              {activeTab === tab.tab && (
-                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-gradient-to-r from-green-600 to-green-800 dark:from-green-400 dark:to-green-600 rounded-full animate-scale-in" />
-              )}
-            </button>
-          ))}
+                {isActive && (
+                  <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-emerald-600 dark:bg-emerald-400 rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Zone 3: Actions */}
+        {/* Zone 3: Compact Actions Cluster */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Active AI Workflow Pill */}
-          <div className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-mono font-semibold text-emerald-800 dark:text-emerald-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>LENZIAI PRO · YOLO26s</span>
-          </div>
+          {/* Quick Accession button */}
+          <button
+            type="button"
+            onClick={onOpenNewPatient}
+            className="flex items-center gap-1.5 h-8 px-2.5 sm:px-3 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-2xs hover:shadow-xs transition cursor-pointer whitespace-nowrap"
+            title="Accession New Specimen"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Accession</span>
+          </button>
 
-          {/* Account dropdown */}
-          <div className="hidden sm:block relative" ref={accountRef}>
+          {/* Theme toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <Moon className="w-3.5 h-3.5 text-slate-700" />
+            )}
+          </button>
+
+          {/* Compact Account dropdown */}
+          <div className="relative" ref={accountRef}>
             <button
               type="button"
               onClick={() => setAccountOpen(open => !open)}
               aria-expanded={accountOpen}
               aria-label="Account menu"
-              className="flex items-center gap-2 min-h-[44px] pl-2 pr-2.5 xl:pl-2.5 xl:pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-green-400 dark:hover:border-green-700 transition-all duration-200 cursor-pointer group"
+              className="flex items-center gap-1.5 h-8 pl-1.5 pr-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition cursor-pointer group"
             >
-              <div className="flex flex-col items-end leading-tight hidden xl:flex">
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 max-w-[140px] 2xl:max-w-[180px] truncate group-hover:text-green-900 dark:group-hover:text-green-100 transition-colors">
-                  {operatorName}
-                </span>
-                <span className="text-[10px] font-mono flex items-center gap-1 text-slate-600 dark:text-slate-400">
-                  <ShieldCheck className="w-3 h-3 text-green-700 dark:text-green-400" />
-                  {isAdmin ? 'Administrator' : 'Member'}
-                </span>
-              </div>
-              <span className="w-8 h-8 rounded-full bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-950 border border-green-300 dark:border-green-800 text-green-900 dark:text-green-200 text-xs font-bold flex items-center justify-center group-hover:from-green-200 group-hover:to-green-300 dark:group-hover:from-green-800 dark:group-hover:to-green-900 transition-all">
+              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white text-[10px] font-bold flex items-center justify-center">
                 {(operatorName || '?').trim().charAt(0).toUpperCase()}
               </span>
-              <ChevronDown className={`hidden xl:block w-3.5 h-3.5 text-slate-500 dark:text-slate-400 transition-transform duration-200 ${accountOpen ? 'rotate-180' : ''}`} />
+              <div className="hidden xl:flex flex-col items-start leading-none text-left">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[85px] truncate">
+                  {operatorName}
+                </span>
+                <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400">
+                  {isAdmin ? 'Admin' : 'Tech'}
+                </span>
+              </div>
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${accountOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {accountOpen && (
@@ -202,177 +210,113 @@ return (
                   onClick={() => setAccountOpen(false)}
                   aria-hidden="true"
                 />
-                <div className="absolute right-0 top-full mt-2 z-50 w-[min(18rem,calc(100vw-2rem))] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-black/50 p-4 space-y-3 animate-scale-in">
-                  <div className="pb-3 border-b border-slate-100 dark:border-slate-800 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-950 border border-green-300 dark:border-green-800 text-green-900 dark:text-green-200 text-sm font-bold flex items-center justify-center">
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl p-3 space-y-2.5 animate-scale-in">
+                  <div className="pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white text-xs font-bold flex items-center justify-center">
                         {(operatorName || '?').trim().charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">{operatorName}</div>
-                        <div className="text-[11px] font-mono text-slate-600 dark:text-slate-400 truncate">
-                          {operatorEmail || 'No email on file'}
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{operatorName}</div>
+                        <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
+                          {operatorEmail || 'Clinical Operator'}
                         </div>
                       </div>
                     </div>
-                    <span
-                      className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold uppercase ${
-                        isAdmin
-                          ? 'bg-green-100 dark:bg-green-950 text-green-900 dark:text-green-200 border border-green-300 dark:border-green-800'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
-                      }`}
-                    >
-                      {isAdmin ? 'Administrator' : 'Member'}
-                    </span>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        <ShieldCheck className="w-2.5 h-2.5" />
+                        {isAdmin ? 'Administrator' : 'Laboratory Staff'}
+                      </span>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      onChangePassword();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  >
-                    <div className="w-7 h-7 shrink-0 rounded-lg bg-green-50 dark:bg-green-950/60 border border-green-200 dark:border-green-800 flex items-center justify-center">
-                      <KeyRound className="w-3.5 h-3.5 text-green-700 dark:text-green-400" />
-                    </div>
-                    Change password
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOpen(false);
-                      onLogout();
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors cursor-pointer"
-                  >
-                    <div className="w-7 h-7 shrink-0 rounded-lg bg-green-100 dark:bg-green-950/60 border border-green-300 dark:border-green-800 flex items-center justify-center">
-                      <LogOut className="w-3.5 h-3.5 text-green-800 dark:text-green-300" />
-                    </div>
-                    Sign out
-                  </button>
+
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        onChangePassword();
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Change password</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign out</span>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
           </div>
 
-          {/* Theme toggle */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="hidden sm:flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:text-green-800 dark:hover:text-green-300 hover:border-green-400 dark:hover:border-green-700 hover:bg-green-50/60 dark:hover:bg-green-950/40 transition-all duration-200 cursor-pointer"
-            title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme (Microscopy Darkroom)'}
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? (
-              <Sun className="w-4 h-4 text-green-400" />
-            ) : (
-              <Moon className="w-4 h-4 text-green-700" />
-            )}
-          </button>
-
-          {/* Accession button (md and up - labelled) */}
-          <button
-            type="button"
-            onClick={onOpenNewPatient}
-            className="hidden md:flex min-h-[44px] px-3.5 xl:px-4 py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 dark:from-green-600 dark:to-green-800 dark:hover:from-green-500 dark:hover:to-green-700 text-white rounded-xl text-sm font-bold items-center gap-2 shadow-md shadow-slate-900/15 dark:shadow-green-950/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden lg:inline">Accession Specimen</span>
-            <span className="lg:hidden">Accession</span>
-          </button>
-
-          {/* Accession button (below md - icon only) */}
-          <button
-            type="button"
-            onClick={onOpenNewPatient}
-            className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 dark:from-green-600 dark:to-green-800 text-white shadow-md shadow-slate-900/15 dark:shadow-green-950/40 transition-transform active:scale-95"
-            aria-label="Accession new specimen"
-          >
-            <UserPlus className="w-4 h-4" />
-          </button>
-
-          {/* Mobile menu toggle */}
+          {/* Mobile hamburger menu toggle */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/*
-       * Mobile Dropdown Navigation.
-
-       * Capped at the available viewport height and scrollable: on a landscape
-       * phone, or a small handset with the on-screen keyboard open, an
-       * uncapped panel ran past the bottom of the screen and put the sign-out
-       * button out of reach.
-       */}
+      {/* Mobile Dropdown Navigation */}
       {mobileMenuOpen && (
         <div
           ref={mobileMenuRef}
-          className="lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl gutter-x py-3 space-y-1 shadow-xl animate-slide-in max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain"
+          className="lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl px-4 py-3 space-y-2 shadow-xl animate-slide-in max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain"
         >
           {/* Mobile account info */}
-          <div className="pb-3 mb-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-950 border border-green-300 dark:border-green-800 text-green-900 dark:text-green-200 text-sm font-bold flex items-center justify-center">
+          <div className="pb-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-700 text-white text-xs font-bold flex items-center justify-center">
                 {(operatorName || '?').trim().charAt(0).toUpperCase()}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-900 dark:text-white truncate">{operatorName}</div>
-                <div className="text-[11px] font-mono text-slate-600 dark:text-slate-400 truncate">
-                  {operatorEmail || 'No email'}
+              <div>
+                <div className="text-xs font-bold text-slate-900 dark:text-white">{operatorName}</div>
+                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                  {isAdmin ? 'Administrator' : 'Laboratory Staff'}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-2.5">
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="w-3.5 h-3.5 text-green-400" />
-                ) : (
-                  <Moon className="w-3.5 h-3.5 text-green-700" />
-                )}
-                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setMobileMenuOpen(false); onOpenLegal('privacy'); }}
-                className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                Privacy
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => { setMobileMenuOpen(false); onOpenLegal('privacy'); }}
+              className="text-[11px] text-slate-500 dark:text-slate-400 hover:underline"
+            >
+              Privacy &amp; Terms
+            </button>
           </div>
 
-          <nav className="space-y-0.5">
+          <nav className="space-y-1">
             {visibleTabs.map(tab => (
               <button
                 key={tab.tab}
                 type="button"
                 onClick={() => handleTabClick(tab.tab)}
                 aria-current={activeTab === tab.tab ? 'page' : undefined}
-                className={`w-full text-left px-3.5 py-3 min-h-[48px] rounded-xl text-sm font-medium cursor-pointer transition-all duration-200 flex items-center gap-3 ${
+                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition flex items-center justify-between ${
                   activeTab === tab.tab
-                    ? 'bg-green-50 dark:bg-green-950/60 text-green-900 dark:text-green-200 font-semibold border border-green-300 dark:border-green-800'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 border border-transparent'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
                 }`}
               >
-                {activeTab === tab.tab && (
-                  <span className="w-1 h-5 shrink-0 rounded-full bg-gradient-to-b from-green-600 to-green-800 dark:from-green-400 dark:to-green-600" />
-                )}
-                <span className="flex-1">{tab.label}</span>
+                <span>{tab.label}</span>
                 {tab.tab === 'microscopy' && pendingReviewCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-500 text-slate-950">
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950">
                     {pendingReviewCount} pending
                   </span>
                 )}
@@ -380,22 +324,22 @@ return (
             ))}
           </nav>
 
-          <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => { setMobileMenuOpen(false); onChangePassword(); }}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="flex items-center justify-center gap-1.5 h-8 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
             >
               <KeyRound className="w-3.5 h-3.5" />
-              Password
+              <span>Password</span>
             </button>
             <button
               type="button"
               onClick={() => { setMobileMenuOpen(false); onLogout(); }}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-green-300 dark:border-green-900 bg-green-50 dark:bg-green-950/40 text-sm font-semibold text-green-900 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/70 transition-colors cursor-pointer"
+              className="flex items-center justify-center gap-1.5 h-8 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/70 transition cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              Sign out
+              <span>Sign out</span>
             </button>
           </div>
         </div>

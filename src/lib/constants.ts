@@ -25,7 +25,7 @@ export const SLIDE_ASSETS = {
 export const DEFAULT_AI_MODELS: AIModelConfig[] = [
   {
     id: "model-labsight-yolo26m-workflow",
-    name: "LENZIAI PRO vlenziai-pro-1-yolo26s-t1 Logic",
+    name: "LENZIAI",
     category: "stool",
     architecture: "YOLO26s Serverless Workflow",
     version: "t1",

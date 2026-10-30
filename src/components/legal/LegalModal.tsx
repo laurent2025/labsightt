@@ -107,7 +107,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ initialTab = 'terms', on
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">4. LenziAI Serverless Workflow Utilization</h3>
                 <p>
-                  Image inferences are transmitted via authenticated REST calls to the specified LenziAI workspace (<code>lenziai-pro/workflows/lenziai-pro-vlenziai-pro-1-yolo26s-t1-logic</code>). Users are responsible for maintaining valid API credentials and monitoring inference latency and availability.
+                  Image inferences are transmitted via authenticated REST calls to the configured <code>LENZIAI</code> inference workflow. Users are responsible for maintaining valid API credentials and monitoring inference latency and availability.
                 </p>
               </div>
 

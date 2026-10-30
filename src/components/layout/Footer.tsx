@@ -50,7 +50,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-900 dark:text-white text-[11px] truncate" title={activeModel?.name}>
-                  {activeModel?.name || 'LENZIAI PRO YOLO26s'}
+                  {activeModel?.name || 'LENZIAI'}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
