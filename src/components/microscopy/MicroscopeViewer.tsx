@@ -858,7 +858,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 <span className="text-cyan-200 font-mono font-bold text-base min-w-[4ch] text-center">
                   {currentField}/{totalFields}
                 </span>
-                <span className="hidden sm:inline text-[10px] text-slate-500">/{totalFields}</span>
               </div>
               <button
                 type="button"
@@ -884,9 +883,9 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                     key={mode}
                     type="button"
                     onClick={() => setFilterMode(mode as ViewFilterMode)}
-                    className={`px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer touch-target xl:min-w-[90px] ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer touch-target ${
                       filterMode === mode
-                        ? 'bg-cyan-500/30 text-cyan-300 shadow-sm border border-cyan-500/50'
+                        ? 'bg-cyan-500/25 text-cyan-200 shadow-sm border border-cyan-500/40'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                     }`}
                     aria-pressed={filterMode === mode}
