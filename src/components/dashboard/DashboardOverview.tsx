@@ -161,7 +161,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const pipelinePresets = {
     stool: {
       name: "Enteric Parasite & Protozoa Pipeline",
-      model: "LenziAI workflow (configured endpoint)",
+      model: "LENZIAI PRO vlenziai-pro-1-yolo26s-t1 Logic",
       configured: true,
       stain: "Lugol's Iodine Wet Mount",
       mag: "400x (High Dry 40x)",
@@ -729,8 +729,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       )}
 
-      {/* Recent Analyses Activity Queue — administrative oversight; admin only */}
-      {user?.isAdmin && (
+      {/* Recent Analyses Activity Queue — Live Clinical Worklist */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs transition-colors duration-200">
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
@@ -884,7 +883,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         )}
       </div>
-      )}
     </div>
   );
 };

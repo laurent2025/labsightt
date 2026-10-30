@@ -419,6 +419,7 @@ export default function App() {
         isAdmin={Boolean(user.isAdmin)}
         onLogout={() => void logout()}
         onChangePassword={() => setIsChangePasswordOpen(true)}
+        pendingReviewCount={analyses.filter(a => a.status === 'in_review').length}
       />
 
       {/* Main Clinical Content Body. Shares the header's max width and gutter

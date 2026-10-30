@@ -25,6 +25,7 @@ interface HeaderProps {
   isAdmin: boolean;
   onLogout: () => void;
   onChangePassword: () => void;
+  pendingReviewCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,7 +37,8 @@ export const Header: React.FC<HeaderProps> = ({
   operatorEmail,
   isAdmin,
   onLogout,
-  onChangePassword
+  onChangePassword,
+  pendingReviewCount = 0
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -146,7 +148,14 @@ return (
                 animation: tabsMounted ? 'fadeInUp 0.4s ease-out forwards' : 'none'
               }}
             >
-              {tab.label}
+              <span className="flex items-center gap-1.5">
+                <span>{tab.label}</span>
+                {tab.tab === 'microscopy' && pendingReviewCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950 shadow-xs animate-pulse">
+                    {pendingReviewCount}
+                  </span>
+                )}
+              </span>
               {activeTab === tab.tab && (
                 <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-gradient-to-r from-green-600 to-green-800 dark:from-green-400 dark:to-green-600 rounded-full animate-scale-in" />
               )}
@@ -156,6 +165,12 @@ return (
 
         {/* Zone 3: Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Active AI Workflow Pill */}
+          <div className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-mono font-semibold text-emerald-800 dark:text-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>LENZIAI PRO · YOLO26s</span>
+          </div>
+
           {/* Account dropdown */}
           <div className="hidden sm:block relative" ref={accountRef}>
             <button
@@ -355,7 +370,12 @@ return (
                 {activeTab === tab.tab && (
                   <span className="w-1 h-5 shrink-0 rounded-full bg-gradient-to-b from-green-600 to-green-800 dark:from-green-400 dark:to-green-600" />
                 )}
-                {tab.label}
+                <span className="flex-1">{tab.label}</span>
+                {tab.tab === 'microscopy' && pendingReviewCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-500 text-slate-950">
+                    {pendingReviewCount} pending
+                  </span>
+                )}
               </button>
             ))}
           </nav>

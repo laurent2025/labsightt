@@ -238,19 +238,8 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
     setPan(clampPan(nextPan, nextZoom));
   }, [clampPan, pan, zoom]);
 
-  // Mouse wheel zoom on slide viewport
-  useEffect(() => {
-    const vp = viewportRef.current;
-    if (!vp) return;
-    const onWheel = (e: WheelEvent) => {
-      if (isSlideStationary) return;
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 0.2 : -0.2;
-      zoomAroundPoint(zoom + delta, e.clientX, e.clientY);
-    };
-    vp.addEventListener('wheel', onWheel, { passive: false });
-    return () => vp.removeEventListener('wheel', onWheel);
-  }, [isSlideStationary, zoom, zoomAroundPoint]);
+  // Wheel auto-zoom removed: zooming is strictly manual via toolbar
+  // buttons (+/−), slider, Fit/Reset, or keyboard shortcuts (+, -, 0).
 
   // Load image
   useEffect(() => {
@@ -1118,8 +1107,17 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         )}
         <div
           ref={viewportRef}
-          className="microscope-slide-viewport relative w-fit max-w-full overflow-hidden rounded-lg flex items-center justify-center"
-          style={{ maxHeight: isSlideFullscreen ? '100vh' : 'min(54vh, 560px)', isolation: 'isolate' }}
+          className="microscope-slide-viewport relative overflow-hidden rounded-lg flex items-center justify-center"
+          style={{
+            maxWidth: isSlideFullscreen ? '100%' : '88%',
+            maxHeight: isSlideFullscreen ? '100vh' : 'min(46vh, 460px)',
+            isolation: 'isolate',
+            /* Realistic glass slide frame */
+            border: '2px solid rgba(148, 163, 184, 0.35)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
+            background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85))',
+            borderRadius: '0.625rem'
+          }}
         >
           <div
             style={{
@@ -1154,7 +1152,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 width: 'auto',
                 height: 'auto',
                 maxWidth: '100%',
-                maxHeight: isSlideFullscreen ? '100vh' : 'min(54vh, 560px)',
+                maxHeight: isSlideFullscreen ? '100vh' : 'min(44vh, 440px)',
                 imageRendering: 'crisp-edges' as const,
                 objectFit: 'contain'
               }}

@@ -219,9 +219,20 @@ export const TechnologistReview = React.memo(
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden text-right sm:block">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Review progress</span>
-            <span className="block text-sm font-bold text-slate-900 dark:text-white">{confirmedDetections}<span className="font-normal text-slate-500 dark:text-slate-400"> / {totalDetections} confirmed</span></span>
+          <div className="hidden text-right sm:block min-w-[120px]">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+              <span>Progress</span>
+              <span>{totalDetections > 0 ? Math.round((confirmedDetections / totalDetections) * 100) : 100}%</span>
+            </div>
+            <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mb-1">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300"
+                style={{ width: `${totalDetections > 0 ? (confirmedDetections / totalDetections) * 100 : 100}%` }}
+              />
+            </div>
+            <span className="block text-xs font-bold text-slate-900 dark:text-white">
+              {confirmedDetections} / {totalDetections} confirmed
+            </span>
           </div>
           <div className={`hidden h-9 w-9 items-center justify-center rounded-full sm:flex ${allConfirmed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'}`}>
             {allConfirmed ? <CheckCircle2 className="h-5 w-5" /> : <Activity className="h-5 w-5" />}
@@ -544,10 +555,20 @@ export const TechnologistReview = React.memo(
                             </span>
                           </span>
                         )}
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                          Confidence: {(det.confidence * 100).toFixed(1)}% · Pos: ({Math.round(det.x)},{' '}
-                          {Math.round(det.y)})
-                        </span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                            {(det.confidence * 100).toFixed(1)}% conf
+                          </span>
+                          <div className="w-14 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${Math.round(det.confidence * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                            XY: ({Math.round(det.x)}, {Math.round(det.y)})
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -634,9 +655,27 @@ export const TechnologistReview = React.memo(
           ) : (
             <div className="space-y-3">
               <div>
-                      <label className="text-sm font-bold text-slate-800 dark:text-slate-100 block mb-1">
-                  Diagnostic Impression:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    Diagnostic Impression:
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setImpression('Specimen positive for identified organisms; clinical correlation recommended.')}
+                      className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                    >
+                      + Positive Template
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImpression('No pathogenic parasites or critical abnormalities identified in examined fields.')}
+                      className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                    >
+                      + Negative Template
+                    </button>
+                  </div>
+                </div>
                 <textarea
                   rows={2}
                   value={impression}
