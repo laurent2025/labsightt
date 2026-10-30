@@ -330,6 +330,48 @@ html.dark {
     accent-color: var(--microscope-green);
   }
 
+  /* Desktop microscope stage: the slide gets a stable viewport while the
+     optical dock owns its own vertical scroll. This keeps the image from
+     jumping when a long control list is moved up or down. */
+  @media (min-width: 1024px) {
+    .microscope-viewer {
+      height: min(760px, calc(100vh - 2rem));
+      min-height: 0;
+    }
+
+    .microscope-stage {
+      flex: 1 1 auto;
+      height: auto;
+      min-height: 0;
+      padding: 0.25rem;
+    }
+
+    .microscope-slide-viewport {
+      width: 100%;
+      height: 100%;
+      max-height: none !important;
+    }
+
+    .microscope-slide-viewport > div {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .microscope-slide-canvas {
+      max-width: 100% !important;
+      max-height: calc(100% - 0.5rem) !important;
+      object-fit: contain;
+    }
+
+    .microscope-optical-dock > div {
+      min-height: 0;
+    }
+
+    .microscope-optical-dock > div > div:last-child {
+      overscroll-behavior: contain;
+    }
+  }
+
   .microscopy-field-pane,
   .microscopy-review-pane {
     min-width: 0;
@@ -338,6 +380,7 @@ html.dark {
   @media (max-width: 1023px) {
     .microscope-viewer {
       min-height: 0;
+      height: auto;
     }
 
     .microscope-viewer-toolbar > div {

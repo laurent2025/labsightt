@@ -795,7 +795,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   const selectedDetection = detections.find(d => d.id === selectedDetectionId);
 
   return (
-    <div className="microscope-viewer self-start w-full flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+    <div className="microscope-viewer self-start w-full flex min-h-0 flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
       {/* Top Toolbar - Clean visual zones for Slide Info | View Modes | Tools */}
       <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-3.5">
         <div className="flex flex-col gap-3 xl:gap-4">
@@ -1034,13 +1034,13 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       {/* Main Optical Canvas Stage */}
       <div
         ref={containerRef}
-        className={`relative w-full flex-none overflow-hidden flex items-center justify-center ${
+        className={`microscope-stage relative w-full overflow-hidden flex items-center justify-center ${
           imageUrl ? 'py-1' : 'min-h-52'
         }`}
       >
         <div
           ref={viewportRef}
-          className="relative w-fit max-w-full overflow-hidden rounded-lg"
+          className="microscope-slide-viewport relative w-fit max-w-full overflow-hidden rounded-lg"
           style={{ maxHeight: 'min(78vh, 860px)', isolation: 'isolate' }}
         >
           <div
@@ -1079,7 +1079,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 maxHeight: 'min(78vh, 860px)',
                 imageRendering: 'crisp-edges' as const
               }}
-              className={`rounded-lg ${
+              className={`microscope-slide-canvas rounded-lg ${
                 isMeasuring
                   ? 'cursor-crosshair touch-none'
                   : isAddingBox
@@ -1160,7 +1160,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           <button
             type="button"
             onClick={() => setShowRightPanel(!showRightPanel)}
-            className={`min-h-10 flex items-center justify-center gap-1.5 rounded-xl px-3 shadow-lg border transition-colors ${
+            className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-lg border transition-colors ${
               showRightPanel
                 ? 'bg-cyan-500/30 text-cyan-300 border-cyan-500/50'
                 : 'bg-slate-900/90 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
@@ -1170,7 +1170,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             aria-expanded={showRightPanel}
           >
             {showRightPanel ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            <span className="hidden xl:inline text-[10px] font-bold uppercase tracking-wider">{showRightPanel ? 'Minimize' : 'Controls'}</span>
           </button>
 
           {showRightPanel && (

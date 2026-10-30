@@ -1095,10 +1095,10 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     }
 
     return (
-      <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-xs">
-        <Microscope className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">No Specimen Accessions Ready</h3>
-        <p className="text-slate-500 mt-1 mb-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-xs dark:border-slate-800 dark:bg-slate-900">
+        <Microscope className="mx-auto mb-3 h-12 w-12 text-slate-500 dark:text-slate-400" />
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">No Specimen Accessions Ready</h3>
+        <p className="mt-1 mb-4 text-slate-600 dark:text-slate-300">
           Accession a patient specimen to initiate computer vision microscopy analysis.
         </p>
         <button
@@ -1206,11 +1206,11 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
 
           <div className="grid grid-cols-3 gap-2 sm:flex sm:items-stretch sm:gap-3">
             <div className="min-w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Magnification</span>
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">Magnification</span>
               <span className="mt-1 block text-sm font-bold text-slate-800 dark:text-slate-100">{activeSample.totalMagnification || '—'}</span>
             </div>
             <div className="min-w-24 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
-              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">Fields</span>
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">Fields</span>
               <span className="mt-1 block text-sm font-bold text-slate-800 dark:text-slate-100">{activeSample.fieldsExamined || 0}</span>
             </div>
             <div className="min-w-24 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 dark:border-cyan-900/70 dark:bg-cyan-950/30">
@@ -1228,7 +1228,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
             <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" aria-hidden="true" />
             Examination controls
           </div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Choose a slide, then scan</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">Choose a slide, then scan</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-3.5 text-xs">
         <div className="flex items-center gap-3 min-w-0">
