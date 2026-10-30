@@ -1196,7 +1196,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         `}</style>
 
         {/* Live Coordinate & Stage Micrometer Vernier HUD */}
-        <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 max-w-[calc(100%-1rem)] bg-slate-900/90 backdrop-blur-md border border-slate-700 px-3 sm:px-4 py-2 rounded-xl text-[10px] sm:text-xs font-mono text-slate-300 pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-1 shadow-lg">
+        <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 max-w-[calc(100%-1rem)] bg-slate-900/90 backdrop-blur-md border border-slate-700 px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-mono text-slate-300 pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-1 shadow-lg">
           <span className="flex items-center gap-2">
             <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
             STAGE: X: {stageVernierX}mm · Y: {stageVernierY}mm
@@ -1238,7 +1238,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               <div className="px-3 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <span className="block text-xs font-semibold text-slate-200 uppercase tracking-wider">Optical Controls</span>
-                  <span className="block mt-0.5 text-[10px] text-slate-400">Adjust the simulated viewing conditions</span>
+                  <span className="block mt-0.5 text-[11px] text-slate-400">Adjust the simulated viewing conditions</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[10px] font-mono text-cyan-400">{objective}</span>

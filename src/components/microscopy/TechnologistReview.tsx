@@ -295,7 +295,7 @@ export const TechnologistReview = React.memo(
           </div>
           </div>
           <div className="flex min-w-0 items-start gap-2.5 sm:justify-end sm:text-right">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300 sm:order-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 sm:order-2">
               <FlaskConical className="h-4 w-4" />
             </span>
             <div className="min-w-0">

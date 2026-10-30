@@ -1020,6 +1020,9 @@ svg {
  * chasing the class through dozens of components.
  */
 @layer utilities {
+  .text-\[8px\] {
+    font-size: 0.6875rem;
+  }
   .text-\[9px\] {
     font-size: 0.6875rem;
   }
