@@ -3,7 +3,6 @@ import { Detection, MicroscopeObjective } from '../../types';
 import {
   ZoomIn,
   ZoomOut,
-  RotateCcw,
   PlusCircle,
   Trash2,
   CheckCircle,
@@ -16,7 +15,6 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
   Minimize2,
@@ -48,7 +46,6 @@ interface MicroscopeViewerProps {
   currentField?: number;
   totalFields?: number;
   onFieldChange?: (newField: number) => void;
-  onPreviousSlide?: () => void;
   onNextSlide?: () => void;
   slideNavigationLabel?: string;
   canSwitchSlides?: boolean;
@@ -110,7 +107,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   currentField = 1,
   totalFields = 10,
   onFieldChange,
-  onPreviousSlide,
   onNextSlide,
   slideNavigationLabel = 'Slide image',
   canSwitchSlides = false,
@@ -903,19 +899,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               {/* Multi-field Scan Stepper - Compact & Prominent */}
               <div className="flex items-center gap-1.5 bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-700/80 shadow-xs">
                 <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">HPF:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    playTurretClick();
-                    onFieldChange?.(Math.max(1, currentField - 1));
-                  }}
-                  disabled={currentField <= 1}
-                  className="flex items-center justify-center w-6 h-6 rounded text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
-                  aria-label="Previous field"
-                  title="Previous field of view"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
                 <span className="text-cyan-200 font-mono font-bold text-xs min-w-[3.5ch] text-center">
                   {currentField}/{totalFields}
                 </span>
@@ -1067,7 +1050,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                     ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/40'
                     : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200'
                 }`}
-                title="Optical Controls"
+title="Optical Controls"
                 aria-label="Optical Controls"
                 aria-expanded={showControlsPanel}
                 aria-controls="mobile-controls-panel"
@@ -1075,47 +1058,35 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 <span>Optics</span>
               </button>
-            </div>
 
-            {/* Zoom and Navigation Quick Tools */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-1 bg-slate-900/80 rounded-lg border border-slate-800 px-1.5 py-0.5">
+              <div className="microscope-zoom-controls basis-full flex w-full items-center gap-1 rounded-lg border border-cyan-900/70 bg-slate-900/90 px-1.5 py-1">
+                <span className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Zoom</span>
                 <button
                   type="button"
                   onClick={() => zoomAroundPoint(zoom / 1.15)}
                   disabled={zoom <= MIN_ZOOM}
-                  className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
-                  title="Zoom Out [-]"
-                  aria-label="Zoom Out"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  title="Zoom out"
+                  aria-label="Zoom out"
                 >
-                  <ZoomOut className="w-3.5 h-3.5" />
+                  <ZoomOut className="h-3.5 w-3.5" />
                 </button>
-                <span className="font-mono text-[11px] font-semibold text-slate-300 w-11 text-center">
+                <span className="min-w-[3.5rem] text-center font-mono text-[10px] font-bold text-cyan-300" aria-live="polite">
                   {Math.round(zoom * 100)}%
                 </span>
                 <button
                   type="button"
                   onClick={() => zoomAroundPoint(zoom * 1.15)}
                   disabled={zoom >= MAX_ZOOM}
-                  className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
-                  title="Zoom In [+]"
-                  aria-label="Zoom In"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  title="Zoom in"
+                  aria-label="Zoom in"
                 >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={resetView}
-                  className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors ml-0.5"
-                  title="Reset View [0]"
-                  aria-label="Reset View"
-                >
-                  <RotateCcw className="w-3 h-3" />
+                  <ZoomIn className="h-3.5 w-3.5" />
                 </button>
               </div>
+            </div>
 
-              {/* Active Tool Badge */}
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/50 border border-slate-800 text-[10px] text-slate-400 font-mono">
                 {activeTool === 'label' ? (
                   <PlusCircle className="h-3 w-3 text-cyan-400" />
@@ -1132,7 +1103,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             </div>
           </div>
         </div>
-      </div>
 
       {/* Main Optical Canvas Stage */}
       <div
@@ -1162,12 +1132,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             {/* Fullscreen optical control dock */}
             <div className="absolute left-4 top-4 z-30 flex flex-col gap-2">
               <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
-                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Zoom</span>
-                <button type="button" onClick={() => zoomAroundPoint(zoom * 1.25)} className="h-7 w-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm font-bold" aria-label="Zoom in">+</button>
-                <span className="min-w-[3ch] text-center text-[10px] font-mono text-slate-200">{Math.round(zoom * 100)}%</span>
-                <button type="button" onClick={() => zoomAroundPoint(zoom / 1.25)} className="h-7 w-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm font-bold" aria-label="Zoom out">−</button>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
                 <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Focus</span>
                 <input type="range" min={-20} max={20} step={1} value={focusOffset} onChange={e => setFocusOffset(Number(e.target.value))} className="w-24 accent-cyan-400" aria-label="Focus offset" />
                 <span className="text-[10px] font-mono text-slate-300">{focusOffset}</span>
@@ -1184,7 +1148,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               </div>
               <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2 py-1.5 shadow-xl backdrop-blur-md">
                 <button type="button" onClick={() => setShowReticleGrid(v => !v)} title="Reticle grid" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${showReticleGrid ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Reticle</button>
-                <button type="button" onClick={() => void toggleSlideFullscreen()} title="Fit to screen" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">Fit</button>
+                <button type="button" onClick={() => void toggleSlideFullscreen()} title="Exit fullscreen" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">Exit</button>
                 <button type="button" onClick={() => { setIsAddingBox(true); setIsLabelCellMinimized(false); }} title="Label" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">Label</button>
               </div>
             </div>
@@ -1489,17 +1453,6 @@ style={{
                 <div className="bg-slate-950/80 rounded-lg p-2.5 border border-slate-800">
                   <span className="text-[10px] font-semibold text-cyan-400 uppercase tracking-wider block mb-2">Specimen</span>
                   <div className="flex items-center justify-between gap-1">
-                    <button
-                      type="button"
-                      onClick={onPreviousSlide}
-                      disabled={!canSwitchSlides}
-                      aria-label="Previous specimen image"
-                      title="Previous specimen image"
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                      <span className="text-xs">Prev</span>
-                    </button>
                     <div className="px-2 text-center flex-1">
                       <div className="text-[9px] font-mono text-cyan-300 font-semibold truncate" title={slideNavigationLabel}>
                         {slideNavigationLabel}
@@ -1511,7 +1464,7 @@ style={{
                       disabled={!canSwitchSlides}
                       aria-label="Next specimen image"
                       title="Next specimen image"
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="w-full flex items-center justify-center gap-1 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
                       <span className="text-xs">Next</span>
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -1627,6 +1580,29 @@ style={{
                 />
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => zoomAroundPoint(zoom / 1.15)}
+                  disabled={zoom <= MIN_ZOOM}
+                  className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+                  title="Zoom Out [-]"
+                  aria-label="Zoom Out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-mono text-[10px] font-semibold text-slate-300 w-10 text-center">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => zoomAroundPoint(zoom * 1.15)}
+                  disabled={zoom >= MAX_ZOOM}
+                  className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+                  title="Zoom In [+]"
+                  aria-label="Zoom In"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsAddingBox(false)}

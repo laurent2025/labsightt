@@ -515,7 +515,6 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       setInferenceError(null);
     }
   }, [activeSlideRef, slideChoices, slidesLoading, uploadedSlides]);
-  const handlePreviousSlide = useCallback(() => changeSlide(-1), [changeSlide]);
   const handleNextSlide = useCallback(() => changeSlide(1), [changeSlide]);
   const activeSlidePosition = slideChoices.findIndex(slide => slide.id === activeSlideRef);
 
@@ -1657,7 +1656,6 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
               currentField={currentField}
               totalFields={totalFields}
               onFieldChange={setCurrentField}
-              onPreviousSlide={handlePreviousSlide}
               onNextSlide={handleNextSlide}
               slideNavigationLabel={slidesLoading
                 ? 'loading images'
