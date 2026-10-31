@@ -1748,6 +1748,15 @@ label {
     top: 4.5rem;
     max-width: calc(100% - 1.5rem);
   }
+
+  .microscope-stage:fullscreen .microscope-fullscreen-tools {
+    inset-inline: 0.75rem;
+    bottom: 4.5rem;
+    max-height: calc(100% - 10rem);
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
 }
 
 @media (max-width: 639px) {

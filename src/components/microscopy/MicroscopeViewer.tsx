@@ -1159,7 +1159,7 @@ title="Optical Controls"
             </div>
 
             {/* Fullscreen optical control dock */}
-            <div className="absolute left-4 top-4 z-30 flex flex-col gap-2">
+            <div className="microscope-fullscreen-tools absolute inset-x-4 bottom-16 z-30 flex max-h-[calc(100%-9rem)] flex-wrap items-center justify-center gap-2 overflow-y-auto rounded-2xl border border-slate-600/80 bg-slate-950/90 p-2 shadow-2xl backdrop-blur-md">
               <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
                 <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Focus</span>
                 <input type="range" min={-20} max={20} step={1} value={focusOffset} onChange={e => setFocusOffset(Number(e.target.value))} className="w-24 accent-cyan-400" aria-label="Focus offset" />
@@ -1170,13 +1170,16 @@ title="Optical Controls"
                 <input type="range" min={20} max={100} step={1} value={irisAperture} onChange={e => setIrisAperture(Number(e.target.value))} className="w-24 accent-cyan-400" aria-label="Iris aperture" />
                 <span className="text-[10px] font-mono text-slate-300">{irisAperture}%</span>
               </div>
-              <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2 py-1.5 shadow-xl backdrop-blur-md">
+              <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-900/90 px-2 py-1.5">
                 {(['daylight', 'halogen', 'daylight_blue', 'fluorescence_filter'] as LightFilter[]).map(f => (
                   <button key={f} type="button" onClick={() => setLightFilter(f)} title={f} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${lightFilter === f ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>{f.replace('_', ' ')}</button>
                 ))}
               </div>
               <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2 py-1.5 shadow-xl backdrop-blur-md">
                 <button type="button" onClick={() => setShowReticleGrid(v => !v)} title="Reticle grid" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${showReticleGrid ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Reticle</button>
+                <button type="button" onClick={() => { setIsMeasuring(v => !v); setIsAddingBox(false); setRulerPoints([]); }} title="Measure" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${isMeasuring ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Measure</button>
+                <button type="button" onClick={() => setIsEyepieceMask(v => !v)} title="Eyepiece" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${isEyepieceMask ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Eyepiece</button>
+                <button type="button" onClick={handleCaptureSnapshot} title="Capture snapshot" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">Capture</button>
                 <button type="button" onClick={() => void toggleSlideFullscreen()} title="Exit fullscreen" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">Exit</button>
                 <button type="button" onClick={() => { setIsAddingBox(true); setIsLabelCellMinimized(false); }} title="Label" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">Label</button>
               </div>
