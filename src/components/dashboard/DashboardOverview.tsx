@@ -7,12 +7,7 @@ import {
   Clock,
   ArrowRight,
   Play,
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
-  ArrowUpRight,
   ShieldCheck,
-  Settings2,
   ClipboardCheck
 } from 'lucide-react';
 import { SLIDE_ASSETS } from '../../lib/constants';
@@ -259,73 +254,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </section>
 
-      {/* Compact operational pulse: the next useful decision before the full
-          telemetry grid. */}
-      <section aria-label="Workspace pulse" className={`grid grid-cols-1 gap-3 ${isAdmin ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}>
-        <button
-          type="button"
-          onClick={() => onNavigateTab('microscopy', pendingReviewCount ? 'in_review' : null)}
-          className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-amber-700"
-        >
-          <span className="flex min-w-0 items-center gap-3">
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${pendingReviewCount ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' : 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300'}`}>
-              {pendingReviewCount ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Review queue</span>
-              <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">
-                {pendingReviewCount === null ? 'Syncing queue…' : pendingReviewCount ? `${pendingReviewCount} case${pendingReviewCount === 1 ? '' : 's'} need review` : 'Queue is clear'}
-              </span>
-            </span>
-          </span>
-          <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-amber-600" />
-        </button>
 
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <span className="flex min-w-0 items-center gap-3">
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${activePipeline.configured ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-              <Activity className="h-4 w-4" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Inference status</span>
-              <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{activePipeline.configured ? 'Selected pipeline ready' : 'Pipeline configuration required'}</span>
-            </span>
-          </span>
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${activePipeline.configured ? 'bg-green-500 shadow-[0_0_0_4px_rgba(34,197,94,0.14)]' : 'bg-slate-400'}`} aria-label={activePipeline.configured ? 'Ready' : 'Not configured'} />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onNavigateTab('reports', 'verified')}
-          className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-green-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-green-700"
-        >
-          <span className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300"><FileCheck2 className="h-4 w-4" /></span>
-            <span className="min-w-0">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Release gate</span>
-              <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">{dashboardCounts?.verifiedReports ?? '—'} verified report{dashboardCounts?.verifiedReports === 1 ? '' : 's'}</span>
-            </span>
-          </span>
-          <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-green-600" />
-        </button>
-
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => onNavigateTab('users')}
-            className="group flex items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-violet-400 hover:shadow-md dark:border-violet-900/70 dark:bg-violet-950/20 dark:hover:border-violet-700"
-          >
-            <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300"><Settings2 className="h-4 w-4" /></span>
-              <span className="min-w-0">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-400">Admin center</span>
-                <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">Manage access &amp; roles</span>
-              </span>
-            </span>
-            <ArrowUpRight className="h-4 w-4 shrink-0 text-violet-500 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-          </button>
-        )}
-      </section>
 
       {isAdmin && (
         <section aria-labelledby="dashboard-admin-heading" className="space-y-3">
@@ -654,7 +583,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   <li key={ana.id} className="px-5 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                        {patient?.fullName || 'Unknown Patient'}
+{patient?.fullName || (patient?.patientNumber ? `Patient ${patient.patientNumber}` : '—')}
                       </div>
                       <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
                         {sample?.sampleType ? sample.sampleType.toUpperCase() : '—'} · {new Date(ana.analyzedAt).toLocaleDateString()}
@@ -886,3 +815,4 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     </div>
   );
 };
+

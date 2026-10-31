@@ -26,7 +26,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   pendingReviewCount = 0
 }) => {
   return (
-    <header className="app-header relative no-print h-14 lg:h-12 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-3 shrink-0 select-none z-20">
+    <header className="app-header app-topbar relative no-print h-14 lg:h-12 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-3 shrink-0 select-none z-20">
       {/* Left: Mobile hamburger or Desktop breadcrumb */}
       <div className="flex items-center gap-2.5 min-w-0">
         <button

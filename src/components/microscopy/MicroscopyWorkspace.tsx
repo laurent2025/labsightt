@@ -246,7 +246,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
                     return (
                       <tr key={ana.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="py-3 px-4">
-                          <div className="font-bold text-sm text-slate-900 dark:text-white">{patient?.fullName || 'Unknown Patient'}</div>
+                          <div className="font-bold text-sm text-slate-900 dark:text-white">{patient?.fullName || (patient?.patientNumber ? `Patient ${patient.patientNumber}` : '—')}</div>
                           <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
                             {patient?.patientNumber} · {sample?.sampleType}
                           </div>
