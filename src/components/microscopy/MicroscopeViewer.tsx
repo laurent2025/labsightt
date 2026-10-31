@@ -1101,7 +1101,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       {/* Main Optical Canvas Stage */}
       <div
         ref={containerRef}
-        className={`microscope-stage microscope-stage-stationary relative w-full flex-none overflow-hidden flex items-center justify-center ${
+        className={`microscope-stage microscope-stage-stationary relative w-full flex-none overflow-visible flex items-center justify-center ${
           imageUrl ? 'py-1' : 'min-h-52'
         }`}
       >
@@ -1111,9 +1111,20 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
             Stationary view
           </div>
         )}
+        {isSlideFullscreen && (
+          <button
+            type="button"
+            onClick={() => void toggleSlideFullscreen()}
+            className="absolute right-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-600/80 bg-slate-950/90 text-slate-100 shadow-xl backdrop-blur-md transition hover:border-cyan-400 hover:bg-slate-900 hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
+            title="Exit fullscreen slide view"
+            aria-label="Exit fullscreen slide view"
+          >
+            <Minimize className="h-5 w-5" />
+          </button>
+        )}
         <div
           ref={viewportRef}
-          className="microscope-slide-viewport relative overflow-hidden rounded-lg flex items-center justify-center"
+          className="microscope-slide-viewport relative overflow-visible rounded-lg flex items-center justify-center"
           onWheel={handleWheel}
           onDoubleClick={() => zoomAroundPoint(zoom < 2 ? 2 : 1)}
           onContextMenu={event => event.preventDefault()}
@@ -1160,7 +1171,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               style={{
                 width: 'auto',
                 height: 'auto',
-                maxWidth: '100%',
+                maxWidth: 'calc(100% - 1rem)',
                 maxHeight: isSlideFullscreen ? 'calc(100vh - 2rem)' : 'min(62vh, 680px)',
                 imageRendering: 'crisp-edges' as const,
                 objectFit: 'contain'
