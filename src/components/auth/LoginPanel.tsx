@@ -97,7 +97,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
       role={onClose ? 'dialog' : undefined}
       aria-modal={onClose ? 'true' : undefined}
       aria-label={mode === 'signin' ? 'Sign in to LenziAI' : 'Request a LenziAI account'}
-      className="auth-panel relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-950/15 dark:shadow-black/50 overflow-hidden"
+      className="auth-card relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-950/15 dark:shadow-black/50 overflow-hidden"
     >
       {onClose && (
         <button
@@ -182,7 +182,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
 
         {mode === 'signup' && <div>
           <label htmlFor="login-display-name" className="block text-xs font-bold text-slate-800 dark:text-slate-100 mb-1">Full name</label>
-          <input id="login-display-name" name="name" type="text" autoComplete="name" required maxLength={120} value={displayName} onChange={event => setDisplayName(event.target.value)} aria-invalid={Boolean(fieldErrors.displayName)} aria-describedby={fieldErrors.displayName ? 'login-name-error' : undefined} className="auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+          <input id="login-display-name" name="name" type="text" autoComplete="name" required maxLength={120} value={displayName} onChange={event => setDisplayName(event.target.value)} aria-invalid={Boolean(fieldErrors.displayName)} aria-describedby={fieldErrors.displayName ? 'login-name-error' : undefined} className={`auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none ${fieldErrors.displayName ? 'is-invalid' : 'border-slate-300 dark:border-slate-700'}`} />
           {fieldErrors.displayName && <p id="login-name-error" className="mt-0.5 text-xs font-medium text-rose-600">{fieldErrors.displayName}</p>}
         </div>}
 
@@ -205,10 +205,10 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
               setEmail(e.target.value);
               if (fieldErrors.email) setFieldErrors(f => ({ ...f, email: undefined }));
             }}
-            className={`auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30 ${
+            className={`auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none ${
               fieldErrors.email
-                ? 'border-rose-400 focus:border-rose-500'
-                : 'border-slate-300 dark:border-slate-700 focus:border-cyan-500'
+                ? 'is-invalid'
+                : 'border-slate-300 dark:border-slate-700'
             }`}
           />
           {fieldErrors.email && (
@@ -242,17 +242,17 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
                 setPassword(e.target.value);
                 if (fieldErrors.password) setFieldErrors(f => ({ ...f, password: undefined }));
               }}
-              className={`auth-input w-full pl-3 pr-10 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30 ${
+              className={`auth-input w-full pl-3 pr-10 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none ${
                 fieldErrors.password
-                  ? 'border-rose-400 focus:border-rose-500'
-                  : 'border-slate-300 dark:border-slate-700 focus:border-cyan-500'
+                  ? 'is-invalid'
+                  : 'border-slate-300 dark:border-slate-700'
               }`}
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 touch-target"
+              className="auth-toggle absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 touch-target"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -280,7 +280,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({
           </div>
           <div>
             <label htmlFor="login-confirm-password" className="block text-xs font-bold text-slate-800 dark:text-slate-100 mb-1">Confirm password</label>
-          <input id="login-confirm-password" name="confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} aria-invalid={Boolean(fieldErrors.confirmPassword)} aria-describedby={fieldErrors.confirmPassword ? 'login-confirm-error' : undefined} className="auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+          <input id="login-confirm-password" name="confirm-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} aria-invalid={Boolean(fieldErrors.confirmPassword)} aria-describedby={fieldErrors.confirmPassword ? 'login-confirm-error' : undefined} className={`auth-input w-full px-3 py-2.5 text-sm font-medium rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none ${fieldErrors.confirmPassword ? 'is-invalid' : 'border-slate-300 dark:border-slate-700'}`} />
             {fieldErrors.confirmPassword && <p id="login-confirm-error" className="mt-0.5 text-xs font-medium text-rose-600">{fieldErrors.confirmPassword}</p>}
           </div>
         </>}

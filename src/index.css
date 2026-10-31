@@ -454,8 +454,8 @@ html.dark {
      jumping when a long control list is moved up or down. */
   @media (min-width: 1024px) {
     .microscope-stage {
-      height: min(68vh, 760px);
-      min-height: 520px;
+      height: 100%;
+      min-height: 420px;
       overflow: visible;
       padding: 0.5rem;
       background:
@@ -1395,6 +1395,59 @@ table thead tr {
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.auth-panel {
+  position: relative;
+  overflow: hidden;
+  animation: auth-panel-enter 0.45s ease-out both;
+}
+
+.auth-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(600px 300px at 0% 0%, rgba(13, 148, 136, 0.16), transparent 60%),
+    radial-gradient(500px 320px at 100% 100%, rgba(99, 102, 241, 0.14), transparent 60%);
+  pointer-events: none;
+}
+
+.auth-panel .auth-body {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-input {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.auth-input:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
+}
+
+.auth-input.is-invalid {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+}
+
+.auth-input.is-invalid:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.auth-toggle {
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.auth-toggle:hover {
+  background-color: rgba(13, 148, 136, 0.12);
+  color: #047857;
+}
+
+.dark .auth-toggle:hover {
+  color: #34d399;
 }
 
 .landing-hero {

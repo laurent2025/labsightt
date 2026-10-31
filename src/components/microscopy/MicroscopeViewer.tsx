@@ -1148,24 +1148,63 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
           </div>
         )}
         {isSlideFullscreen && (
-          <button
-            type="button"
-            onClick={() => void toggleSlideFullscreen()}
-            className="absolute right-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-600/80 bg-slate-950/90 text-slate-100 shadow-xl backdrop-blur-md transition hover:border-cyan-400 hover:bg-slate-900 hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
-            title="Exit fullscreen slide view"
-            aria-label="Exit fullscreen slide view"
-          >
-            <Minimize className="h-5 w-5" />
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => void toggleSlideFullscreen()}
+              className="absolute right-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-600/80 bg-slate-950/90 text-slate-100 shadow-xl backdrop-blur-md transition hover:border-cyan-400 hover:bg-slate-900 hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
+              title="Exit fullscreen slide view"
+              aria-label="Exit fullscreen slide view"
+            >
+              <Minimize className="h-5 w-5" />
+            </button>
+
+            {/* Fullscreen optical control dock */}
+            <div className="absolute left-4 top-4 z-30 flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
+                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Zoom</span>
+                <button type="button" onClick={() => zoomAroundPoint(zoom * 1.25)} className="h-7 w-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm font-bold" aria-label="Zoom in">+</button>
+                <span className="min-w-[3ch] text-center text-[10px] font-mono text-slate-200">{Math.round(zoom * 100)}%</span>
+                <button type="button" onClick={() => zoomAroundPoint(zoom / 1.25)} className="h-7 w-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-sm font-bold" aria-label="Zoom out">−</button>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
+                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Focus</span>
+                <input type="range" min={-20} max={20} step={1} value={focusOffset} onChange={e => setFocusOffset(Number(e.target.value))} className="w-24 accent-cyan-400" aria-label="Focus offset" />
+                <span className="text-[10px] font-mono text-slate-300">{focusOffset}</span>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
+                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Iris</span>
+                <input type="range" min={20} max={100} step={1} value={irisAperture} onChange={e => setIrisAperture(Number(e.target.value))} className="w-24 accent-cyan-400" aria-label="Iris aperture" />
+                <span className="text-[10px] font-mono text-slate-300">{irisAperture}%</span>
+              </div>
+              <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2 py-1.5 shadow-xl backdrop-blur-md">
+                {(['daylight', 'halogen', 'daylight_blue', 'fluorescence_filter'] as LightFilter[]).map(f => (
+                  <button key={f} type="button" onClick={() => setLightFilter(f)} title={f} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${lightFilter === f ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>{f.replace('_', ' ')}</button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2 py-1.5 shadow-xl backdrop-blur-md">
+                <button type="button" onClick={() => setShowReticleGrid(v => !v)} title="Reticle grid" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${showReticleGrid ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Reticle</button>
+                <button type="button" onClick={() => void toggleSlideFullscreen()} title="Fit to screen" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">Fit</button>
+                <button type="button" onClick={() => { setIsAddingBox(true); setIsLabelCellMinimized(false); }} title="Label" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">Label</button>
+              </div>
+            </div>
+          <div className="absolute left-4 bottom-4 z-30 flex flex-wrap items-center gap-2 rounded-xl border border-slate-600/80 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur-md">
+              <span className="text-[10px] font-mono text-cyan-300">STAGE: X: {stageVernierX}mm · Y: {stageVernierY}mm</span>
+              <span className="text-[10px] font-mono text-slate-400">·</span>
+              <span className="text-[10px] font-mono text-slate-300">{objective} · {totalMagnification}</span>
+              <span className="text-[10px] font-mono text-slate-400">·</span>
+              <span className="text-[10px] font-mono text-emerald-300">Zoom {Math.round(zoom * 100)}%</span>
+            </div>
+          </>
         )}
         <div
           ref={viewportRef}
 className="microscope-slide-viewport relative overflow-hidden rounded-lg flex items-center justify-center"
       onContextMenu={event => event.preventDefault()}
-      style={{
-        maxWidth: '100%',
-        maxHeight: isSlideFullscreen ? '100vh' : 'min(64vh, 700px)',
-        isolation: 'isolate',
+style={{
+            maxWidth: '100%',
+            maxHeight: isSlideFullscreen ? 'calc(100vh - 4rem)' : 'calc(100vh - 14rem)',
+            isolation: 'isolate',
             /* Realistic glass slide frame */
             border: '2px solid rgba(148, 163, 184, 0.35)',
             boxShadow: '0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
