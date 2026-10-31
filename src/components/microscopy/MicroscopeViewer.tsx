@@ -1128,12 +1128,12 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         )}
         <div
           ref={viewportRef}
-          className="microscope-slide-viewport relative overflow-hidden rounded-lg flex items-center justify-center"
-          onContextMenu={event => event.preventDefault()}
-          style={{
-            maxWidth: '100%',
-            maxHeight: isSlideFullscreen ? '100vh' : 'min(64vh, 700px)',
-            isolation: 'isolate',
+className="microscope-slide-viewport relative overflow-visible rounded-lg flex items-center justify-center"
+      onContextMenu={event => event.preventDefault()}
+      style={{
+        maxWidth: '100%',
+        maxHeight: isSlideFullscreen ? '100vh' : 'min(64vh, 700px)',
+        isolation: 'isolate',
             /* Realistic glass slide frame */
             border: '2px solid rgba(148, 163, 184, 0.35)',
             boxShadow: '0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
@@ -1152,11 +1152,11 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               imageUrl ? 'bg-slate-950' : 'bg-transparent'
             }`}
           >
-            {/* Empty state placeholder */}
+            {/* Friendly empty state when no slide image is loaded yet */}
             {!imageObjRef.current || !imageObjRef.current.complete || imageObjRef.current.naturalWidth === 0 ? (
               <div className="absolute inset-0 flex items-center justify-center text-center">
-                <div className="flex flex-col items-center gap-3 text-slate-600">
-                  <Camera className="w-12 h-12 opacity-30" />
+                <div className="flex flex-col items-center gap-3 text-slate-500">
+                  <Camera className="w-12 h-12 opacity-40" />
                   <p className="text-sm font-medium">No slide image loaded</p>
                   <p className="text-xs max-w-xs text-center">Load a specimen image to begin microscopy analysis</p>
                 </div>
@@ -1173,8 +1173,6 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               style={{
                 width: 'auto',
                 height: 'auto',
-                maxWidth: 'calc(100% - 1rem)',
-                maxHeight: isSlideFullscreen ? 'calc(100vh - 2rem)' : 'min(62vh, 680px)',
                 imageRendering: 'crisp-edges' as const,
                 objectFit: 'contain'
               }}

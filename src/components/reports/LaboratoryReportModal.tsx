@@ -4,7 +4,6 @@ import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { Printer, Download, X, ShieldCheck } from 'lucide-react';
 import { LAB_METADATA } from '../../lib/constants';
 import { samplesApi, type SpecimenSlide } from '../../services/api';
-import { userFriendlyError } from '../../lib/userFriendlyError';
 
 interface LaboratoryReportModalProps {
   report: LaboratoryReport;
@@ -19,44 +18,42 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
   onVerify,
   verifyError
 }) => {
-  const [sampleImages, setSampleImages] = useState<{ id: string; name: string; imageData: string }[]>([]);
-  const [imageLoadError, setImageLoadError] = useState<string | null>(null);
-  const panelRef = useFocusTrap<HTMLDivElement>(true, onClose);
+const [sampleImages, setSampleImages] = useState<{ id: string; name: string; imageData: string }[]>([]);
+    const panelRef = useFocusTrap<HTMLDivElement>(true, onClose);
 
-  useEffect(() => {
-    const sampleId = report.sample?.id;
-    if (!sampleId) {
-      setSampleImages([]);
-      return;
-    }
-    let current = true;
-    setImageLoadError(null);
-    void Promise.all([
-      report.sample.imageUrl
-        ? Promise.resolve(report.sample.imageUrl)
-        : samplesApi.detail(sampleId).then(({ sample }) => sample.imageUrl),
-      samplesApi.slides(sampleId).then(({ slides }) => slides)
-    ])
-      .then(([primaryImage, slides]) => {
-        if (!current) return;
-        const images = [];
-        if (primaryImage) {
-          images.push({ id: 'primary', name: 'Specimen image', imageData: primaryImage });
-        }
-        images.push(...slides.map((slide: SpecimenSlide) => ({
-          id: slide.id,
-          name: slide.name,
-          imageData: slide.imageData
-        })));
-        setSampleImages(images);
-      })
-      .catch(err => {
-        if (current) {
-          setImageLoadError(userFriendlyError(err, 'Saved specimen images could not be loaded.'));
-        }
-      });
-    return () => { current = false; };
-  }, [report.sample]);
+    useEffect(() => {
+      const sampleId = report.sample?.id;
+      if (!sampleId) {
+        setSampleImages([]);
+        return;
+      }
+      let current = true;
+      void Promise.all([
+        report.sample.imageUrl
+          ? Promise.resolve(report.sample.imageUrl)
+          : samplesApi.detail(sampleId).then(({ sample }) => sample.imageUrl),
+        samplesApi.slides(sampleId).then(({ slides }) => slides)
+      ])
+        .then(([primaryImage, slides]) => {
+          if (!current) return;
+          const images = [];
+          if (primaryImage) {
+            images.push({ id: 'primary', name: 'Specimen image', imageData: primaryImage });
+          }
+          images.push(...slides.map((slide: SpecimenSlide) => ({
+            id: slide.id,
+            name: slide.name,
+            imageData: slide.imageData
+          })));
+          setSampleImages(images);
+        })
+        .catch(() => {
+          // Images are evidence, not the report. A failure costs the picture,
+          // never the document: the report still renders without them.
+          if (current) setSampleImages([]);
+        });
+      return () => { current = false; };
+    }, [report.sample]);
 
   const handlePrint = () => {
     window.print();
@@ -355,11 +352,7 @@ export const LaboratoryReportModal: React.FC<LaboratoryReportModalProps> = ({
                   Calibrated scale: {scaleBarUm} µm / bar
                 </span>
               </div>
-              {imageLoadError ? (
-                <p role="alert" className="text-xs text-rose-700 print:hidden px-4 py-3">
-                  Saved specimen images could not be loaded: {imageLoadError}
-                </p>
-              ) : sampleImages.length > 0 ? (
+              {sampleImages.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 p-3 print:grid-cols-2">
                   {sampleImages.map((image, index) => (
                     <figure key={image.id} className="break-inside-avoid border border-slate-300 rounded bg-white p-2">

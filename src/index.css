@@ -457,10 +457,12 @@ html.dark {
       height: min(68vh, 760px);
       min-height: 520px;
       overflow: visible;
-      padding: 0.25rem;
+      padding: 0.5rem;
       background:
         radial-gradient(circle at 50% 48%, rgba(51, 65, 85, 0.46), transparent 54%),
         linear-gradient(135deg, #0b1220 0%, #111c2b 48%, #080d15 100%);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 1rem;
     }
 
     .microscope-stage-stationary {
@@ -469,8 +471,8 @@ html.dark {
       z-index: 5;
       align-self: flex-start;
       height: fit-content;
-      border: 1px solid rgba(52, 211, 153, 0.35);
-      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.15), 0 18px 50px rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(52, 211, 153, 0.4);
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.18), 0 18px 50px rgba(0, 0, 0, 0.55);
     }
 
     .microscopy-review-pane {
@@ -483,7 +485,7 @@ html.dark {
     .microscopy-review-pane > div {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 1rem;
     }
     .microscopy-review-pane::-webkit-scrollbar {
       width: 8px;
@@ -507,7 +509,7 @@ html.dark {
       transition: border-color 0.25s ease, box-shadow 0.25s ease;
       /* Realistic slide: sits inside the stage with breathing room */
       width: auto;
-      max-width: 96%;
+      max-width: 94%;
       max-height: min(64vh, 700px);
       margin: auto;
       overflow: visible;
@@ -1371,6 +1373,21 @@ table thead tr {
   background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.28), transparent);
 }
 
+.landing-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(13, 148, 136, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(99, 102, 241, 0.16), transparent 55%);
+  pointer-events: none;
+}
+
 .app-main,
 .dashboard-overview,
 .microscopy-workspace {
@@ -1378,6 +1395,44 @@ table thead tr {
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.landing-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(13, 148, 136, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(99, 102, 241, 0.16), transparent 55%);
+  pointer-events: none;
+}
+
+.landing-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.landing-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.10);
+}
+
+.dashboard-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.10);
+}
+
+.dashboard-card:focus-visible {
+  outline: 2px solid #0d9488;
+  outline-offset: 2px;
 }
 
 .dashboard-overview > *:not(:first-child),

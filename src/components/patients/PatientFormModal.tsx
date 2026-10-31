@@ -192,6 +192,12 @@ export const PatientFormModal: React.FC<PatientFormModalProps> = ({ onClose, onS
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="clinical-form p-3 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 min-w-0">
+          {submitError && (
+            <div role="alert" className="flex items-start gap-2 bg-rose-50 border border-rose-300 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200 p-3 rounded-xl text-xs">
+              <span className="font-bold shrink-0">Could not save:</span>
+              <span className="flex-1">{submitError}</span>
+            </div>
+          )}
           {/* Section 1: Patient Demographics */}
           <div className="form-section rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-3 sm:p-4">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300 mb-3">

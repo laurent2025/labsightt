@@ -191,8 +191,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   return (
     <div className="dashboard-overview space-y-7 sm:space-y-8">
       {/* Hero Welcome & Quick Launch Banner */}
-      <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-green-50/70 p-4 shadow-sm transition-colors duration-200 dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-green-950/30 sm:p-6">
+      <section className="landing-hero relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-green-50/70 p-4 shadow-sm transition-colors duration-200 dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-green-950/30 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-400/5" aria-hidden="true" />
+        <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-emerald-400/8 blur-3xl dark:bg-emerald-400/4" aria-hidden="true" />
         <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
         <div className="relative min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -292,7 +293,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <span className="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">Live workspace totals</span>
         </div>
       <div className="dashboard-telemetry grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-busy={!dashboardCounts}>
-        <button type="button" onClick={() => onNavigateTab('patients')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
+        <button type="button" onClick={() => onNavigateTab('patients')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dashboard-card hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Accessioned Patients</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950 transition-colors">
@@ -305,7 +306,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Patients in active laboratory records</div>
         </button>
 
-        <button type="button" onClick={() => onNavigateTab('microscopy')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
+        <button type="button" onClick={() => onNavigateTab('microscopy')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dashboard-card hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Microscopy Runs</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-cyan-950 transition-colors">
@@ -318,7 +319,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium mt-1">All recorded microscopy runs</div>
         </button>
 
-        <button type="button" onClick={() => onNavigateTab('microscopy', 'in_review')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 transition-all duration-200">
+        <button type="button" onClick={() => onNavigateTab('microscopy', 'in_review')} className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dashboard-card hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 transition-all duration-200">
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Pending Review</span>
             <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-amber-50 dark:group-hover:bg-amber-950 transition-colors">
@@ -334,7 +335,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <button
           type="button"
           onClick={() => onNavigateTab('reports', 'verified')}
-          className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
+          className="group relative overflow-hidden w-full text-left bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs dashboard-card hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-all duration-200"
         >
           <div className="flex items-center justify-between text-slate-400 dark:text-slate-500 mb-3">
             <span className="text-[11px] font-semibold uppercase tracking-wider">Verified Reports</span>
