@@ -326,8 +326,21 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       try {
         await patientsApi.delete(id);
+        const removedSampleIds = new Set(
+          samples.filter(sample => sample.patientId === id).map(sample => sample.id)
+        );
+        const removedAnalysisIds = new Set(
+          analyses
+            .filter(analysis => removedSampleIds.has(analysis.sampleId) || analysis.patientId === id)
+            .map(analysis => analysis.id)
+        );
         const wasOnCurrentPage = patients.some(patient => patient.id === id);
         setPatients(prev => prev.filter(p => p.id !== id));
+        setSamples(prev => prev.filter(sample => !removedSampleIds.has(sample.id)));
+        setAnalyses(prev => prev.filter(analysis => !removedAnalysisIds.has(analysis.id)));
+        setReports(prev => prev.filter(report =>
+          !removedAnalysisIds.has(report.analysisId) && report.patient.id !== id
+        ));
         if (wasOnCurrentPage) {
           setPatientTotal(prev => Math.max(0, prev - 1));
           if (patients.length === 1 && patientOffset > 0) {
@@ -340,7 +353,7 @@ export function LabStoreProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     },
-    [handleError, patientOffset, patients, PAGE_SIZE]
+    [analyses, handleError, patientOffset, patients, samples, PAGE_SIZE]
   );
 
   const addPatient = useCallback(

@@ -468,6 +468,12 @@ html.dark {
       top: 1rem;
       z-index: 5;
       align-self: flex-start;
+      height: fit-content;
+    }
+
+    .microscopy-review-pane {
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
     }
 
     .microscope-stage:fullscreen {
@@ -1583,3 +1589,4 @@ label {
   border-radius: 0 !important;
   background: #080d15 !important;
 }
+
