@@ -1742,6 +1742,12 @@ label {
     min-width: 2.5rem;
     min-height: 2.5rem;
   }
+
+  .microscope-stage:fullscreen .microscope-fullscreen-zoom {
+    right: 0.75rem;
+    top: 4.5rem;
+    max-width: calc(100% - 1.5rem);
+  }
 }
 
 @media (max-width: 639px) {

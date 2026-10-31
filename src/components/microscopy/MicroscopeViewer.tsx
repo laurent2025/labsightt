@@ -1129,6 +1129,35 @@ title="Optical Controls"
               <Minimize className="h-5 w-5" />
             </button>
 
+            {/* Fullscreen zoom dock: kept below the exit control so it never
+                disappears behind the optical tools or slide image. */}
+            <div className="microscope-fullscreen-zoom absolute right-4 top-20 z-30 flex items-center gap-1 rounded-xl border border-cyan-500/40 bg-slate-950/90 px-2 py-1.5 text-slate-100 shadow-xl backdrop-blur-md">
+              <span className="px-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Zoom</span>
+              <button
+                type="button"
+                onClick={() => zoomAroundPoint(zoom / 1.15)}
+                disabled={zoom <= MIN_ZOOM}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                title="Zoom out"
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <span className="min-w-[3.5rem] text-center font-mono text-[10px] font-bold text-cyan-300" aria-live="polite">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => zoomAroundPoint(zoom * 1.15)}
+                disabled={zoom >= MAX_ZOOM}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                title="Zoom in"
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+            </div>
+
             {/* Fullscreen optical control dock */}
             <div className="absolute left-4 top-4 z-30 flex flex-col gap-2">
               <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
