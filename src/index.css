@@ -454,8 +454,8 @@ html.dark {
      jumping when a long control list is moved up or down. */
   @media (min-width: 1024px) {
     .microscope-stage {
-      height: min(52vh, 520px);
-      min-height: 340px;
+      height: min(68vh, 760px);
+      min-height: 520px;
       padding: 0.25rem;
       background:
         radial-gradient(circle at 50% 48%, rgba(51, 65, 85, 0.46), transparent 54%),
@@ -475,13 +475,15 @@ html.dark {
       min-height: 100vh;
       border-radius: 0;
       background: #080d15;
+      padding: 1.5rem;
+      overflow: hidden;
     }
 
     .microscope-slide-viewport {
       /* Realistic slide: sits inside the stage with breathing room */
       width: auto;
-      max-width: 88%;
-      max-height: min(46vh, 460px);
+      max-width: 96%;
+      max-height: min(64vh, 700px);
       margin: auto;
     }
 
@@ -493,8 +495,21 @@ html.dark {
 
     .microscope-slide-canvas {
       max-width: 100% !important;
-      max-height: min(44vh, 440px) !important;
+      max-height: min(62vh, 680px) !important;
       object-fit: contain;
+    }
+
+    .microscope-stage:fullscreen .microscope-slide-viewport {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      border-color: rgba(148, 163, 184, 0.48);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .microscope-stage:fullscreen .microscope-slide-canvas {
+      max-height: calc(100% - 1rem) !important;
     }
 
     .microscope-optical-dock > div {

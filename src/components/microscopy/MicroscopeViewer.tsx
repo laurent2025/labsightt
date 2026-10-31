@@ -237,6 +237,13 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
     setPan(clampPan(nextPan, nextZoom));
   }, [clampPan, pan, zoom]);
 
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (isSlideStationary) return;
+    event.preventDefault();
+    const direction = event.deltaY > 0 ? 1 / 1.12 : 1.12;
+    zoomAroundPoint(zoom * direction, event.clientX, event.clientY);
+  }, [isSlideStationary, zoom, zoomAroundPoint]);
+
   // Wheel auto-zoom removed: zooming is strictly manual via toolbar
   // buttons (+/−), slider, Fit/Reset, or keyboard shortcuts (+, -, 0).
 
@@ -814,10 +821,10 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         setDragCurrent(null);
       } else if (event.key === '+' || event.key === '=') {
         event.preventDefault();
-        zoomAroundPoint(zoom + 0.25);
+        zoomAroundPoint(zoom * 1.15);
       } else if (event.key === '-' || event.key === '_') {
         event.preventDefault();
-        zoomAroundPoint(zoom - 0.25);
+        zoomAroundPoint(zoom / 1.15);
       }
     };
 
@@ -1028,7 +1035,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
               <div className="flex items-center gap-1 bg-slate-900/80 rounded-lg border border-slate-800 px-1.5 py-0.5">
                 <button
                   type="button"
-                  onClick={() => zoomAroundPoint(zoom - 0.25)}
+                  onClick={() => zoomAroundPoint(zoom / 1.15)}
                   disabled={isSlideStationary || zoom <= MIN_ZOOM}
                   className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
                   title="Zoom Out [-]"
@@ -1041,7 +1048,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 </span>
                 <button
                   type="button"
-                  onClick={() => zoomAroundPoint(zoom + 0.25)}
+                  onClick={() => zoomAroundPoint(zoom * 1.15)}
                   disabled={isSlideStationary || zoom >= MAX_ZOOM}
                   className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
                   title="Zoom In [+]"
@@ -1094,7 +1101,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
       {/* Main Optical Canvas Stage */}
       <div
         ref={containerRef}
-        className={`microscope-stage relative w-full flex-none overflow-hidden flex items-center justify-center ${isSlideStationary ? 'microscope-stage-stationary' : ''} ${
+        className={`microscope-stage microscope-stage-stationary relative w-full flex-none overflow-hidden flex items-center justify-center ${
           imageUrl ? 'py-1' : 'min-h-52'
         }`}
       >
@@ -1107,9 +1114,12 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         <div
           ref={viewportRef}
           className="microscope-slide-viewport relative overflow-hidden rounded-lg flex items-center justify-center"
+          onWheel={handleWheel}
+          onDoubleClick={() => zoomAroundPoint(zoom < 2 ? 2 : 1)}
+          onContextMenu={event => event.preventDefault()}
           style={{
-            maxWidth: isSlideFullscreen ? '100%' : '88%',
-            maxHeight: isSlideFullscreen ? '100vh' : 'min(46vh, 460px)',
+            maxWidth: '100%',
+            maxHeight: isSlideFullscreen ? '100vh' : 'min(64vh, 700px)',
             isolation: 'isolate',
             /* Realistic glass slide frame */
             border: '2px solid rgba(148, 163, 184, 0.35)',
@@ -1151,7 +1161,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
                 width: 'auto',
                 height: 'auto',
                 maxWidth: '100%',
-                maxHeight: isSlideFullscreen ? '100vh' : 'min(44vh, 440px)',
+                maxHeight: isSlideFullscreen ? 'calc(100vh - 2rem)' : 'min(62vh, 680px)',
                 imageRendering: 'crisp-edges' as const,
                 objectFit: 'contain'
               }}
