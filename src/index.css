@@ -509,8 +509,7 @@ html.dark {
       transition: border-color 0.25s ease, box-shadow 0.25s ease;
       /* Realistic slide: sits inside the stage with breathing room */
       width: auto;
-      max-width: 94%;
-      max-height: min(64vh, 700px);
+      max-width: 100%;
       margin: auto;
       overflow: visible;
     }

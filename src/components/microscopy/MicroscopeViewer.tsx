@@ -1199,11 +1199,10 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
         )}
         <div
           ref={viewportRef}
-className="microscope-slide-viewport relative overflow-hidden rounded-lg flex items-center justify-center"
+className="microscope-slide-viewport relative overflow-visible rounded-lg flex items-center justify-center"
       onContextMenu={event => event.preventDefault()}
 style={{
             maxWidth: '100%',
-            maxHeight: isSlideFullscreen ? 'calc(100vh - 4rem)' : 'calc(100vh - 14rem)',
             isolation: 'isolate',
             /* Realistic glass slide frame */
             border: '2px solid rgba(148, 163, 184, 0.35)',
