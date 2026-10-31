@@ -14,7 +14,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
     <footer className="app-footer no-print border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs text-slate-600 dark:text-slate-400 transition-colors duration-200">
       {/* Gradient accent line with subtle pulse */}
       <div className="relative h-px overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/70 dark:via-cyan-400/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/80 dark:via-cyan-400/80 to-transparent" />
       </div>
 
       <div className="max-w-[1440px] mx-auto gutter-x py-6 lg:py-8 safe-bottom">

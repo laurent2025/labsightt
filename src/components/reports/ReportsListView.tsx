@@ -121,7 +121,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
     </div>
 
     {/* Filter & Search Bar */}
-    <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+    <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 card-interactive">
       <div className="relative w-full">
         <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
         <input
@@ -266,7 +266,7 @@ export const ReportsListView: React.FC<ReportsListViewProps> = ({
           filteredReports.map(rep => (
             <article
               key={rep.id}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs"
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs card-interactive"
             >
               <div className="flex items-start justify-between gap-3">
                 <button
