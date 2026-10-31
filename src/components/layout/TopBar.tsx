@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Microscope, UserPlus } from 'lucide-react';
+import { Menu, Microscope, UserPlus, Bell } from 'lucide-react';
 import { HeaderTab } from './Sidebar';
 
 interface TopBarProps {
@@ -26,7 +26,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   pendingReviewCount = 0
 }) => {
   return (
-    <header className="no-print h-12 lg:h-11 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-3 shrink-0 select-none z-20">
+    <header className="app-header relative no-print h-14 lg:h-12 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-3 shrink-0 select-none z-20">
       {/* Left: Mobile hamburger or Desktop breadcrumb */}
       <div className="flex items-center gap-2.5 min-w-0">
         <button
@@ -61,6 +61,17 @@ export const TopBar: React.FC<TopBarProps> = ({
 
       {/* Right: Quick Specimen Accession on Mobile */}
       <div className="flex items-center gap-2">
+        {pendingReviewCount > 0 && (
+          <div
+            className="lg:hidden flex h-9 items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2 text-[11px] font-bold text-amber-800 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200"
+            role="status"
+            aria-label={`${pendingReviewCount} microscopy review${pendingReviewCount === 1 ? '' : 's'} pending`}
+            title={`${pendingReviewCount} microscopy review${pendingReviewCount === 1 ? '' : 's'} pending`}
+          >
+            <Bell className="h-3.5 w-3.5 shrink-0" />
+            <span>{pendingReviewCount}</span>
+          </div>
+        )}
         <button
           type="button"
           onClick={onOpenNewPatient}

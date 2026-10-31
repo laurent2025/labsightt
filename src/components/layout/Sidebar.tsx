@@ -332,7 +332,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Desktop Sticky Sidebar */}
       <aside
-        className={`hidden lg:flex flex-col h-screen sticky top-0 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md transition-all duration-200 z-30 select-none ${
+        className={`app-sidebar hidden lg:flex flex-col h-screen sticky top-0 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md transition-all duration-200 z-30 select-none ${
           collapsed ? 'w-16' : 'w-60'
         }`}
       >
