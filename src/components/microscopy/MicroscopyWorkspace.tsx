@@ -1639,7 +1639,7 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
       )}
 
       {/* Microscope stage followed by the full-width findings review. */}
-      <div className="microscopy-main-grid grid min-h-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.7fr)]">
+      <div className="microscopy-main-grid grid min-h-0 grid-cols-1 items-start gap-5">
         <div className="microscopy-field-pane flex min-h-0 w-full flex-col">
         <div className="min-h-0 w-full">
             <MicroscopeViewer
@@ -1877,3 +1877,4 @@ const [scanSeconds, setScanSeconds] = useState<number>(0);
     </div>
   );
 };
+
