@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Detection, MicroscopeObjective } from '../../types';
 import {
+  RotateCcw,
   ZoomIn,
   ZoomOut,
   PlusCircle,
@@ -23,7 +24,8 @@ import {
   Minimize,
   LockKeyhole,
   UnlockKeyhole,
-  LocateFixed
+  LocateFixed,
+  Microscope
 } from 'lucide-react';
 import { playShutterSnapshot, playTurretClick } from '../../lib/audioOpticalFeedback';
 
@@ -205,10 +207,13 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
 
     const viewportWidth = viewport.clientWidth;
     const viewportHeight = viewport.clientHeight;
-    const imageWidth = canvas.offsetWidth;
-    const imageHeight = canvas.offsetHeight;
-    const maxX = Math.max(0, (imageWidth * nextZoom - viewportWidth) / 2);
-    const maxY = Math.max(0, (imageHeight * nextZoom - viewportHeight) / 2);
+    const imageWidth = canvas.offsetWidth || canvas.width;
+    const imageHeight = canvas.offsetHeight || canvas.height;
+    // Allow generous, free panning across the entire stage surface without feeling restricted to a box
+    const scaledWidth = imageWidth * nextZoom;
+    const scaledHeight = imageHeight * nextZoom;
+    const maxX = Math.max(viewportWidth * 0.6, Math.abs(scaledWidth - viewportWidth) / 2 + viewportWidth * 0.4);
+    const maxY = Math.max(viewportHeight * 0.6, Math.abs(scaledHeight - viewportHeight) / 2 + viewportHeight * 0.4);
 
     return {
       x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
@@ -1059,32 +1064,7 @@ title="Optical Controls"
                 <span>Optics</span>
               </button>
 
-              <div className="microscope-zoom-controls basis-full flex w-full items-center gap-1 rounded-lg border border-cyan-900/70 bg-slate-900/90 px-1.5 py-1">
-                <span className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Zoom</span>
-                <button
-                  type="button"
-                  onClick={() => zoomAroundPoint(zoom / 1.15)}
-                  disabled={zoom <= MIN_ZOOM}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                  title="Zoom out"
-                  aria-label="Zoom out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </button>
-                <span className="min-w-[3.5rem] text-center font-mono text-[10px] font-bold text-cyan-300" aria-live="polite">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => zoomAroundPoint(zoom * 1.15)}
-                  disabled={zoom >= MAX_ZOOM}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                  title="Zoom in"
-                  aria-label="Zoom in"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              
             </div>
 
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-900/50 border border-slate-800 text-[10px] text-slate-400 font-mono">
@@ -1119,92 +1099,267 @@ title="Optical Controls"
         )}
         {isSlideFullscreen && (
           <>
-            <button
-              type="button"
-              onClick={() => void toggleSlideFullscreen()}
-              className="absolute right-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-600/80 bg-slate-950/90 text-slate-100 shadow-xl backdrop-blur-md transition hover:border-cyan-400 hover:bg-slate-900 hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
-              title="Exit fullscreen slide view"
-              aria-label="Exit fullscreen slide view"
-            >
-              <Minimize className="h-5 w-5" />
-            </button>
-
-            {/* Fullscreen zoom dock: kept below the exit control so it never
-                disappears behind the optical tools or slide image. */}
-            <div className="microscope-fullscreen-zoom absolute right-4 top-20 z-30 flex items-center gap-1 rounded-xl border border-cyan-500/40 bg-slate-950/90 px-2 py-1.5 text-slate-100 shadow-xl backdrop-blur-md">
-              <span className="px-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Zoom</span>
-              <button
-                type="button"
-                onClick={() => zoomAroundPoint(zoom / 1.15)}
-                disabled={zoom <= MIN_ZOOM}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                title="Zoom out"
-                aria-label="Zoom out"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </button>
-              <span className="min-w-[3.5rem] text-center font-mono text-[10px] font-bold text-cyan-300" aria-live="polite">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => zoomAroundPoint(zoom * 1.15)}
-                disabled={zoom >= MAX_ZOOM}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                title="Zoom in"
-                aria-label="Zoom in"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Fullscreen optical control dock */}
-            <div className="microscope-fullscreen-tools absolute inset-x-4 bottom-16 z-30 flex max-h-[calc(100%-9rem)] flex-wrap items-center justify-center gap-2 overflow-y-auto rounded-2xl border border-slate-600/80 bg-slate-950/90 p-2 shadow-2xl backdrop-blur-md">
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
-                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Focus</span>
-                <input type="range" min={-20} max={20} step={1} value={focusOffset} onChange={e => setFocusOffset(Number(e.target.value))} className="w-24 accent-cyan-400" aria-label="Focus offset" />
-                <span className="text-[10px] font-mono text-slate-300">{focusOffset}</span>
+            {/* Fullscreen Top Floating HUD Header */}
+            <div className="microscope-fullscreen-header absolute top-3 inset-x-3 sm:inset-x-6 z-30 flex items-center justify-between gap-3 p-2.5 rounded-2xl border border-slate-700/80 bg-slate-950/92 shadow-2xl backdrop-blur-xl">
+              {/* Left: Specimen identity & Turret */}
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-cyan-950/70 border border-cyan-800/60 font-mono text-cyan-300 font-bold text-xs shadow-inner">
+                  <Microscope className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span className="truncate max-w-[140px] sm:max-w-[200px]">{slideLabel}</span>
+                </div>
+                <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-300">
+                  <span className="text-slate-400">{objective}</span>
+                  <span className="text-slate-600">·</span>
+                  <span className="text-cyan-400 font-bold">{totalMagnification}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900/90 px-2 py-1 rounded-lg border border-slate-700/80">
+                  <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-wider">HPF:</span>
+                  <span className="text-cyan-200 font-mono font-bold text-xs">
+                    {currentField}/{totalFields}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playTurretClick();
+                      onFieldChange?.(Math.min(totalFields, currentField + 1));
+                    }}
+                    disabled={currentField >= totalFields}
+                    className="flex items-center justify-center w-5 h-5 rounded text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 cursor-pointer transition-colors"
+                    title="Next field of view"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2.5 py-1.5 shadow-xl backdrop-blur-md">
-                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Iris</span>
-                <input type="range" min={20} max={100} step={1} value={irisAperture} onChange={e => setIrisAperture(Number(e.target.value))} className="w-24 accent-cyan-400" aria-label="Iris aperture" />
-                <span className="text-[10px] font-mono text-slate-300">{irisAperture}%</span>
-              </div>
-              <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-900/90 px-2 py-1.5">
-                {(['daylight', 'halogen', 'daylight_blue', 'fluorescence_filter'] as LightFilter[]).map(f => (
-                  <button key={f} type="button" onClick={() => setLightFilter(f)} title={f} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${lightFilter === f ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>{f.replace('_', ' ')}</button>
+
+              {/* Center: View Filter Modes */}
+              <div className="hidden md:flex items-center gap-1 bg-slate-900/90 rounded-xl border border-slate-800 p-0.5" role="group" aria-label="Fullscreen view modes">
+                {(['boxes', 'original', 'enhanced', 'darkfield', 'split'] as ViewFilterMode[]).map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setFilterMode(mode)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                      filterMode === mode
+                        ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+                    }`}
+                  >
+                    {mode === 'boxes' && 'AI Detection'}
+                    {mode === 'original' && 'Brightfield'}
+                    {mode === 'enhanced' && 'Membrane'}
+                    {mode === 'darkfield' && 'Darkfield'}
+                    {mode === 'split' && 'Split'}
+                  </button>
                 ))}
               </div>
-              <div className="flex items-center gap-1 rounded-xl border border-slate-600/80 bg-slate-950/90 px-2 py-1.5 shadow-xl backdrop-blur-md">
-                <button type="button" onClick={() => setShowReticleGrid(v => !v)} title="Reticle grid" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${showReticleGrid ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Reticle</button>
-                <button type="button" onClick={() => { setIsMeasuring(v => !v); setIsAddingBox(false); setRulerPoints([]); }} title="Measure" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${isMeasuring ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Measure</button>
-                <button type="button" onClick={() => setIsEyepieceMask(v => !v)} title="Eyepiece" className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg ${isEyepieceMask ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'}`}>Eyepiece</button>
-                <button type="button" onClick={handleCaptureSnapshot} title="Capture snapshot" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">Capture</button>
-                <button type="button" onClick={() => void toggleSlideFullscreen()} title="Exit fullscreen" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800">Exit</button>
-                <button type="button" onClick={() => { setIsAddingBox(true); setIsLabelCellMinimized(false); }} title="Label" className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white">Label</button>
+
+              {/* Right: Stationary Lock & Exit Fullscreen */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSlideStationary(current => !current)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors cursor-pointer ${
+                    isSlideStationary
+                      ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-300'
+                      : 'border-slate-700/80 bg-slate-900/80 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                  title={isSlideStationary ? 'Unlock slide position' : 'Lock slide position'}
+                >
+                  {isSlideStationary ? <LockKeyhole className="h-4 w-4" /> : <UnlockKeyhole className="h-4 w-4" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void toggleSlideFullscreen()}
+                  className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-rose-500/40 bg-rose-950/40 hover:bg-rose-900/60 text-rose-200 shadow-xl transition cursor-pointer text-xs font-semibold"
+                  title="Exit fullscreen [Esc]"
+                  aria-label="Exit fullscreen"
+                >
+                  <Minimize className="h-4 w-4" />
+                  <span>Exit</span>
+                </button>
               </div>
             </div>
-          <div className="absolute left-4 bottom-4 z-30 flex flex-wrap items-center gap-2 rounded-xl border border-slate-600/80 bg-slate-950/90 px-3 py-2 shadow-xl backdrop-blur-md">
-              <span className="text-[10px] font-mono text-cyan-300">STAGE: X: {stageVernierX}mm · Y: {stageVernierY}mm</span>
-              <span className="text-[10px] font-mono text-slate-400">·</span>
-              <span className="text-[10px] font-mono text-slate-300">{objective} · {totalMagnification}</span>
-              <span className="text-[10px] font-mono text-slate-400">·</span>
-              <span className="text-[10px] font-mono text-emerald-300">Zoom {Math.round(zoom * 100)}%</span>
+
+            {/* Fullscreen Left Dock: Label + Zoom Stacked Underneath */}
+            <div className="absolute top-20 left-4 z-30 flex flex-col gap-2 pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => { setIsAddingBox(true); setIsMeasuring(false); }}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm shadow-xl transition cursor-pointer border border-cyan-400/40"
+                title="Draw manual label box [L]"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Label</span>
+                <span className="text-[10px] bg-cyan-800/60 px-1.5 py-0.5 rounded font-mono">L</span>
+              </button>
+
+              {/* Zoom controls under Label in Fullscreen */}
+              <div className="flex items-center gap-1 bg-slate-950/92 backdrop-blur-xl border border-slate-700/80 rounded-xl shadow-2xl px-2 py-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => zoomAroundPoint(zoom / 1.15)}
+                  disabled={zoom <= MIN_ZOOM}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 cursor-pointer"
+                  title="Zoom out"
+                >
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </button>
+                <span className="min-w-[3.2ch] text-center font-mono text-xs font-bold text-cyan-300 select-none px-1">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => zoomAroundPoint(zoom * 1.15)}
+                  disabled={zoom >= MAX_ZOOM}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 cursor-pointer"
+                  title="Zoom in"
+                >
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={resetView}
+                  title="Reset view (Fit 100%)"
+                  className="flex items-center gap-1 h-7 px-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 hover:text-white text-slate-300 text-[10px] font-mono font-semibold transition cursor-pointer border border-slate-700/60 ml-0.5"
+                >
+                  <RotateCcw className="w-3 h-3 text-cyan-400" />
+                  <span>Fit</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Fullscreen Bottom Optical Console Dock */}
+            <div className="microscope-fullscreen-dock absolute bottom-3 inset-x-3 sm:inset-x-6 max-w-4xl mx-auto z-30 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl border border-slate-700/80 bg-slate-950/92 shadow-2xl backdrop-blur-xl">
+              {/* Optical Fine Focus & Iris Sliders */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 shadow-sm">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Focus</span>
+                  <input
+                    type="range"
+                    min={-3}
+                    max={3}
+                    step={0.5}
+                    value={focusOffset}
+                    onChange={e => setFocusOffset(parseFloat(e.target.value))}
+                    className="w-20 sm:w-24 h-1.5 accent-cyan-400 cursor-pointer"
+                    aria-label="Focus offset"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFocusOffset(0)}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+                  >
+                    {focusOffset === 0 ? '0µm' : `${focusOffset > 0 ? '+' : ''}${focusOffset}µm`}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 shadow-sm">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Iris</span>
+                  <input
+                    type="range"
+                    min={20}
+                    max={100}
+                    step={5}
+                    value={irisAperture}
+                    onChange={e => setIrisAperture(parseInt(e.target.value, 10))}
+                    className="w-20 sm:w-24 h-1.5 accent-cyan-400 cursor-pointer"
+                    aria-label="Iris aperture"
+                  />
+                  <span className="text-[10px] font-mono text-slate-300 min-w-[3ch]">{irisAperture}%</span>
+                </div>
+
+                {/* Light filter presets */}
+                <div className="hidden lg:flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/80 p-0.5">
+                  {(['daylight', 'halogen', 'daylight_blue', 'fluorescence_filter'] as LightFilter[]).map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setLightFilter(f)}
+                      className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg transition cursor-pointer ${
+                        lightFilter === f ? 'bg-cyan-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      {f === 'daylight_blue' ? 'Blue' : f === 'fluorescence_filter' ? 'Fluor' : f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action tools: Reticle, Measure, Eyepiece, Capture */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowReticleGrid(v => !v)}
+                  className={`h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+                    showReticleGrid
+                      ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/50'
+                      : 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                  title="Concentric reticle graticule"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Reticle</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setIsMeasuring(v => !v); setIsAddingBox(false); setRulerPoints([]); }}
+                  className={`h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+                    isMeasuring
+                      ? 'bg-amber-500/25 text-amber-300 border-amber-500/50'
+                      : 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                  title="Micrometer measurement [M]"
+                >
+                  <Ruler className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Measure</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsEyepieceMask(v => !v)}
+                  className={`h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer border ${
+                    isEyepieceMask
+                      ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/50'
+                      : 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                  title="Circular eyepiece aperture"
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Eyepiece</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCaptureSnapshot}
+                  className="h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-800 bg-slate-900/80 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                  title="Capture field photomicrograph"
+                >
+                  <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Capture</span>
+                </button>
+
+                {/* Stage coordinates badge */}
+                <div className="hidden xl:flex items-center gap-2 pl-2 border-l border-slate-800 font-mono text-[11px] text-cyan-300/90">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span>X: {stageVernierX}mm</span>
+                  <span>Y: {stageVernierY}mm</span>
+                </div>
+              </div>
             </div>
           </>
         )}
+        
         <div
           ref={viewportRef}
-className="microscope-slide-viewport relative overflow-visible rounded-lg flex items-center justify-center"
-      onContextMenu={event => event.preventDefault()}
-style={{
-            maxWidth: '100%',
-            isolation: 'isolate',
-            /* Realistic glass slide frame */
-            border: '2px solid rgba(148, 163, 184, 0.35)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
-            background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85))',
-            borderRadius: '0.625rem'
+          className="microscope-slide-viewport relative overflow-visible flex items-center justify-center w-full h-full"
+          onContextMenu={event => event.preventDefault()}
+          style={{
+            width: '100%',
+            height: '100%',
+            isolation: 'isolate'
           }}
         >
           <div
@@ -1214,17 +1369,15 @@ style={{
               transition: isPanning ? 'none' : 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
               willChange: 'transform'
             }}
-            className={`relative flex w-fit max-w-full items-center justify-center overflow-visible rounded-lg cursor-default select-none ${
-              imageUrl ? 'bg-slate-950' : 'bg-transparent'
-            }`}
+            className={`relative flex items-center justify-center overflow-visible select-none cursor-default ${imageUrl ? 'bg-slate-950' : 'bg-transparent'}`}
           >
             {/* Friendly empty state when no slide image is loaded yet */}
             {!imageObjRef.current || !imageObjRef.current.complete || imageObjRef.current.naturalWidth === 0 ? (
               <div className="absolute inset-0 flex items-center justify-center text-center">
                 <div className="flex flex-col items-center gap-3 text-slate-500">
-                  <Camera className="w-12 h-12 opacity-40" />
-                  <p className="text-sm font-medium">No slide image loaded</p>
-                  <p className="text-xs max-w-xs text-center">Load a specimen image to begin microscopy analysis</p>
+                  <Microscope className="w-14 h-14 opacity-30 text-cyan-600" />
+                  <p className="text-sm font-medium text-slate-400">No slide on stage</p>
+                  <p className="text-xs max-w-xs text-center text-slate-500/80">Upload or capture a specimen image to load it onto the microscope stage</p>
                 </div>
               </div>
             ) : null}
@@ -1237,10 +1390,12 @@ style={{
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               style={{
-                width: 'auto',
-                height: 'auto',
+                maxWidth: '100%',
+                maxHeight: '100%',
                 imageRendering: 'crisp-edges' as const,
-                objectFit: 'contain'
+                objectFit: 'contain',
+                display: 'block',
+                filter: 'drop-shadow(0 12px 36px rgba(0,0,0,0.5))'
               }}
               className={`microscope-slide-canvas rounded-lg ${
                 isMeasuring
@@ -1509,7 +1664,7 @@ style={{
         </div>
 
         {/* Add Manual Target Toolbar (Minimizable) */}
-        <div className="absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)]">
+        <div className="absolute top-3 left-3 z-20 flex flex-col gap-2 max-w-[calc(100%-1.5rem)] pointer-events-auto">
           {isLabelCellMinimized ? (
             <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-lg p-1">
               <button
@@ -1655,8 +1810,47 @@ style={{
                   <Minimize2 className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
-          )}
+            
+          {/* Zoom Controls Stacked Directly Under Label */}
+          <div className="flex items-center gap-1 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-xl px-2 py-1 text-xs w-fit">
+            <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Zoom</span>
+            <button
+              type="button"
+              onClick={() => zoomAroundPoint(zoom / 1.15)}
+              disabled={zoom <= MIN_ZOOM}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 cursor-pointer"
+              title="Zoom out [-]"
+              aria-label="Zoom out"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </button>
+            <span className="min-w-[3.2ch] text-center font-mono text-xs font-bold text-cyan-300 select-none px-1">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => zoomAroundPoint(zoom * 1.15)}
+              disabled={zoom >= MAX_ZOOM}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 cursor-pointer"
+              title="Zoom in [+]"
+              aria-label="Zoom in"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={resetView}
+              title="Reset zoom to fit slide [0]"
+              aria-label="Reset zoom and position"
+              className="flex items-center gap-1 h-7 px-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 hover:text-white text-slate-300 text-[10px] font-mono font-semibold transition cursor-pointer border border-slate-700/60 ml-0.5"
+            >
+              <RotateCcw className="w-3 h-3 text-cyan-400" />
+              <span>Fit</span>
+            </button>
+          </div>
+        </div>
+
+                  )}
         </div>
 
         {pendingLabel && (
