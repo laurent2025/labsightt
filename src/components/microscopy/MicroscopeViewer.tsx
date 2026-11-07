@@ -886,7 +886,7 @@ const MicroscopeViewerView: React.FC<MicroscopeViewerProps> = ({
   return (
     <div className="microscope-viewer self-start w-full flex flex-col h-auto min-h-0 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-md">
       {/* Top Toolbar - Clean visual zones for Slide Info | View Modes | Tools */}
-      <div className="microscope-viewer-toolbar bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-2.5">
+      <div className="microscope-viewer-toolbar relative z-20 bg-slate-950/95 border-b border-slate-800 px-3 sm:px-4 py-2.5">
         <div className="flex flex-col gap-2">
           {/* Row 1: Slide Context, HPF Stepper, View Modes, and Viewport Actions */}
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1087,12 +1087,12 @@ title="Optical Controls"
       {/* Main Optical Canvas Stage */}
       <div
         ref={containerRef}
-        className={`microscope-stage relative w-full flex-none overflow-visible flex items-center justify-center ${isSlideStationary ? 'microscope-stage-stationary' : ''} ${
+        className={`microscope-stage relative w-full flex-none overflow-hidden flex items-center justify-center ${isSlideStationary ? 'microscope-stage-stationary' : ''} ${
           imageUrl ? 'py-1' : 'min-h-52'
         }`}
       >
         {isSlideStationary && (
-          <div className="microscope-stage-status pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-emerald-500/50 bg-slate-950/90 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-300 shadow-lg backdrop-blur-sm">
+          <div className={`microscope-stage-status pointer-events-none absolute left-1/2 z-20 ${isSlideFullscreen ? "top-20" : "top-3"} -translate-x-1/2 rounded-full border border-emerald-500/50 bg-slate-950/90 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-300 shadow-lg backdrop-blur-sm`}>
             <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.2)]" />
             Stationary view
           </div>
@@ -1178,54 +1178,6 @@ title="Optical Controls"
                 >
                   <Minimize className="h-4 w-4" />
                   <span>Exit</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Fullscreen Left Dock: Label + Zoom Stacked Underneath */}
-            <div className="absolute top-20 left-4 z-30 flex flex-col gap-2 pointer-events-auto">
-              <button
-                type="button"
-                onClick={() => { setIsAddingBox(true); setIsMeasuring(false); }}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm shadow-xl transition cursor-pointer border border-cyan-400/40"
-                title="Draw manual label box [L]"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Label</span>
-                <span className="text-[10px] bg-cyan-800/60 px-1.5 py-0.5 rounded font-mono">L</span>
-              </button>
-
-              {/* Zoom controls under Label in Fullscreen */}
-              <div className="flex items-center gap-1 bg-slate-950/92 backdrop-blur-xl border border-slate-700/80 rounded-xl shadow-2xl px-2 py-1 text-xs">
-                <button
-                  type="button"
-                  onClick={() => zoomAroundPoint(zoom / 1.15)}
-                  disabled={zoom <= MIN_ZOOM}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 cursor-pointer"
-                  title="Zoom out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </button>
-                <span className="min-w-[3.2ch] text-center font-mono text-xs font-bold text-cyan-300 select-none px-1">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => zoomAroundPoint(zoom * 1.15)}
-                  disabled={zoom >= MAX_ZOOM}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition disabled:opacity-30 cursor-pointer"
-                  title="Zoom in"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={resetView}
-                  title="Reset view (Fit 100%)"
-                  className="flex items-center gap-1 h-7 px-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 hover:text-white text-slate-300 text-[10px] font-mono font-semibold transition cursor-pointer border border-slate-700/60 ml-0.5"
-                >
-                  <RotateCcw className="w-3 h-3 text-cyan-400" />
-                  <span>Fit</span>
                 </button>
               </div>
             </div>
@@ -1454,7 +1406,8 @@ title="Optical Controls"
         `}</style>
 
         {/* Live Coordinate & Stage Micrometer Vernier HUD */}
-        <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 max-w-[calc(100%-1rem)] bg-slate-900/90 backdrop-blur-md border border-slate-700 px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-mono text-slate-300 pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-1 shadow-lg">
+        {!isSlideFullscreen && (
+          <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 max-w-[calc(100%-1rem)] bg-slate-900/90 backdrop-blur-md border border-slate-700 px-3 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-mono text-slate-300 pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-1 shadow-lg">
           <span className="flex items-center gap-2">
             <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
             STAGE: X: {stageVernierX}mm · Y: {stageVernierY}mm
@@ -1472,9 +1425,11 @@ title="Optical Controls"
             </span>
           )}
         </div>
+        )}
 
         {/* Consolidated Right Control Panel */}
-        <div className="microscope-optical-dock absolute right-3 top-3 bottom-3 hidden lg:flex flex-col z-10 gap-3">
+        {!isSlideFullscreen && (
+          <div className="microscope-optical-dock absolute right-3 top-3 bottom-3 hidden lg:flex flex-col z-10 gap-3">
           <button
             type="button"
             onClick={() => setShowRightPanel(!showRightPanel)}
@@ -1662,9 +1617,12 @@ title="Optical Controls"
             </div>
           )}
         </div>
+        )}
 
-        {/* Add Manual Target Toolbar (Minimizable) */}
-        <div className="absolute top-3 left-3 z-20 flex flex-col gap-2 max-w-[calc(100%-1.5rem)] pointer-events-auto">
+        {/* Unified Manual Target Toolbar & Zoom Controls Dock */}
+        <div className={`absolute z-30 flex flex-col gap-2 pointer-events-auto transition-all ${
+          isSlideFullscreen ? 'top-18 left-4 max-w-[calc(100%-2rem)]' : 'top-3 left-3 max-w-[calc(100%-1.5rem)]'
+        }`}>
           {isLabelCellMinimized ? (
             <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-lg p-1">
               <button
@@ -1769,29 +1727,6 @@ title="Optical Controls"
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => zoomAroundPoint(zoom / 1.15)}
-                  disabled={zoom <= MIN_ZOOM}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
-                  title="Zoom Out [-]"
-                  aria-label="Zoom Out"
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <span className="font-mono text-[10px] font-semibold text-slate-300 w-10 text-center">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => zoomAroundPoint(zoom * 1.15)}
-                  disabled={zoom >= MAX_ZOOM}
-                  className="w-7 h-7 flex items-center justify-center rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
-                  title="Zoom In [+]"
-                  aria-label="Zoom In"
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
                   onClick={() => setIsAddingBox(false)}
                   className="px-2 py-1 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded cursor-pointer"
                 >
@@ -1810,7 +1745,9 @@ title="Optical Controls"
                   <Minimize2 className="w-3.5 h-3.5" />
                 </button>
               </div>
-            
+            </div>
+          )}
+
           {/* Zoom Controls Stacked Directly Under Label */}
           <div className="flex items-center gap-1 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-xl px-2 py-1 text-xs w-fit">
             <span className="px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">Zoom</span>
@@ -1824,7 +1761,11 @@ title="Optical Controls"
             >
               <ZoomOut className="h-3.5 w-3.5" />
             </button>
-            <span className="min-w-[3.2ch] text-center font-mono text-xs font-bold text-cyan-300 select-none px-1">
+            <span
+              onClick={resetView}
+              className="min-w-[3.2ch] text-center font-mono text-xs font-bold text-cyan-300 select-none px-1 cursor-pointer hover:underline"
+              title="Click to reset (100%)"
+            >
               {Math.round(zoom * 100)}%
             </span>
             <button
@@ -1848,9 +1789,6 @@ title="Optical Controls"
               <span>Fit</span>
             </button>
           </div>
-        </div>
-
-                  )}
         </div>
 
         {pendingLabel && (
